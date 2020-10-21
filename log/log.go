@@ -2,7 +2,7 @@ package log
 
 import (
 	"fmt"
-	"github.com/darkkaiser/rss-server/utils"
+	"github.com/darkkaiser/rss-feed-server/utils"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"math"
@@ -22,7 +22,7 @@ func init() {
 	log.SetReportCaller(true)
 	log.SetFormatter(&log.TextFormatter{
 		CallerPrettyfier: func(frame *runtime.Frame) (function string, file string) {
-			const shortPath = "github.com/darkkaiser/rss-server"
+			const shortPath = "github.com/darkkaiser/rss-feed-server"
 
 			function = fmt.Sprintf("%s(line:%d)", frame.Function, frame.Line)
 			if strings.HasPrefix(function, shortPath) == true {
@@ -34,7 +34,7 @@ func init() {
 	})
 }
 
-func InitLog(debug bool, appName string, checkDaysAgo float64) {
+func Init(debug bool, appName string, checkDaysAgo float64) {
 	if debug == true {
 		return
 	}
@@ -78,7 +78,7 @@ func cleanOutOfLogFiles(appName string, checkDaysAgo float64) {
 			if err == nil {
 				log.Infof("오래된 로그파일 삭제 성공(%s)", filePath)
 			} else {
-				log.Infof("오래된 로그파일 삭제 실패(%s), %s", filePath, err)
+				log.Errorf("오래된 로그파일 삭제 실패(%s), %s", filePath, err)
 			}
 		}
 	}

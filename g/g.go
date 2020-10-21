@@ -2,12 +2,13 @@ package g
 
 import (
 	"encoding/json"
-	"github.com/darkkaiser/rss-server/utils"
+	"github.com/darkkaiser/rss-feed-server/utils"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 )
 
 const (
-	AppName    string = "rss-server"
+	AppName    string = "rss-feed-server"
 	AppVersion string = "0.1.0"
 
 	AppConfigFileName = AppName + ".json"
@@ -15,41 +16,33 @@ const (
 
 // Convert JSON to Go struct : https://mholt.github.io/json-to-go/
 type AppConfig struct {
-	Debug     bool `json:"debug"`
+	Debug    bool `json:"debug"`
+	Crawling struct {
+		NaverCafe []struct {
+			ID          string `json:"id"`
+			ClubID      string `json:"club_id"`
+			Name        string `json:"name"`
+			Description string `json:"description"`
+			Url         string `json:"url"`
+			Boards      []struct {
+				ID               string `json:"id"`
+				Name             string `json:"name"`
+				Type             string `json:"type"`
+				ContentCanBeRead bool   `json:"content_can_be_read"`
+			} `json:"boards"`
+			Scheduler struct {
+				TimeSpec string `json:"time_spec"`
+			} `json:"scheduler"`
+		} `json:"naver_cafe"`
+	} `json:"crawling"`
+	WS struct {
+		ListenPort int `json:"listen_port"`
+	} `json:"ws"`
 	NotifyAPI struct {
 		Url           string `json:"url"`
 		APIKey        string `json:"api_key"`
 		ApplicationID string `json:"application_id"`
 	} `json:"notify_api"`
-	// @@@@@
-	Notifiers struct {
-		DefaultNotifierID string `json:"default_notifier_id"`
-		Telegrams         []struct {
-			ID     string `json:"id"`
-			Token  string `json:"token"`
-			ChatID int64  `json:"chat_id"`
-		} `json:"telegrams"`
-	} `json:"notifiers"`
-	// @@@@@
-	Tasks []struct {
-		ID       string `json:"id"`
-		Title    string `json:"title"`
-		Commands []struct {
-			ID          string `json:"id"`
-			Title       string `json:"title"`
-			Description string `json:"description"`
-			Scheduler   struct {
-				Runnable bool   `json:"runnable"`
-				TimeSpec string `json:"time_spec"`
-			} `json:"scheduler"`
-			Notifier struct {
-				Usable bool `json:"usable"`
-			} `json:"notifier"`
-			DefaultNotifierID string                 `json:"default_notifier_id"`
-			Data              map[string]interface{} `json:"data"`
-		} `json:"commands"`
-		Data map[string]interface{} `json:"data"`
-	} `json:"tasks"`
 }
 
 func InitAppConfig() *AppConfig {
@@ -60,56 +53,55 @@ func InitAppConfig() *AppConfig {
 	err = json.Unmarshal(data, &config)
 	utils.CheckErr(err)
 
-	// @@@@@
-	////
-	//// 파일 내용에 대해 유효성 검사를 한다.
-	////
-	//var notifierIDs []string
-	//for _, telegram := range config.Notifiers.Telegrams {
-	//	if utils.Contains(notifierIDs, telegram.ID) == true {
-	//		log.Panicf("%s 파일의 내용이 유효하지 않습니다. NotifierID(%s)가 중복되었습니다.", AppConfigFileName, telegram.ID)
-	//	}
-	//	notifierIDs = append(notifierIDs, telegram.ID)
-	//}
-	//if utils.Contains(notifierIDs, config.Notifiers.DefaultNotifierID) == false {
-	//	log.Panicf("%s 파일의 내용이 유효하지 않습니다. 전체 NotifierID 목록에서 기본 NotifierID(%s)가 존재하지 않습니다.", AppConfigFileName, config.Notifiers.DefaultNotifierID)
-	//}
 	//
-	//var taskIDs []string
-	//for _, t := range config.Tasks {
-	//	if utils.Contains(taskIDs, t.ID) == true {
-	//		log.Panicf("%s 파일의 내용이 유효하지 않습니다. TaskID(%s)가 중복되었습니다.", AppConfigFileName, t.ID)
-	//	}
-	//	taskIDs = append(taskIDs, t.ID)
+	// 파일 내용에 대해 유효성 검사를 한다.
 	//
-	//	var commandIDs []string
-	//	for _, c := range t.Commands {
-	//		if utils.Contains(commandIDs, c.ID) == true {
-	//			log.Panicf("%s 파일의 내용이 유효하지 않습니다. CommandID(%s)가 중복되었습니다.", AppConfigFileName, c.ID)
-	//		}
-	//		commandIDs = append(commandIDs, c.ID)
-	//
-	//		if utils.Contains(notifierIDs, c.DefaultNotifierID) == false {
-	//			log.Panicf("%s 파일의 내용이 유효하지 않습니다. 전체 NotifierID 목록에서 %s::%s Task의 기본 NotifierID(%s)가 존재하지 않습니다.", AppConfigFileName, t.ID, c.ID, c.DefaultNotifierID)
-	//		}
-	//	}
-	//}
-	//
-	//if len(config.NotifyAPI.APIKey) == 0 {
-	//	log.Panicf("%s 파일의 내용이 유효하지 않습니다. NotifyAPI의 APIKey가 입력되지 않았습니다.", AppConfigFileName)
-	//}
-	//
-	//var applicationIDs []string
-	//for _, app := range config.NotifyAPI.Applications {
-	//	if utils.Contains(applicationIDs, app.ID) == true {
-	//		log.Panicf("%s 파일의 내용이 유효하지 않습니다. ApplicationID(%s)가 중복되었습니다.", AppConfigFileName, app.ID)
-	//	}
-	//	applicationIDs = append(applicationIDs, app.ID)
-	//
-	//	if utils.Contains(notifierIDs, app.DefaultNotifierID) == false {
-	//		log.Panicf("%s 파일의 내용이 유효하지 않습니다. 전체 NotifierID 목록에서 %s Application의 기본 NotifierID(%s)가 존재하지 않습니다.", AppConfigFileName, app.ID, app.DefaultNotifierID)
-	//	}
-	//}
+	var naverCafeIDs []string
+	var naverCafeClubIDs []string
+	for _, c := range config.Crawling.NaverCafe {
+		if utils.Contains(naverCafeIDs, c.ID) == true {
+			log.Panicf("%s 파일의 내용이 유효하지 않습니다. 네이버 카페 ID(%s)가 중복되었습니다.", AppConfigFileName, c.ID)
+		}
+		naverCafeIDs = append(naverCafeIDs, c.ID)
+
+		if utils.Contains(naverCafeClubIDs, c.ClubID) == true {
+			log.Panicf("%s 파일의 내용이 유효하지 않습니다. 네이버 카페 ClubID(%s)가 중복되었습니다.", AppConfigFileName, c.ClubID)
+		}
+		naverCafeClubIDs = append(naverCafeClubIDs, c.ClubID)
+
+		if c.Name == "" {
+			log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 Name이 입력되지 않았습니다.", AppConfigFileName, c.ID)
+		}
+
+		if c.Url == "" {
+			log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 Url이 입력되지 않았습니다.", AppConfigFileName, c.ID)
+		}
+
+		var boardIDs []string
+		for _, b := range c.Boards {
+			if utils.Contains(boardIDs, b.ID) == true {
+				log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 게시판 ID(%s)가 중복되었습니다.", AppConfigFileName, c.Name, b.ID)
+			}
+			boardIDs = append(boardIDs, b.ID)
+
+			if b.Name == "" {
+				log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 게시판 Name이 입력되지 않았습니다.", AppConfigFileName, c.Name)
+			}
+			if b.Type == "" {
+				log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 게시판 Type이 입력되지 않았습니다.", AppConfigFileName, c.Name)
+			}
+		}
+	}
+
+	if config.NotifyAPI.Url == "" {
+		log.Panicf("%s 파일의 내용이 유효하지 않습니다. NotifyAPI의 Url이 입력되지 않았습니다.", AppConfigFileName)
+	}
+	if config.NotifyAPI.APIKey == "" {
+		log.Panicf("%s 파일의 내용이 유효하지 않습니다. NotifyAPI의 APIKey가 입력되지 않았습니다.", AppConfigFileName)
+	}
+	if config.NotifyAPI.ApplicationID == "" {
+		log.Panicf("%s 파일의 내용이 유효하지 않습니다. NotifyAPI의 ApplicationID가 입력되지 않았습니다.", AppConfigFileName)
+	}
 
 	return &config
 }

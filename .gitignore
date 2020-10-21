@@ -20,5 +20,5 @@ logs/
 # .idea 폴더
 .idea/
 
-/rss-server
-/rss-server.json
+/rss-feed-server
+/rss-feed-server.json

@@ -1,9 +1,9 @@
 #!/bin/sh
 
 # 서버명
-SRV_NAME=RSSServer
+SRV_NAME=RSSFeedServer
 
-cd /usr/local/go-workspace/src/github.com/darkkaiser/rss-server
+cd /usr/local/go-workspace/src/github.com/darkkaiser/rss-feed-server
 
 case "$1" in
 stop)
@@ -52,7 +52,7 @@ stop)
     echo "$SRV_NAME가 이미 실행중입니다."
   else
     echo "$SRV_NAME가 실행되었습니다."
-    nohup ./rss-server -D$SRV_NAME 1>/dev/null 2>&1 &
+    nohup ./rss-feed-server -D$SRV_NAME 1>/dev/null 2>&1 &
   fi
 ;;
 esac
