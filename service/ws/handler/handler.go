@@ -5,7 +5,9 @@ import (
 	"github.com/darkkaiser/rss-feed-server/g"
 	"github.com/darkkaiser/rss-feed-server/service/ws/model"
 	"github.com/labstack/echo"
+	"log"
 	"net/http"
+	"strings"
 )
 
 //
@@ -34,8 +36,15 @@ func NewWebServiceHandlers(config *g.AppConfig) *WebServiceHandlers {
 	}
 }
 
-func (h *WebServiceHandlers) RequestRSSFeedHandler(c echo.Context) error {
-	// @@@@@
+func (h *WebServiceHandlers) GetRSSFeedHandler(c echo.Context) error {
+	name := c.Param("name")
+	if strings.HasSuffix(name, ".xml") == true {
+		name = name[:len(name)-len(".xml")]
+	}
+
+	// @@@@@ name := c.Param("name")
+	log.Println("#########################################" + name)
+
 	m := new(model.NotifyMessage)
 	if err := c.Bind(m); err != nil {
 		return err

@@ -54,7 +54,7 @@ func (s *CrawlingService) Run(serviceStopCtx context.Context, serviceStopWaiter 
 			boards = append(boards, &naverCafeCrawlingBoard{
 				id:               b.ID,
 				name:             b.Name,
-				boardType:        b.Type,
+				tp:               b.Type,
 				contentCanBeRead: b.ContentCanBeRead,
 			})
 		}

@@ -33,11 +33,11 @@ func New(config *g.AppConfig) *echo.Echo {
 	e.Use(middleware.Recover()) // Recover from panics anywhere in the chain
 	e.Use(middleware.Secure())
 
-	grp := e.Group("/api/notify") // @@@@@ 경로
+	grp := e.Group("/naver/cafe")
 	{
 		h := handler.NewWebServiceHandlers(config)
 
-		grp.POST("/message/send", h.RequestRSSFeedHandler) //@@@@@ 경로, 함수명
+		grp.GET("/:name", h.GetRSSFeedHandler)
 	}
 
 	return e
