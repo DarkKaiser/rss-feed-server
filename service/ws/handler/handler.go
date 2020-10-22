@@ -25,13 +25,15 @@ func NewWebServiceHandlers(config *g.AppConfig) *WebServiceHandlers {
 }
 
 func (h *WebServiceHandlers) GetNaverCafeRSSFeedHandler(c echo.Context) error {
-	name := c.Param("name")
-	if strings.HasSuffix(name, ".xml") == true {
-		name = name[:len(name)-len(".xml")]
+	// 입력된 네이버카페의 ID를 구한다.
+	id := c.Param("id")
+	if strings.HasSuffix(strings.ToLower(id), ".xml") == true {
+		id = id[:len(id)-len(".xml")]
 	}
 
-	// @@@@@ name := c.Param("name")
-	log.Println("###############################################")
+	// @@@@@
+	//////////////////////////////////////////
+	log.Println("############################################### " + id)
 
 	now := time.Now()
 	feed := &feeds.Feed{
@@ -81,6 +83,7 @@ func (h *WebServiceHandlers) GetNaverCafeRSSFeedHandler(c echo.Context) error {
 	//return echo.NewHTTPError(http.StatusUnauthorized, fmt.Sprintf("접근이 허용되지 않은 Application입니다"))
 }
 
+// @@@@@
 func RssFeed(r *feeds.Rss) *feeds.RssFeed {
 	pub := anyTimeFormat(time.RFC1123Z, r.Created, r.Updated)
 	build := anyTimeFormat(time.RFC1123Z, r.Updated)
@@ -113,6 +116,7 @@ func RssFeed(r *feeds.Rss) *feeds.RssFeed {
 	return channel
 }
 
+// @@@@@
 // create a new RssItem with a generic Item struct's data
 func newRssItem(i *feeds.Item) *feeds.RssItem {
 	item := &feeds.RssItem{
@@ -143,6 +147,7 @@ func newRssItem(i *feeds.Item) *feeds.RssItem {
 	return item
 }
 
+// @@@@@
 func anyTimeFormat(format string, times ...time.Time) string {
 	for _, t := range times {
 		if !t.IsZero() {
