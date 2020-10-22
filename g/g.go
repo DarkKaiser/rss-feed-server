@@ -14,26 +14,10 @@ const (
 	AppConfigFileName = AppName + ".json"
 )
 
-// Convert JSON to Go struct : https://mholt.github.io/json-to-go/
 type AppConfig struct {
 	Debug    bool `json:"debug"`
 	Crawling struct {
-		NaverCafe []struct {
-			ID          string `json:"id"`
-			ClubID      string `json:"club_id"`
-			Name        string `json:"name"`
-			Description string `json:"description"`
-			Url         string `json:"url"`
-			Boards      []struct {
-				ID               string `json:"id"`
-				Name             string `json:"name"`
-				Type             string `json:"type"`
-				ContentCanBeRead bool   `json:"content_can_be_read"`
-			} `json:"boards"`
-			Scheduler struct {
-				TimeSpec string `json:"time_spec"`
-			} `json:"scheduler"`
-		} `json:"naver_cafe"`
+		NaverCafes []*NaverCafeCrawlingConfig `json:"naver_cafes"`
 	} `json:"crawling"`
 	WS struct {
 		ListenPort int `json:"listen_port"`
@@ -43,6 +27,23 @@ type AppConfig struct {
 		APIKey        string `json:"api_key"`
 		ApplicationID string `json:"application_id"`
 	} `json:"notify_api"`
+}
+
+type NaverCafeCrawlingConfig struct {
+	ID          string `json:"id"`
+	ClubID      string `json:"club_id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Url         string `json:"url"`
+	Boards      []*struct {
+		ID               string `json:"id"`
+		Name             string `json:"name"`
+		Type             string `json:"type"`
+		ContentCanBeRead bool   `json:"content_can_be_read"`
+	} `json:"boards"`
+	Scheduler struct {
+		TimeSpec string `json:"time_spec"`
+	} `json:"scheduler"`
 }
 
 func InitAppConfig() *AppConfig {
@@ -58,7 +59,7 @@ func InitAppConfig() *AppConfig {
 	//
 	var naverCafeIDs []string
 	var naverCafeClubIDs []string
-	for _, c := range config.Crawling.NaverCafe {
+	for _, c := range config.Crawling.NaverCafes {
 		if utils.Contains(naverCafeIDs, c.ID) == true {
 			log.Panicf("%s 파일의 내용이 유효하지 않습니다. 네이버 카페 ID(%s)가 중복되었습니다.", AppConfigFileName, c.ID)
 		}

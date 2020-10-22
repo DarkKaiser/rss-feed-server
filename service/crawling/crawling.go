@@ -48,29 +48,8 @@ func (s *CrawlingService) Run(serviceStopCtx context.Context, serviceStopWaiter 
 	}
 
 	// 크롤링 스케쥴러를 시작한다.
-	for _, c := range s.config.Crawling.NaverCafe {
-		var boards []*naverCafeCrawlingBoard
-		for _, b := range c.Boards {
-			boards = append(boards, &naverCafeCrawlingBoard{
-				id:               b.ID,
-				name:             b.Name,
-				tp:               b.Type,
-				contentCanBeRead: b.ContentCanBeRead,
-			})
-		}
-
-		crawlingJob := &naverCafeCrawling{
-			id:          c.ID,
-			clubID:      c.ClubID,
-			name:        c.Name,
-			description: c.Description,
-			url:         c.Url,
-
-			boards: boards,
-		}
-
-		_, err := s.cron.AddJob(c.Scheduler.TimeSpec, crawlingJob)
-		if err != nil {
+	for _, c := range s.config.Crawling.NaverCafes {
+		if _, err := s.cron.AddJob(c.Scheduler.TimeSpec, newNaverCafeCrawling(c)); err != nil {
 			m := fmt.Sprintf("네이버 카페(%s) 크롤링 작업의 스케쥴러 등록이 실패하였습니다. (error:%s)", c.ID, err)
 
 			notifyapi.SendNotifyMessage(m, true)

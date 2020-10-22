@@ -1,7 +1,14 @@
 package crawling
 
 import (
-	log "github.com/sirupsen/logrus"
+	"fmt"
+	"github.com/PuerkitoBio/goquery"
+	"github.com/darkkaiser/rss-feed-server/g"
+	"golang.org/x/net/html"
+	"golang.org/x/text/encoding/korean"
+	"io/ioutil"
+	"net/http"
+	"strings"
 )
 
 const (
@@ -9,61 +16,81 @@ const (
 )
 
 type naverCafeCrawling struct {
-	id          string
-	clubID      string
-	name        string
-	description string
-	url         string
-
-	boards []*naverCafeCrawlingBoard
+	config *g.NaverCafeCrawlingConfig
 }
 
-type naverCafeCrawlingBoard struct {
-	id               string
-	name             string
-	tp               string
-	contentCanBeRead bool
+func newNaverCafeCrawling(config *g.NaverCafeCrawlingConfig) *naverCafeCrawling {
+	return &naverCafeCrawling{
+		config: config,
+	}
+}
+
+// @@@@@
+type naverCafeBoardArticle struct {
+	boardID   string
+	boardName string
+	Title     string
+	Link      string
+	Content   string
+	Author    string
+	CreateAt  string
 }
 
 func (c *naverCafeCrawling) Run() {
 	// @@@@@
-	log.Print("naverCafeCrawling run~~~~~~~~~~")
+	//////////////////////////////////////
 
 	var articleID int = 10
 	println(articleID)
 
-	//	clPageUrl := fmt.Sprintf("https://cafe.naver.com/ludypang/ArticleList.nhn?search.clubid=12303558&userDisplay=50&search.boardtype=L&search.totalCount=501&search.page=2")
-	//
-	//	res, err := http.Post(clPageUrl, "application/x-www-form-urlencoded; charset=UTF-8", nil)
-	//	checkErr(err)
-	//
-	//	defer res.Body.Close()
-	//
-	//	resBodyBytes, err := ioutil.ReadAll(res.Body)
-	//	checkErr(err)
-	//
-	//	doc1 := string(resBodyBytes)
-	//
-	//	euckrDecoder := korean.EUCKR.NewDecoder()
-	//	name, err0 := euckrDecoder.String(string(doc1))
-	//	checkErr(err0)
-	//
-	//	htmlNode, err := html.Parse(strings.NewReader(name))
-	//
-	//	doc := goquery.NewDocumentFromNode(htmlNode)
-	//
-	//	clSelection := doc.Find("td.td_article")
-	//	clSelection.Each(func(i int, s *goquery.Selection) {
-	//		fmt.Println( string(strings.TrimSpace(s.Find("a.article").Text())))
-	//		//println(strings.TrimSpace(s.Find("a.article").Text()))
-	//	})
-	//
-	//	//res, err := http.Get(clPageUrl)
-	//	//checkErr(err)
-	//	//
-	//	//defer res.Body.Close()
-	//	//
-	//	//doc, err := goquery.NewDocumentFromReader(res.Body)
-	//	//println(name)
+	pageNo := 1
+	ncPageUrl := fmt.Sprintf("%s/ArticleList.nhn?search.clubid=%s&userDisplay=50&search.boardtype=L&search.totalCount=501&search.page=%d", c.config.Url, c.config.ClubID, pageNo)
 
+	res, err := http.Get(ncPageUrl)
+	if err != nil {
+
+	}
+	if res.StatusCode != http.StatusOK {
+
+	}
+
+	defer res.Body.Close()
+
+	resBodyBytes, err := ioutil.ReadAll(res.Body)
+
+	doc1 := string(resBodyBytes)
+
+	euckrDecoder := korean.EUCKR.NewDecoder()
+	name, err0 := euckrDecoder.String(string(doc1))
+	if err0 != nil {
+
+	}
+
+	htmlNode, err := html.Parse(strings.NewReader(name))
+	doc := goquery.NewDocumentFromNode(htmlNode)
+
+	//doc, err := goquery.NewDocumentFromReader(res.Body)
+	//if err != nil {
+	//
+	//}
+
+	ncSelection := doc.Find("div.article-board > table > tbody > tr:not(.board-notice)")
+	ncSelection.Each(func(i int, s *goquery.Selection) {
+		fmt.Print("# " + strings.TrimSpace(s.Find("td.td_article div.board-name a").Text()))
+		href1, _ := s.Find("td.td_article div.board-name a").Attr("href")
+		fmt.Print(", " + strings.TrimSpace(href1))
+
+		// Title & Link
+		fmt.Print(", " + strings.TrimSpace(s.Find("a.article").Text()))
+		href, _ := s.Find("a.article").Attr("href")
+		fmt.Print(", " + href)
+
+		// Description => Content
+
+		// Author
+		fmt.Print(", " + strings.TrimSpace(s.Find("td.td_name > div.pers_nick_area").Text()))
+
+		// Created
+		fmt.Print(", " + strings.TrimSpace(s.Find("td.td_date").Text()) + "\n")
+	})
 }

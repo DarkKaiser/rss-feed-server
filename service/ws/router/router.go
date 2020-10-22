@@ -33,11 +33,9 @@ func New(config *g.AppConfig) *echo.Echo {
 	e.Use(middleware.Recover()) // Recover from panics anywhere in the chain
 	e.Use(middleware.Secure())
 
-	grp := e.Group("/naver/cafe")
+	h := handler.NewWebServiceHandlers(config)
 	{
-		h := handler.NewWebServiceHandlers(config)
-
-		grp.GET("/:name", h.GetRSSFeedHandler)
+		e.GET("/naver/cafe/:name", h.GetNaverCafeRSSFeedHandler)
 	}
 
 	return e
