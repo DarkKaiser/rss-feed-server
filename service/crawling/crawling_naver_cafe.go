@@ -3,6 +3,7 @@ package crawling
 import (
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
+	"github.com/darkkaiser/rss-feed-server/database"
 	"github.com/darkkaiser/rss-feed-server/g"
 	"golang.org/x/net/html"
 	"golang.org/x/text/encoding/korean"
@@ -39,6 +40,8 @@ type naverCafeBoardArticle struct {
 func (c *naverCafeCrawling) Run() {
 	// @@@@@
 	//////////////////////////////////////
+
+	database.InitDB(g.AppName + ".db")
 
 	var articleID int = 10
 	println(articleID)
