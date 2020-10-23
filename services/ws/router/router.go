@@ -2,8 +2,8 @@ package router
 
 import (
 	"github.com/darkkaiser/rss-feed-server/g"
-	"github.com/darkkaiser/rss-feed-server/service/ws/handler"
-	_middleware_ "github.com/darkkaiser/rss-feed-server/service/ws/middleware"
+	"github.com/darkkaiser/rss-feed-server/services/ws/handler"
+	_middleware_ "github.com/darkkaiser/rss-feed-server/services/ws/middleware"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 	log "github.com/sirupsen/logrus"

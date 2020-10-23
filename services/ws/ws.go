@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/darkkaiser/rss-feed-server/g"
 	"github.com/darkkaiser/rss-feed-server/notifyapi"
-	"github.com/darkkaiser/rss-feed-server/service/ws/router"
+	"github.com/darkkaiser/rss-feed-server/services/ws/router"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"sync"

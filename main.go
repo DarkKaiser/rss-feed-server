@@ -6,9 +6,9 @@ import (
 	"github.com/darkkaiser/rss-feed-server/g"
 	_log_ "github.com/darkkaiser/rss-feed-server/log"
 	"github.com/darkkaiser/rss-feed-server/notifyapi"
-	"github.com/darkkaiser/rss-feed-server/service"
-	"github.com/darkkaiser/rss-feed-server/service/crawling"
-	"github.com/darkkaiser/rss-feed-server/service/ws"
+	"github.com/darkkaiser/rss-feed-server/services"
+	"github.com/darkkaiser/rss-feed-server/services/crawling"
+	"github.com/darkkaiser/rss-feed-server/services/ws"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
@@ -53,7 +53,7 @@ func main() {
 	serviceStopWaiter := &sync.WaitGroup{}
 
 	// 서비스를 시작한다.
-	for _, s := range []service.Service{webService, crawlingService} {
+	for _, s := range []services.Service{webService, crawlingService} {
 		serviceStopWaiter.Add(1)
 		s.Run(serviceStopCtx, serviceStopWaiter)
 	}
