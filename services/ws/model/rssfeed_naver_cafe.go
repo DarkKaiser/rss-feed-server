@@ -11,6 +11,17 @@ import (
 
 const NaverCafeRSSFeedModel ModelType = "naver_cafe_rss_feed"
 
+// @@@@@
+type NaverCafeArticle struct {
+	BoardID   string
+	ArticleID int
+	Title     string
+	Content   string
+	Link      string
+	Author    string
+	CreatedAt string
+}
+
 type NaverCafeRSSFeed struct {
 	db *sql.DB
 }
@@ -209,12 +220,36 @@ func (f *NaverCafeRSSFeed) GetLatestArticleID(cafeId string) (int, error) {
 	return articleId, nil
 }
 
-// @@@@@
-func (f *NaverCafeRSSFeed) InsertArticles(cafeId string) error {
+// @@@@@ boardid+article data
+func (f *NaverCafeRSSFeed) InsertArticles(cafeId string, articles []*NaverCafeArticle) error {
+	tx, err := f.db.Begin()
+	if err != nil {
+		panic(err)
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare("INSERT INTO naver_cafe_article (cafeId, boardId, articleId, title, link, author, createdAt) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))")
+	if err != nil {
+		panic(err)
+	}
+	defer stmt.Close()
+
+	for _, a := range articles {
+		_, err := stmt.Exec(cafeId, a.BoardID, a.ArticleID, a.Title, a.Link, a.Author)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		panic(err)
+	}
+
 	return nil
 }
 
-// @@@@@
-func (f *NaverCafeRSSFeed) GetArticles() interface{} {
-	return 0
+// @@@@@ board + article
+func (f *NaverCafeRSSFeed) GetArticles(cafeId string) []*NaverCafeArticle {
+	return nil
 }

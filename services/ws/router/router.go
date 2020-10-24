@@ -35,7 +35,7 @@ func New(config *g.AppConfig) (*echo.Echo, *handler.WebServiceHandlers) {
 
 	h := handler.NewWebServiceHandlers(config)
 	{
-		e.GET("/naver/cafe/:id", h.GetNaverCafeRSSFeedHandler)
+		e.GET("/naver/cafe/:cafeid", h.GetNaverCafeRSSFeedHandler)
 	}
 
 	return e, h

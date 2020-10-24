@@ -68,15 +68,16 @@ func (h *WebServiceHandlers) Find(modelType model.ModelType) interface{} {
 
 func (h *WebServiceHandlers) GetNaverCafeRSSFeedHandler(c echo.Context) error {
 	// 입력된 네이버 카페의 ID를 구한다.
-	id := c.Param("id")
-	if strings.HasSuffix(strings.ToLower(id), ".xml") == true {
-		id = id[:len(id)-len(".xml")]
+	cafeId := c.Param("cafeid")
+	if strings.HasSuffix(strings.ToLower(cafeId), ".xml") == true {
+		cafeId = cafeId[:len(cafeId)-len(".xml")]
 	}
 
 	// @@@@@
 	//////////////////////////////////////////
-
 	log.Println("############################################### " + id)
+
+	h.naverCafeRSSFeed.GetArticles(cafeId)
 
 	now := time.Now()
 	feed := &feeds.Feed{
