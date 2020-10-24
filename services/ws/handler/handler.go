@@ -75,56 +75,54 @@ func (h *WebServiceHandlers) GetNaverCafeRSSFeedHandler(c echo.Context) error {
 
 	// @@@@@
 	//////////////////////////////////////////
-	log.Println("############################################### " + id)
+	articles := h.naverCafeRSSFeed.GetArticles(cafeId)
+	println(articles)
 
-	h.naverCafeRSSFeed.GetArticles(cafeId)
+	for _, cafe := range h.config.RSSFeed.NaverCafes {
+		if cafe.ID == cafeId {
+			now := time.Now()
+			feed := &feeds.Feed{
+				Title:       cafe.Name,
+				Link:        &feeds.Link{Href: cafe.Url},
+				Description: cafe.Description,
+				Author:      &feeds.Author{Name: "Jason Moiron", Email: "jmoiron@jmoiron.net"},
+				Created:     now,
+			}
 
-	now := time.Now()
-	feed := &feeds.Feed{
-		Title:       "jmoiron.net blog",
-		Link:        &feeds.Link{Href: "http://jmoiron.net/blog"},
-		Description: "discussion about tech, footie, photos",
-		Author:      &feeds.Author{Name: "Jason Moiron", Email: "jmoiron@jmoiron.net"},
-		Created:     now,
+			for _, article := range articles {
+				item := &feeds.Item{
+					Title:       article.Title,
+					Link:        &feeds.Link{Href: article.Link},
+					Author:      &feeds.Author{Name: article.Author, Email: "jmoiron@jmoiron.net"},
+					Description: article.Content,
+					//Id:          article.ArticleID,
+					Content: article.Content,
+				}
+
+				feed.Items = append(feed.Items, item)
+			}
+			rss, err := feed.ToRss()
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			//https://github.com/gorilla/feeds/blob/master/doc.go
+			rssFeed := &feeds.Rss{Feed: feed}
+			rssFeed2 := RssFeed(rssFeed)
+			// rssFeed.Generator = "gorilla/feeds v1.0 (github.com/gorilla/feeds)"
+			rss, _ = feeds.ToXML(rssFeed2)
+
+			// 헤더제거
+			rss = rss[len("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"):]
+
+			return c.XMLBlob(http.StatusOK, []byte(rss))
+			//return echo.NewHTTPError(http.StatusUnauthorized, fmt.Sprintf("접근이 허용되지 않은 Application입니다"))
+
+			break
+		}
 	}
 
-	feed.Items = []*feeds.Item{
-		&feeds.Item{
-			Title:       "Limiting Concurrency in Go",
-			Link:        &feeds.Link{Href: "http://jmoiron.net/blog/limiting-concurrency-in-go/"},
-			Description: "A discussion on controlled parallelism in golang",
-			Author:      &feeds.Author{Name: "Jason Moiron", Email: "jmoiron@jmoiron.net"},
-			Created:     now,
-		},
-		&feeds.Item{
-			Title:       "Logic-less Template Redux",
-			Link:        &feeds.Link{Href: "http://jmoiron.net/blog/logicless-template-redux/"},
-			Description: "More thoughts on logicless templates",
-			Created:     now,
-		},
-		&feeds.Item{
-			Title:       "Idiomatic Code Reuse in Go",
-			Link:        &feeds.Link{Href: "http://jmoiron.net/blog/idiomatic-code-reuse-in-go/"},
-			Description: "How to use interfaces <em>effectively</em>",
-			Created:     now,
-		},
-	}
-	rss, err := feed.ToRss()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	//https://github.com/gorilla/feeds/blob/master/doc.go
-	rssFeed := &feeds.Rss{Feed: feed}
-	rssFeed2 := RssFeed(rssFeed)
-	// rssFeed.Generator = "gorilla/feeds v1.0 (github.com/gorilla/feeds)"
-	rss, _ = feeds.ToXML(rssFeed2)
-
-	// 헤더제거
-	rss = rss[len("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"):]
-
-	return c.XMLBlob(http.StatusOK, []byte(rss))
-	//return echo.NewHTTPError(http.StatusUnauthorized, fmt.Sprintf("접근이 허용되지 않은 Application입니다"))
+	return nil
 }
 
 // @@@@@

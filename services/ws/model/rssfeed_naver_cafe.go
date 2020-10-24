@@ -251,5 +251,35 @@ func (f *NaverCafeRSSFeed) InsertArticles(cafeId string, articles []*NaverCafeAr
 
 // @@@@@ board + article
 func (f *NaverCafeRSSFeed) GetArticles(cafeId string) []*NaverCafeArticle {
-	return nil
+	rows, err := f.db.Query(fmt.Sprintf("SELECT boardId, articleId, title, IFNULL(content, ''), link, author FROM naver_cafe_article WHERE cafeId = '%s'", cafeId))
+	if err != nil {
+		panic(err)
+	}
+
+	var articleId int
+	var boardId, title, content, link, author string
+
+	var articles []*NaverCafeArticle
+	for rows.Next() {
+		err = rows.Scan(&boardId, &articleId, &title, &content, &link, &author)
+		if err != nil {
+			panic(err)
+		}
+
+		article := &NaverCafeArticle{
+			BoardID:   boardId,
+			ArticleID: articleId,
+			Title:     title,
+			Content:   content,
+			Link:      link,
+			Author:    author,
+			CreatedAt: "",
+		}
+
+		articles = append(articles, article)
+	}
+
+	rows.Close() //good habit to close
+
+	return articles
 }
