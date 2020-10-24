@@ -10,7 +10,7 @@ import (
 	"net/http"
 )
 
-func New(config *g.AppConfig) *echo.Echo {
+func New(config *g.AppConfig) (*echo.Echo, *handler.WebServiceHandlers) {
 	e := echo.New()
 
 	e.Debug = true
@@ -38,5 +38,5 @@ func New(config *g.AppConfig) *echo.Echo {
 		e.GET("/naver/cafe/:id", h.GetNaverCafeRSSFeedHandler)
 	}
 
-	return e
+	return e, h
 }

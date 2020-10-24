@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/darkkaiser/rss-feed-server/g"
+	"github.com/darkkaiser/rss-feed-server/services/ws/model"
 	"github.com/gorilla/feeds"
 	"github.com/labstack/echo"
 	"log"
@@ -16,16 +18,48 @@ import (
 //
 type WebServiceHandlers struct {
 	config *g.AppConfig
+
+	db *sql.DB
+
+	naverCafeRSSFeed *model.NaverCafeRSSFeed
 }
 
 func NewWebServiceHandlers(config *g.AppConfig) *WebServiceHandlers {
-	return &WebServiceHandlers{
+	db, err := sql.Open("sqlite3", fmt.Sprintf("./%s.db", g.AppName))
+	if err != nil {
+		//@@@@@
+		//return nil, err
+	}
+
+	handlers := &WebServiceHandlers{
 		config: config,
+
+		db: db,
+
+		naverCafeRSSFeed: model.NewNaverCafeRSSFeed(db),
+	}
+
+	return handlers
+}
+
+func (h *WebServiceHandlers) Close() {
+	err := h.db.Close()
+	if err != nil {
+		// @@@@@
 	}
 }
 
+func (h *WebServiceHandlers) Find(modelType model.ModelType) interface{} {
+	switch modelType {
+	case model.NaverCafeRSSFeedModel:
+		return h.naverCafeRSSFeed
+	}
+
+	return nil
+}
+
 func (h *WebServiceHandlers) GetNaverCafeRSSFeedHandler(c echo.Context) error {
-	// 입력된 네이버카페의 ID를 구한다.
+	// 입력된 네이버 카페의 ID를 구한다.
 	id := c.Param("id")
 	if strings.HasSuffix(strings.ToLower(id), ".xml") == true {
 		id = id[:len(id)-len(".xml")]
@@ -33,6 +67,7 @@ func (h *WebServiceHandlers) GetNaverCafeRSSFeedHandler(c echo.Context) error {
 
 	// @@@@@
 	//////////////////////////////////////////
+
 	log.Println("############################################### " + id)
 
 	now := time.Now()

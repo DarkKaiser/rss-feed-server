@@ -3,8 +3,8 @@ package crawling
 import (
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
-	"github.com/darkkaiser/rss-feed-server/database"
 	"github.com/darkkaiser/rss-feed-server/g"
+	"github.com/darkkaiser/rss-feed-server/services/ws/model"
 	"golang.org/x/net/html"
 	"golang.org/x/text/encoding/korean"
 	"io/ioutil"
@@ -18,11 +18,15 @@ const (
 
 type naverCafeCrawling struct {
 	config *g.NaverCafeCrawlingConfig
+
+	model *model.NaverCafeRSSFeed
 }
 
-func newNaverCafeCrawling(config *g.NaverCafeCrawlingConfig) *naverCafeCrawling {
+func newNaverCafeCrawling(config *g.NaverCafeCrawlingConfig, model *model.NaverCafeRSSFeed) *naverCafeCrawling {
 	return &naverCafeCrawling{
 		config: config,
+
+		model: model,
 	}
 }
 
@@ -40,9 +44,6 @@ type naverCafeBoardArticle struct {
 func (c *naverCafeCrawling) Run() {
 	// @@@@@
 	//////////////////////////////////////
-
-	database.InitDB(g.AppName + ".db")
-
 	var articleID int = 10
 	println(articleID)
 
@@ -56,6 +57,7 @@ func (c *naverCafeCrawling) Run() {
 	if res.StatusCode != http.StatusOK {
 
 	}
+	// c.feed.LatestArticleID()
 
 	defer res.Body.Close()
 

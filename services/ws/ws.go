@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"github.com/darkkaiser/rss-feed-server/g"
 	"github.com/darkkaiser/rss-feed-server/notifyapi"
+	"github.com/darkkaiser/rss-feed-server/services/ws/handler"
+	"github.com/darkkaiser/rss-feed-server/services/ws/model"
 	"github.com/darkkaiser/rss-feed-server/services/ws/router"
+	"github.com/labstack/echo"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"sync"
@@ -17,6 +20,8 @@ import (
 //
 type WebService struct {
 	config *g.AppConfig
+
+	handlers *handler.WebServiceHandlers
 
 	running   bool
 	runningMu sync.Mutex
@@ -45,17 +50,8 @@ func (s *WebService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 		return
 	}
 
-	go s.run0(serviceStopCtx, serviceStopWaiter)
-
-	s.running = true
-
-	log.Debug("웹 서비스 시작됨")
-}
-
-func (s *WebService) run0(serviceStopCtx context.Context, serviceStopWaiter *sync.WaitGroup) {
-	defer serviceStopWaiter.Done()
-
-	e := router.New(s.config)
+	var e *echo.Echo
+	e, s.handlers = router.New(s.config)
 
 	go func(listenPort int) {
 		log.Debug("웹 서비스 > http 서버 시작")
@@ -72,22 +68,42 @@ func (s *WebService) run0(serviceStopCtx context.Context, serviceStopWaiter *syn
 		}
 	}(s.config.WS.ListenPort)
 
-	select {
-	case <-serviceStopCtx.Done():
-		log.Debug("웹 서비스 중지중...")
+	go func() {
+		defer serviceStopWaiter.Done()
 
-		// 웹서버를 종료한다.
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
+		select {
+		case <-serviceStopCtx.Done():
+			log.Debug("웹 서비스 중지중...")
 
-		if err := e.Shutdown(ctx); err != nil {
-			log.Error(err)
+			// 웹서버를 종료한다.
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			if err := e.Shutdown(ctx); err != nil {
+				m := fmt.Sprintf("웹 서비스를 중지하는 중에 오류가 발생하였습니다.\r\n\r\n%s", err)
+
+				log.Error(m)
+
+				notifyapi.SendNotifyMessage(m, true)
+			}
+
+			// @@@@@ dbclose??
+			s.handlers.Close()
+
+			s.runningMu.Lock()
+			s.handlers = nil
+			s.running = false
+			s.runningMu.Unlock()
+
+			log.Debug("웹 서비스 중지됨")
 		}
+	}()
 
-		s.runningMu.Lock()
-		s.running = false
-		s.runningMu.Unlock()
+	s.running = true
 
-		log.Debug("웹 서비스 중지됨")
-	}
+	log.Debug("웹 서비스 시작됨")
+}
+
+func (s *WebService) Find(modelType model.ModelType) interface{} {
+	return s.handlers.Find(modelType)
 }

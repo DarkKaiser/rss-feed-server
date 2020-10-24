@@ -20,11 +20,11 @@ import (
 const (
 	banner = `
   ____   ____   ____    _____                  _   ____
- |  _ \ / ___| / ___|  |  ___|  ___   ___   __| | / ___|  _ __ __   __
- | |_) |\___ \ \___ \  | |_    / _ \ / _ \ / _| | \___ \ | '__|\ \ / /
- |  _ <  ___) | ___) | |  _|  |  __/|  __/| (_| |  ___) || |    \ V /
- |_| \_\|____/ |____/  |_|     \___| \___| \__,_| |____/ |_|     \_/ v%s
-                                                    developed by DarkKaiser
+ |  _ \ / ___| / ___|  |  ___| ___   ___   __| | / ___|  _ __ __   __
+ | |_) |\___ \ \___ \  | |_   / _ \ / _ \ / _| | \___ \ | '__|\ \ / /
+ |  _ <  ___) | ___) | |  _| |  __/|  __/| (_| |  ___) || |    \ V /
+ |_| \_\|____/ |____/  |_|    \___| \___| \__,_| |____/ |_|     \_/ v%s
+                                                   developed by DarkKaiser
 ---------------------------------------------------------------------------
 `
 )
@@ -46,7 +46,7 @@ func main() {
 
 	// 서비스를 생성하고 초기화한다.
 	webService := ws.NewService(config)
-	crawlingService := crawling.NewService(config)
+	crawlingService := crawling.NewService(config, webService)
 
 	// Set up cancellation context and waitgroup
 	serviceStopCtx, cancel := context.WithCancel(context.Background())
