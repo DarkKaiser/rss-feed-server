@@ -40,7 +40,7 @@ func NewWebServiceHandlers(config *g.AppConfig) *WebServiceHandlers {
 
 		db: db,
 
-		naverCafeRSSFeed: model.NewNaverCafeRSSFeed(db),
+		naverCafeRSSFeed: model.NewNaverCafeRSSFeed(config, db),
 	}
 
 	return handlers

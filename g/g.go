@@ -15,10 +15,10 @@ const (
 )
 
 type AppConfig struct {
-	Debug    bool `json:"debug"`
-	Crawling struct {
+	Debug   bool `json:"debug"`
+	RSSFeed struct {
 		NaverCafes []*NaverCafeCrawlingConfig `json:"naver_cafes"`
-	} `json:"crawling"`
+	} `json:"rss_feed"`
 	WS struct {
 		ListenPort int `json:"listen_port"`
 	} `json:"ws"`
@@ -59,7 +59,7 @@ func InitAppConfig() *AppConfig {
 	//
 	var naverCafeIDs []string
 	var naverCafeClubIDs []string
-	for _, c := range config.Crawling.NaverCafes {
+	for _, c := range config.RSSFeed.NaverCafes {
 		if utils.Contains(naverCafeIDs, c.ID) == true {
 			log.Panicf("%s 파일의 내용이 유효하지 않습니다. 네이버 카페 ID(%s)가 중복되었습니다.", AppConfigFileName, c.ID)
 		}
