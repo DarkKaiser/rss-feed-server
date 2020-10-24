@@ -4,10 +4,11 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/darkkaiser/rss-feed-server/g"
+	"github.com/darkkaiser/rss-feed-server/notifyapi"
 	"github.com/darkkaiser/rss-feed-server/services/ws/model"
 	"github.com/gorilla/feeds"
 	"github.com/labstack/echo"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 	"strings"
 	"time"
@@ -27,8 +28,11 @@ type WebServiceHandlers struct {
 func NewWebServiceHandlers(config *g.AppConfig) *WebServiceHandlers {
 	db, err := sql.Open("sqlite3", fmt.Sprintf("./%s.db", g.AppName))
 	if err != nil {
-		//@@@@@
-		//return nil, err
+		m := fmt.Sprintf("DB를 여는 중에 치명적인 오류가 발생하였습니다.\r\n\r\n%s", err)
+
+		notifyapi.SendNotifyMessage(m, true)
+
+		log.Panic(m)
 	}
 
 	handlers := &WebServiceHandlers{
@@ -45,7 +49,11 @@ func NewWebServiceHandlers(config *g.AppConfig) *WebServiceHandlers {
 func (h *WebServiceHandlers) Close() {
 	err := h.db.Close()
 	if err != nil {
-		// @@@@@
+		m := fmt.Sprintf("DB를 닫는 중에 오류가 발생하였습니다.\r\n\r\n%s", err)
+
+		log.Error(m)
+
+		notifyapi.SendNotifyMessage(m, true)
 	}
 }
 

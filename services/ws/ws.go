@@ -75,24 +75,26 @@ func (s *WebService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 		case <-serviceStopCtx.Done():
 			log.Debug("웹 서비스 중지중...")
 
-			// 웹서버를 종료한다.
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-
-			if err := e.Shutdown(ctx); err != nil {
-				m := fmt.Sprintf("웹 서비스를 중지하는 중에 오류가 발생하였습니다.\r\n\r\n%s", err)
-
-				log.Error(m)
-
-				notifyapi.SendNotifyMessage(m, true)
-			}
-
-			// @@@@@ dbclose??
-			s.handlers.Close()
-
 			s.runningMu.Lock()
-			s.handlers = nil
-			s.running = false
+			{
+				// 웹 서비스를 중지한다.
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+
+				if err := e.Shutdown(ctx); err != nil {
+					m := fmt.Sprintf("웹 서비스를 중지하는 중에 오류가 발생하였습니다.\r\n\r\n%s", err)
+
+					log.Error(m)
+
+					notifyapi.SendNotifyMessage(m, true)
+				}
+
+				// 웹 서비스의 핸들러를 닫는다.
+				s.handlers.Close()
+
+				s.handlers = nil
+				s.running = false
+			}
 			s.runningMu.Unlock()
 
 			log.Debug("웹 서비스 중지됨")

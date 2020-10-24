@@ -25,41 +25,22 @@ func NewNaverCafeRSSFeed(db *sql.DB) *NaverCafeRSSFeed {
 
 // @@@@@
 func (f *NaverCafeRSSFeed) init() interface{} {
+	// db만들고 일정기간 시간이 지난 데이터 모두 삭제
+	// config에 등록된 카페 정보를 이때 등록???
 	return nil
 }
 
 // @@@@@
-// 객체가 처음 생성될때 수행
-func (f *NaverCafeRSSFeed) CreateTables() interface{} {
-	return 0
-}
-
-// @@@@@
-// 객체가 처음 생성될때 수행
-func (f *NaverCafeRSSFeed) GenerateNaverCafeData() interface{} {
-	return 0
-}
-
-// @@@@@
-// 스케쥴러에서 등록된 시간이 도래했을때 수행
-func (f *NaverCafeRSSFeed) DeleteAfterDays() interface{} {
-	return 0
-}
-
-// @@@@@
-// 크롤러에서 수행
 func (f *NaverCafeRSSFeed) LatestArticleID() interface{} {
 	return 0
 }
 
 // @@@@@
-// 크롤러에서 수행
 func (f *NaverCafeRSSFeed) AddArticle() interface{} {
 	return 0
 }
 
 // @@@@@
-// 웹서버에서 수행
 func (f *NaverCafeRSSFeed) GetArticles() interface{} {
 	return 0
 }
