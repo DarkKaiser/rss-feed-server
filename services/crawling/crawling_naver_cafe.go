@@ -44,6 +44,7 @@ type naverCafeBoardArticle struct {
 func (c *naverCafeCrawling) Run() {
 	// @@@@@
 	//////////////////////////////////////
+	c.model.GetLatestArticleID(c.config.ID)
 	var articleID int = 10
 	println(articleID)
 

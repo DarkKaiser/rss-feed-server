@@ -50,7 +50,7 @@ func (f *NaverCafeRSSFeed) init(config *g.AppConfig) error {
 	}
 
 	// 일정 시간이 지난 게시물 자료를 모두 삭제한다.
-	if err := f.deleteNaverCafeOutOfDateArticle(90); err != nil {
+	if err := f.deleteOutOfDateArticles(90); err != nil {
 		return err
 	}
 
@@ -188,19 +188,30 @@ func (f *NaverCafeRSSFeed) insertNaverCafeBoardInfo(cafeId, boardId, name string
 	return nil
 }
 
-func (f *NaverCafeRSSFeed) deleteNaverCafeOutOfDateArticle(deleteDaysAgo uint) error {
-	// @@@@@ cleanOutOfLogFiles
+func (f *NaverCafeRSSFeed) deleteOutOfDateArticles(deleteDaysAgo uint) error {
+	// @@@@@
 	return nil
 }
 
-// @@@@@
-func (f *NaverCafeRSSFeed) LatestArticleID() interface{} {
-	return 0
+//noinspection GoUnhandledErrorResult
+func (f *NaverCafeRSSFeed) GetLatestArticleID(cafeId string) (int, error) {
+	var articleId int
+	err := f.db.QueryRow(`
+		SELECT IFNULL(MAX(articleId), 0)
+		  FROM naver_cafe_article
+		 WHERE cafeId = ?
+	`, cafeId).Scan(&articleId)
+
+	if err != nil {
+		return 0, err
+	}
+
+	return articleId, nil
 }
 
 // @@@@@
-func (f *NaverCafeRSSFeed) AddArticle() interface{} {
-	return 0
+func (f *NaverCafeRSSFeed) InsertArticles(cafeId string) error {
+	return nil
 }
 
 // @@@@@
