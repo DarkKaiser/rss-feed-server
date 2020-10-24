@@ -49,8 +49,8 @@ func (f *NaverCafeRSSFeed) init(config *g.AppConfig) error {
 		}
 	}
 
-	// 일정 시간이 지난 게시물 자료를 모두 삭제한다.@@@@@ 10
-	if err := f.deleteNaverCafeArticle(10); err != nil {
+	// 일정 시간이 지난 게시물 자료를 모두 삭제한다.
+	if err := f.deleteNaverCafeOutOfDateArticle(90); err != nil {
 		return err
 	}
 
@@ -188,7 +188,7 @@ func (f *NaverCafeRSSFeed) insertNaverCafeBoardInfo(cafeId, boardId, name string
 	return nil
 }
 
-func (f *NaverCafeRSSFeed) deleteNaverCafeArticle(checkDaysAgo int) error {
+func (f *NaverCafeRSSFeed) deleteNaverCafeOutOfDateArticle(deleteDaysAgo uint) error {
 	// @@@@@ cleanOutOfLogFiles
 	return nil
 }
