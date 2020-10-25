@@ -15,12 +15,13 @@ const NaverCafeModel ModelType = "naver_cafe_model"
 // @@@@@
 type NaverCafeArticle struct {
 	BoardID   string
+	BoardName string
 	ArticleID int
 	Title     string
 	Content   string
 	Link      string
 	Author    string
-	CreatedAt *time.Time
+	CreatedAt time.Time
 }
 
 type NaverCafe struct {
@@ -33,11 +34,11 @@ func NewNaverCafe(config *g.AppConfig, db *sql.DB) *NaverCafe {
 	}
 
 	if err := nc.init(config); err != nil {
-		m := fmt.Sprintf("네이버 카페 관련 DB를 초기화하는 중에 치명적인 오류가 발생하였습니다.\r\n\r\n%s", err)
+		m := "네이버 카페 관련 DB를 초기화하는 중에 치명적인 오류가 발생하였습니다."
 
-		notifyapi.SendNotifyMessage(m, true)
+		notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 
-		log.Panic(m)
+		log.Panic(fmt.Sprintf("%s (error:%s)", m, err))
 	}
 
 	return nc
@@ -217,56 +218,35 @@ func (nc *NaverCafe) GetLatestArticleID(cafeId string) (int, error) {
 }
 
 //noinspection GoUnhandledErrorResult
-func (nc *NaverCafe) InsertArticles(cafeId string, articles []*NaverCafeArticle) (int, error) {
-	// @@@@@ datetime yyyy-MM-dd HH:mm:ss
-	// insert into naver_cafe_article2 (cafeId, boardId, id, createdAt) values ('a', 'a', 6, datetime('2020-12-10 21:44:59'))
+func (nc *NaverCafe) InsertArticles(cafeId string, articles []*NaverCafeArticle) (int64, error) {
 	stmt, err := nc.db.Prepare(`
-		INSERT OR REPLACE INTO naver_cafe_article (
-		            		   cafeId
-		            		 , boardId
-		            		 , articleId
-		          			 , title
-		          			 , link
-		          			 , author
-		          			 , createdAt
-		          			 )
-	         		    VALUES (
-		            		   ?
-		          			 , ?
-		          			 , ?
-		          			 , ?
-		          			 , ?
-		          			 , ?
-		          			 , datetime('now')
-		          			 )
+		INSERT OR REPLACE
+		  INTO naver_cafe_article (cafeId, boardId, articleId, title, content, link, author, createdAt)
+	    VALUES (?, ?, ?, ?, ?, ?, ?, datetime(?))
 	`)
 	if err != nil {
 		return 0, err
 	}
 	defer stmt.Close()
 
-	count := 0
+	var insertedCnt int64
 	for _, article := range articles {
-		if result, err := stmt.Exec(cafeId, article.BoardID, article.ArticleID, article.Title, article.Link, article.Author); err != nil {
+		if _, err := stmt.Exec(cafeId, article.BoardID, article.ArticleID, article.Title, article.Content, article.Link, article.Author, article.CreatedAt.Format("2006-99-02 15:04:05")); err != nil {
 			// @@@@@
-			m := fmt.Sprintf("ddd")
+			////////////////////////////
+			m := fmt.Sprintf("네이버 카페('%s')의 '%s' 게시판의 게시물 등록이 실패하였습니다.", cafeId, article.BoardName)
 
-			log.Error(m)
+			// 로그로 남기기 article.String()
+			log.Error(fmt.Sprintf("%s (error:%s)", m, err))
 
-			notifyapi.SendNotifyMessage(m, true)
+			notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+			////////////////////////////
 		} else {
-			n, err := result.RowsAffected()
-			if err != nil {
-
-			}
-			if n == 1 {
-				// @@@@@
-				count += 1
-			}
+			insertedCnt += 1
 		}
 	}
 
-	return count, nil
+	return insertedCnt, nil
 }
 
 // @@@@@
@@ -294,7 +274,7 @@ func (nc *NaverCafe) GetArticles(cafeId string) []*NaverCafeArticle {
 			Content:   content,
 			Link:      link,
 			Author:    author,
-			CreatedAt: dt,
+			CreatedAt: *dt,
 		}
 
 		articles = append(articles, article)
@@ -308,7 +288,7 @@ func (nc *NaverCafe) GetArticles(cafeId string) []*NaverCafeArticle {
 	return articles
 }
 
-func (nc *NaverCafe) deleteOutOfDateArticles(cafeId string, articleArchiveDate int) error {
+func (nc *NaverCafe) deleteOutOfDateArticles(cafeId string, articleArchiveDate uint) error {
 	// @@@@@
 	return nil
 }

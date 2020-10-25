@@ -41,7 +41,7 @@ type NaverCafeCrawlingConfig struct {
 		Type             string `json:"type"`
 		ContentCanBeRead bool   `json:"content_can_be_read"`
 	} `json:"boards"`
-	ArticleArchiveDate int `json:"article_archive_date"`
+	ArticleArchiveDate uint `json:"article_archive_date"`
 	Scheduler          struct {
 		TimeSpec string `json:"time_spec"`
 	} `json:"scheduler"`

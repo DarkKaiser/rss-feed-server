@@ -28,11 +28,11 @@ type WebServiceHandlers struct {
 func NewWebServiceHandlers(config *g.AppConfig) *WebServiceHandlers {
 	db, err := sql.Open("sqlite3", fmt.Sprintf("./%s.db", g.AppName))
 	if err != nil {
-		m := fmt.Sprintf("DB를 여는 중에 치명적인 오류가 발생하였습니다.\r\n\r\n%s", err)
+		m := "DB를 여는 중에 치명적인 오류가 발생하였습니다."
 
-		notifyapi.SendNotifyMessage(m, true)
+		notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 
-		log.Panic(m)
+		log.Panic(fmt.Sprintf("%s (error:%s)", m, err))
 	}
 
 	handlers := &WebServiceHandlers{
@@ -49,11 +49,11 @@ func NewWebServiceHandlers(config *g.AppConfig) *WebServiceHandlers {
 func (h *WebServiceHandlers) Close() {
 	err := h.db.Close()
 	if err != nil {
-		m := fmt.Sprintf("DB를 닫는 중에 오류가 발생하였습니다.\r\n\r\n%s", err)
+		m := "DB를 닫는 중에 오류가 발생하였습니다."
 
-		log.Error(m)
+		log.Error(fmt.Sprintf("%s (error:%s)", m, err))
 
-		notifyapi.SendNotifyMessage(m, true)
+		notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 	}
 }
 

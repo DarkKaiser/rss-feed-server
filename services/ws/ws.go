@@ -59,11 +59,11 @@ func (s *WebService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 			if err == http.ErrServerClosed {
 				log.Debug("웹 서비스 > http 서버 중지됨")
 			} else {
-				m := fmt.Sprintf("웹 서비스를 구성하는 중에 치명적인 오류가 발생하였습니다.\r\n\r\n%s", err)
+				m := "웹 서비스를 구성하는 중에 치명적인 오류가 발생하였습니다."
 
-				log.Error(m)
+				log.Error(fmt.Sprintf("%s (error:%s)", m, err))
 
-				notifyapi.SendNotifyMessage(m, true)
+				notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 			}
 		}
 	}(s.config.WS.ListenPort)
@@ -82,11 +82,11 @@ func (s *WebService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 				defer cancel()
 
 				if err := e.Shutdown(ctx); err != nil {
-					m := fmt.Sprintf("웹 서비스를 중지하는 중에 오류가 발생하였습니다.\r\n\r\n%s", err)
+					m := "웹 서비스를 중지하는 중에 오류가 발생하였습니다."
 
-					log.Error(m)
+					log.Error(fmt.Sprintf("%s (error:%s)", m, err))
 
-					notifyapi.SendNotifyMessage(m, true)
+					notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 				}
 
 				// 웹 서비스의 핸들러를 닫는다.

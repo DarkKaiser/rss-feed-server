@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -107,7 +108,7 @@ func (c *naverCafeCrawling) Run() {
 				Content:   "",
 				Link:      link,
 				Author:    author,
-				CreatedAt: nil,
+				CreatedAt: time.Now(),
 			}
 
 			articles = append(articles, article)
