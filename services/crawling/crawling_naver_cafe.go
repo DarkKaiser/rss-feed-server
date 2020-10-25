@@ -107,7 +107,7 @@ func (c *naverCafeCrawling) Run() {
 				Content:   "",
 				Link:      link,
 				Author:    author,
-				CreatedAt: "",
+				CreatedAt: nil,
 			}
 
 			articles = append(articles, article)

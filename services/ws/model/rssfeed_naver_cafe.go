@@ -7,6 +7,7 @@ import (
 	"github.com/darkkaiser/rss-feed-server/notifyapi"
 	_ "github.com/mattn/go-sqlite3"
 	log "github.com/sirupsen/logrus"
+	"time"
 )
 
 const NaverCafeRSSFeedModel ModelType = "naver_cafe_rss_feed"
@@ -19,7 +20,7 @@ type NaverCafeArticle struct {
 	Content   string
 	Link      string
 	Author    string
-	CreatedAt string
+	CreatedAt *time.Time
 }
 
 type NaverCafeRSSFeed struct {
@@ -173,7 +174,7 @@ func (f *NaverCafeRSSFeed) createTables() error {
 
 //noinspection GoUnhandledErrorResult
 func (f *NaverCafeRSSFeed) insertNaverCafeInfo(cafeId, clubId, name, description, url string) error {
-	stmt, err := f.db.Prepare("INSERT OR REPLACE INTO naver_cafe_info (cafeId, clubId, name, description, url) values (?, ?, ?, ?, ?)")
+	stmt, err := f.db.Prepare("INSERT OR REPLACE INTO naver_cafe_info (cafeId, clubId, name, description, url) VALUES (?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -187,7 +188,7 @@ func (f *NaverCafeRSSFeed) insertNaverCafeInfo(cafeId, clubId, name, description
 
 //noinspection GoUnhandledErrorResult
 func (f *NaverCafeRSSFeed) insertNaverCafeBoardInfo(cafeId, boardId, name string) error {
-	stmt, err := f.db.Prepare("INSERT OR REPLACE INTO naver_cafe_board_info (cafeId, boardId, name) values (?, ?, ?)")
+	stmt, err := f.db.Prepare("INSERT OR REPLACE INTO naver_cafe_board_info (cafeId, boardId, name) VALUES (?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -216,69 +217,72 @@ func (f *NaverCafeRSSFeed) GetLatestArticleID(cafeId string) (int, error) {
 }
 
 //noinspection GoUnhandledErrorResult
-func (f *NaverCafeRSSFeed) InsertArticles(cafeId string, articles []*NaverCafeArticle) error {
-	// @@@@@
-	// 트랜잭션 묶기=>코맨드쪽 보기 https://pseudomuto.com/2018/01/clean-sql-transactions-in-golang/
-	tx, err := f.db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	// @@@@@ datetime
-	stmt, err := tx.Prepare(`
-		INSERT INTO naver_cafe_article (
-		            cafeId
-		          , boardId
-		          , articleId
-		          , title
-		          , link
-		          , author
-		          , createdAt
-		          )
-	         VALUES (
-		            ?
-		          , ?
-		          , ?
-		          , ?
-		          , ?
-		          , ?
-		          , datetime('now')
-		          )
+func (f *NaverCafeRSSFeed) InsertArticles(cafeId string, articles []*NaverCafeArticle) (int, error) {
+	// @@@@@ datetime yyyy-MM-dd HH:mm:ss
+	// insert into naver_cafe_article2 (cafeId, boardId, id, createdAt) values ('a', 'a', 6, datetime('2020-12-10 21:44:59'))
+	stmt, err := f.db.Prepare(`
+		INSERT OR REPLACE INTO naver_cafe_article (
+		            		   cafeId
+		            		 , boardId
+		            		 , articleId
+		          			 , title
+		          			 , link
+		          			 , author
+		          			 , createdAt
+		          			 )
+	         		    VALUES (
+		            		   ?
+		          			 , ?
+		          			 , ?
+		          			 , ?
+		          			 , ?
+		          			 , ?
+		          			 , datetime('now')
+		          			 )
 	`)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer stmt.Close()
 
-	for _, a := range articles {
-		_, err := stmt.Exec(cafeId, a.BoardID, a.ArticleID, a.Title, a.Link, a.Author)
-		if err != nil {
-			return err
+	count := 0
+	for _, article := range articles {
+		if result, err := stmt.Exec(cafeId, article.BoardID, article.ArticleID, article.Title, article.Link, article.Author); err != nil {
+			// @@@@@
+			m := fmt.Sprintf("ddd")
+
+			log.Error(m)
+
+			notifyapi.SendNotifyMessage(m, true)
+		} else {
+			n, err := result.RowsAffected()
+			if err != nil {
+
+			}
+			if n == 1 {
+				// @@@@@
+				count += 1
+			}
 		}
 	}
 
-	err = tx.Commit()
-	if err != nil {
-		panic(err)
-	}
-
-	return nil
+	return count, nil
 }
 
 // @@@@@
 func (f *NaverCafeRSSFeed) GetArticles(cafeId string) []*NaverCafeArticle {
-	rows, err := f.db.Query(fmt.Sprintf("SELECT boardId, articleId, title, IFNULL(content, ''), link, author FROM naver_cafe_article WHERE cafeId = '%s'", cafeId))
+	rows, err := f.db.Query(fmt.Sprintf("SELECT boardId, articleId, title, IFNULL(content, ''), link, author, createdAt FROM naver_cafe_article WHERE cafeId = '%s'", cafeId))
 	if err != nil {
 		panic(err)
 	}
 
 	var articleId int
 	var boardId, title, content, link, author string
+	var dt *time.Time
 
 	var articles []*NaverCafeArticle
 	for rows.Next() {
-		err = rows.Scan(&boardId, &articleId, &title, &content, &link, &author)
+		err = rows.Scan(&boardId, &articleId, &title, &content, &link, &author, &dt)
 		if err != nil {
 			panic(err)
 		}
@@ -290,7 +294,7 @@ func (f *NaverCafeRSSFeed) GetArticles(cafeId string) []*NaverCafeArticle {
 			Content:   content,
 			Link:      link,
 			Author:    author,
-			CreatedAt: "",
+			CreatedAt: dt,
 		}
 
 		articles = append(articles, article)
