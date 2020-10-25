@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const NaverCafeRSSFeedModel ModelType = "naver_cafe_rss_feed"
+const NaverCafeModel ModelType = "naver_cafe_model"
 
 // @@@@@
 type NaverCafeArticle struct {
@@ -23,16 +23,16 @@ type NaverCafeArticle struct {
 	CreatedAt *time.Time
 }
 
-type NaverCafeRSSFeed struct {
+type NaverCafe struct {
 	db *sql.DB
 }
 
-func NewNaverCafeRSSFeed(config *g.AppConfig, db *sql.DB) *NaverCafeRSSFeed {
-	rssFeed := &NaverCafeRSSFeed{
+func NewNaverCafe(config *g.AppConfig, db *sql.DB) *NaverCafe {
+	nc := &NaverCafe{
 		db: db,
 	}
 
-	if err := rssFeed.init(config); err != nil {
+	if err := nc.init(config); err != nil {
 		m := fmt.Sprintf("네이버 카페 관련 DB를 초기화하는 중에 치명적인 오류가 발생하였습니다.\r\n\r\n%s", err)
 
 		notifyapi.SendNotifyMessage(m, true)
@@ -40,28 +40,28 @@ func NewNaverCafeRSSFeed(config *g.AppConfig, db *sql.DB) *NaverCafeRSSFeed {
 		log.Panic(m)
 	}
 
-	return rssFeed
+	return nc
 }
 
-func (f *NaverCafeRSSFeed) init(config *g.AppConfig) error {
-	if err := f.createTables(); err != nil {
+func (nc *NaverCafe) init(config *g.AppConfig) error {
+	if err := nc.createTables(); err != nil {
 		return err
 	}
 
 	for _, c := range config.RSSFeed.NaverCafes {
 		// 기초 데이터를 추가한다.
-		if err := f.insertNaverCafeInfo(c.ID, c.ClubID, c.Name, c.Description, c.Url); err != nil {
+		if err := nc.insertNaverCafeInfo(c.ID, c.ClubID, c.Name, c.Description, c.Url); err != nil {
 			return err
 		}
 
 		for _, b := range c.Boards {
-			if err := f.insertNaverCafeBoardInfo(c.ID, b.ID, b.Name); err != nil {
+			if err := nc.insertNaverCafeBoardInfo(c.ID, b.ID, b.Name); err != nil {
 				return err
 			}
 		}
 
 		// 일정 시간이 지난 게시물 자료를 모두 삭제한다.
-		if err := f.deleteOutOfDateArticles(c.ID, c.ArticleArchiveDate); err != nil {
+		if err := nc.deleteOutOfDateArticles(c.ID, c.ArticleArchiveDate); err != nil {
 			return err
 		}
 	}
@@ -70,11 +70,11 @@ func (f *NaverCafeRSSFeed) init(config *g.AppConfig) error {
 }
 
 //noinspection GoUnhandledErrorResult
-func (f *NaverCafeRSSFeed) createTables() error {
+func (nc *NaverCafe) createTables() error {
 	//
 	// naver_cafe_info 테이블
 	//
-	stmt1, err := f.db.Prepare(`
+	stmt1, err := nc.db.Prepare(`
 		CREATE TABLE IF NOT EXISTS naver_cafe_info (
 			cafeId 		VARCHAR( 30) PRIMARY KEY NOT NULL UNIQUE,
 			clubId 		VARCHAR( 30) NOT NULL,
@@ -91,7 +91,7 @@ func (f *NaverCafeRSSFeed) createTables() error {
 		return err
 	}
 
-	stmt2, err := f.db.Prepare(`
+	stmt2, err := nc.db.Prepare(`
 		CREATE INDEX IF NOT EXISTS naver_cafe_info_index01 ON naver_cafe_info(clubId)
 	`)
 	if err != nil {
@@ -105,7 +105,7 @@ func (f *NaverCafeRSSFeed) createTables() error {
 	//
 	// naver_cafe_board_info 테이블
 	//
-	stmt3, err := f.db.Prepare(`
+	stmt3, err := nc.db.Prepare(`
 		CREATE TABLE IF NOT EXISTS naver_cafe_board_info (
 			cafeId 		VARCHAR( 30) NOT NULL,
 			boardId		VARCHAR(  5) PRIMARY KEY NOT NULL UNIQUE,
@@ -121,7 +121,7 @@ func (f *NaverCafeRSSFeed) createTables() error {
 		return err
 	}
 
-	stmt4, err := f.db.Prepare(`
+	stmt4, err := nc.db.Prepare(`
 		CREATE INDEX IF NOT EXISTS naver_cafe_board_info_index01 ON naver_cafe_board_info(cafeId)
 	`)
 	if err != nil {
@@ -135,7 +135,7 @@ func (f *NaverCafeRSSFeed) createTables() error {
 	//
 	// naver_cafe_article 테이블
 	//
-	stmt5, err := f.db.Prepare(`
+	stmt5, err := nc.db.Prepare(`
 		CREATE TABLE IF NOT EXISTS naver_cafe_article (
 			cafeId 		VARCHAR( 30) NOT NULL,
 			boardId 	VARCHAR(  5) NOT NULL,
@@ -158,7 +158,7 @@ func (f *NaverCafeRSSFeed) createTables() error {
 		return err
 	}
 
-	stmt6, err := f.db.Prepare(`
+	stmt6, err := nc.db.Prepare(`
 		CREATE INDEX IF NOT EXISTS naver_cafe_article_index01 ON naver_cafe_article(createdAt)
 	`)
 	if err != nil {
@@ -173,8 +173,8 @@ func (f *NaverCafeRSSFeed) createTables() error {
 }
 
 //noinspection GoUnhandledErrorResult
-func (f *NaverCafeRSSFeed) insertNaverCafeInfo(cafeId, clubId, name, description, url string) error {
-	stmt, err := f.db.Prepare("INSERT OR REPLACE INTO naver_cafe_info (cafeId, clubId, name, description, url) VALUES (?, ?, ?, ?, ?)")
+func (nc *NaverCafe) insertNaverCafeInfo(cafeId, clubId, name, description, url string) error {
+	stmt, err := nc.db.Prepare("INSERT OR REPLACE INTO naver_cafe_info (cafeId, clubId, name, description, url) VALUES (?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -187,8 +187,8 @@ func (f *NaverCafeRSSFeed) insertNaverCafeInfo(cafeId, clubId, name, description
 }
 
 //noinspection GoUnhandledErrorResult
-func (f *NaverCafeRSSFeed) insertNaverCafeBoardInfo(cafeId, boardId, name string) error {
-	stmt, err := f.db.Prepare("INSERT OR REPLACE INTO naver_cafe_board_info (cafeId, boardId, name) VALUES (?, ?, ?)")
+func (nc *NaverCafe) insertNaverCafeBoardInfo(cafeId, boardId, name string) error {
+	stmt, err := nc.db.Prepare("INSERT OR REPLACE INTO naver_cafe_board_info (cafeId, boardId, name) VALUES (?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -201,9 +201,9 @@ func (f *NaverCafeRSSFeed) insertNaverCafeBoardInfo(cafeId, boardId, name string
 }
 
 //noinspection GoUnhandledErrorResult
-func (f *NaverCafeRSSFeed) GetLatestArticleID(cafeId string) (int, error) {
+func (nc *NaverCafe) GetLatestArticleID(cafeId string) (int, error) {
 	var articleId int
-	err := f.db.QueryRow(`
+	err := nc.db.QueryRow(`
 		SELECT IFNULL(MAX(articleId), 0)
 		  FROM naver_cafe_article
 		 WHERE cafeId = ?
@@ -217,10 +217,10 @@ func (f *NaverCafeRSSFeed) GetLatestArticleID(cafeId string) (int, error) {
 }
 
 //noinspection GoUnhandledErrorResult
-func (f *NaverCafeRSSFeed) InsertArticles(cafeId string, articles []*NaverCafeArticle) (int, error) {
+func (nc *NaverCafe) InsertArticles(cafeId string, articles []*NaverCafeArticle) (int, error) {
 	// @@@@@ datetime yyyy-MM-dd HH:mm:ss
 	// insert into naver_cafe_article2 (cafeId, boardId, id, createdAt) values ('a', 'a', 6, datetime('2020-12-10 21:44:59'))
-	stmt, err := f.db.Prepare(`
+	stmt, err := nc.db.Prepare(`
 		INSERT OR REPLACE INTO naver_cafe_article (
 		            		   cafeId
 		            		 , boardId
@@ -270,8 +270,8 @@ func (f *NaverCafeRSSFeed) InsertArticles(cafeId string, articles []*NaverCafeAr
 }
 
 // @@@@@
-func (f *NaverCafeRSSFeed) GetArticles(cafeId string) []*NaverCafeArticle {
-	rows, err := f.db.Query(fmt.Sprintf("SELECT boardId, articleId, title, IFNULL(content, ''), link, author, createdAt FROM naver_cafe_article WHERE cafeId = '%s'", cafeId))
+func (nc *NaverCafe) GetArticles(cafeId string) []*NaverCafeArticle {
+	rows, err := nc.db.Query(fmt.Sprintf("SELECT boardId, articleId, title, IFNULL(content, ''), link, author, createdAt FROM naver_cafe_article WHERE cafeId = '%s'", cafeId))
 	if err != nil {
 		panic(err)
 	}
@@ -308,7 +308,7 @@ func (f *NaverCafeRSSFeed) GetArticles(cafeId string) []*NaverCafeArticle {
 	return articles
 }
 
-func (f *NaverCafeRSSFeed) deleteOutOfDateArticles(cafeId string, articleArchiveDate int) error {
+func (nc *NaverCafe) deleteOutOfDateArticles(cafeId string, articleArchiveDate int) error {
 	// @@@@@
 	return nil
 }

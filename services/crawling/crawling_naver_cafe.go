@@ -20,10 +20,10 @@ const (
 type naverCafeCrawling struct {
 	config *g.NaverCafeCrawlingConfig
 
-	model *model.NaverCafeRSSFeed
+	model *model.NaverCafe
 }
 
-func newNaverCafeCrawling(config *g.NaverCafeCrawlingConfig, model *model.NaverCafeRSSFeed) *naverCafeCrawling {
+func newNaverCafeCrawling(config *g.NaverCafeCrawlingConfig, model *model.NaverCafe) *naverCafeCrawling {
 	return &naverCafeCrawling{
 		config: config,
 

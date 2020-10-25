@@ -22,7 +22,7 @@ type WebServiceHandlers struct {
 
 	db *sql.DB
 
-	naverCafeRSSFeed *model.NaverCafeRSSFeed
+	naverCafe *model.NaverCafe
 }
 
 func NewWebServiceHandlers(config *g.AppConfig) *WebServiceHandlers {
@@ -40,7 +40,7 @@ func NewWebServiceHandlers(config *g.AppConfig) *WebServiceHandlers {
 
 		db: db,
 
-		naverCafeRSSFeed: model.NewNaverCafeRSSFeed(config, db),
+		naverCafe: model.NewNaverCafe(config, db),
 	}
 
 	return handlers
@@ -59,8 +59,8 @@ func (h *WebServiceHandlers) Close() {
 
 func (h *WebServiceHandlers) Find(modelType model.ModelType) interface{} {
 	switch modelType {
-	case model.NaverCafeRSSFeedModel:
-		return h.naverCafeRSSFeed
+	case model.NaverCafeModel:
+		return h.naverCafe
 	}
 
 	return nil
@@ -75,7 +75,7 @@ func (h *WebServiceHandlers) GetNaverCafeRSSFeedHandler(c echo.Context) error {
 
 	// @@@@@
 	//////////////////////////////////////////
-	articles := h.naverCafeRSSFeed.GetArticles(cafeId)
+	articles := h.naverCafe.GetArticles(cafeId)
 	println(articles)
 
 	for _, cafe := range h.config.RSSFeed.NaverCafes {
