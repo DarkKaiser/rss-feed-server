@@ -31,17 +31,6 @@ func newNaverCafeCrawling(config *g.NaverCafeCrawlingConfig, model *model.NaverC
 	}
 }
 
-// @@@@@
-type naverCafeBoardArticle struct {
-	boardID   string
-	boardName string
-	Title     string
-	Link      string
-	Content   string
-	Author    string
-	CreateAt  string
-}
-
 func (c *naverCafeCrawling) Run() {
 	// @@@@@
 	//////////////////////////////////////

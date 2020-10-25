@@ -47,8 +47,8 @@ func (f *NaverCafeRSSFeed) init(config *g.AppConfig) error {
 		return err
 	}
 
-	// 기초 데이터를 추가한다.
 	for _, c := range config.RSSFeed.NaverCafes {
+		// 기초 데이터를 추가한다.
 		if err := f.insertNaverCafeInfo(c.ID, c.ClubID, c.Name, c.Description, c.Url); err != nil {
 			return err
 		}
@@ -58,11 +58,11 @@ func (f *NaverCafeRSSFeed) init(config *g.AppConfig) error {
 				return err
 			}
 		}
-	}
 
-	// 일정 시간이 지난 게시물 자료를 모두 삭제한다.
-	if err := f.deleteOutOfDateArticles(90); err != nil {
-		return err
+		// 일정 시간이 지난 게시물 자료를 모두 삭제한다.
+		if err := f.deleteOutOfDateArticles(c.ID, c.ArticleArchiveDate); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -199,11 +199,6 @@ func (f *NaverCafeRSSFeed) insertNaverCafeBoardInfo(cafeId, boardId, name string
 	return nil
 }
 
-func (f *NaverCafeRSSFeed) deleteOutOfDateArticles(deleteDaysAgo uint) error {
-	// @@@@@
-	return nil
-}
-
 //noinspection GoUnhandledErrorResult
 func (f *NaverCafeRSSFeed) GetLatestArticleID(cafeId string) (int, error) {
 	var articleId int
@@ -220,24 +215,46 @@ func (f *NaverCafeRSSFeed) GetLatestArticleID(cafeId string) (int, error) {
 	return articleId, nil
 }
 
-// @@@@@ boardid+article data
+//noinspection GoUnhandledErrorResult
 func (f *NaverCafeRSSFeed) InsertArticles(cafeId string, articles []*NaverCafeArticle) error {
+	// @@@@@
+	// 트랜잭션 묶기=>코맨드쪽 보기 https://pseudomuto.com/2018/01/clean-sql-transactions-in-golang/
 	tx, err := f.db.Begin()
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer tx.Rollback()
 
-	stmt, err := tx.Prepare("INSERT INTO naver_cafe_article (cafeId, boardId, articleId, title, link, author, createdAt) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))")
+	// @@@@@ datetime
+	stmt, err := tx.Prepare(`
+		INSERT INTO naver_cafe_article (
+		            cafeId
+		          , boardId
+		          , articleId
+		          , title
+		          , link
+		          , author
+		          , createdAt
+		          )
+	         VALUES (
+		            ?
+		          , ?
+		          , ?
+		          , ?
+		          , ?
+		          , ?
+		          , datetime('now')
+		          )
+	`)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer stmt.Close()
 
 	for _, a := range articles {
 		_, err := stmt.Exec(cafeId, a.BoardID, a.ArticleID, a.Title, a.Link, a.Author)
 		if err != nil {
-			panic(err)
+			return err
 		}
 	}
 
@@ -249,7 +266,7 @@ func (f *NaverCafeRSSFeed) InsertArticles(cafeId string, articles []*NaverCafeAr
 	return nil
 }
 
-// @@@@@ board + article
+// @@@@@
 func (f *NaverCafeRSSFeed) GetArticles(cafeId string) []*NaverCafeArticle {
 	rows, err := f.db.Query(fmt.Sprintf("SELECT boardId, articleId, title, IFNULL(content, ''), link, author FROM naver_cafe_article WHERE cafeId = '%s'", cafeId))
 	if err != nil {
@@ -278,8 +295,16 @@ func (f *NaverCafeRSSFeed) GetArticles(cafeId string) []*NaverCafeArticle {
 
 		articles = append(articles, article)
 	}
+	err = rows.Err()
+	if err != nil {
 
+	}
 	rows.Close() //good habit to close
 
 	return articles
+}
+
+func (f *NaverCafeRSSFeed) deleteOutOfDateArticles(cafeId string, articleArchiveDate int) error {
+	// @@@@@
+	return nil
 }
