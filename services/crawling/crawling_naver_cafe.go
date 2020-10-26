@@ -1,6 +1,7 @@
 package crawling
 
 import (
+	"errors"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/darkkaiser/rss-feed-server/g"
@@ -11,6 +12,7 @@ import (
 	"golang.org/x/text/encoding/korean"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -18,6 +20,9 @@ import (
 
 const (
 	naverCafeCrawlingBoardTypeList string = "L"
+
+	// 크롤링 할 최대 페이지 수
+	crawlingMaxPageCount = 10
 )
 
 type naverCafeCrawling struct {
@@ -49,8 +54,10 @@ func (c *naverCafeCrawling) Run() {
 	if len(articles) > 0 {
 		c.model.InsertArticles(c.config.ID, articles)
 	}
+	//////////////////////////////////////
 }
 
+//noinspection GoErrorStringFormat
 func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, string, error) {
 	latestArticleID, err := c.model.GetLatestArticleID(c.config.ID)
 	if err != nil {
@@ -59,86 +66,160 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, str
 
 	articles := make([]*model.NaverCafeArticle, 0)
 
-	// @@@@@
-	////////////////////////////////////
-	// 페이지 중간에 오류나면???
-	for pageNo := 1; pageNo <= 10; pageNo++ {
+	euckrDecoder := korean.EUCKR.NewDecoder()
+	for pageNo := 1; pageNo <= crawlingMaxPageCount; pageNo++ {
 		ncPageUrl := fmt.Sprintf("%s/ArticleList.nhn?search.clubid=%s&userDisplay=50&search.boardtype=L&search.totalCount=501&search.page=%d", c.config.Url, c.config.ClubID, pageNo)
 
 		res, err := http.Get(ncPageUrl)
 		if err != nil {
-
+			return nil, fmt.Sprintf("네이버 카페('%s') 페이지 접근이 실패하였습니다.", c.config.ID), err
 		}
 		if res.StatusCode != http.StatusOK {
-
+			return nil, fmt.Sprintf("네이버 카페('%s') 페이지 접근이 실패하였습니다.", c.config.ID), fmt.Errorf("HTTP Response StatusCode:%d", res.StatusCode)
 		}
 
-		resBodyBytes, err := ioutil.ReadAll(res.Body)
-		doc1 := string(resBodyBytes)
+		bodyBytes, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return nil, fmt.Sprintf("네이버 카페('%s') 페이지의 내용을 읽을 수 없습니다.", c.config.ID), err
+		}
 		res.Body.Close()
 
-		euckrDecoder := korean.EUCKR.NewDecoder()
-		name, err0 := euckrDecoder.String(string(doc1))
-		if err0 != nil {
-
+		bodyString, err := euckrDecoder.String(string(bodyBytes))
+		if err != nil {
+			return nil, fmt.Sprintf("네이버 카페('%s') 페이지의 문자열 변환(EUC-KR to UTF-8)이 실패하였습니다.", c.config.ID), err
 		}
 
-		htmlNode, err := html.Parse(strings.NewReader(name))
-		doc := goquery.NewDocumentFromNode(htmlNode)
+		root, err := html.Parse(strings.NewReader(bodyString))
+		if err != nil {
+			return nil, fmt.Sprintf("네이버 카페('%s') 페이지의 HTML 파싱이 실패하였습니다.", c.config.ID), err
+		}
 
-		//doc, err := goquery.NewDocumentFromReader(res.Body)
-		//if err != nil {
-		//
-		//}
-
+		doc := goquery.NewDocumentFromNode(root)
 		ncSelection := doc.Find("div.article-board > table > tbody > tr:not(.board-notice)")
-		ncSelection.Each(func(i int, s *goquery.Selection) {
-			//fmt.Print("# " + strings.TrimSpace(s.Find("td.td_article div.board-name a").Text()))
-			href1, _ := s.Find("td.td_article div.board-name a").Attr("href")
-			println("### href1:" + href1)
-			if href1 == "" {
-				return
+		if len(ncSelection.Nodes) == 0 { // 전체글보기의 게시글이 0건이라면 CSS 파싱이 실패한것으로 본다.
+			return nil, fmt.Sprintf("네이버 카페('%s')의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.config.ID), err
+		}
+
+		var foundArticleAlreadyAddedToDB = false
+		ncSelection.EachWithBreak(func(i int, s *goquery.Selection) bool {
+			// 게시판
+			as := s.Find("td.td_article > div.board-name a.link_name")
+			if as.Length() != 1 {
+				err = errors.New("게시글에서 게시판 정보를 찾을 수 없습니다.")
+				return false
 			}
-			p1 := strings.Index(href1, "search.menuid=")
-			href1 = href1[p1+14:]
-			p2 := strings.Index(href1, "&")
-			href1 = href1[:p2]
-			println(p1)
-			//fmt.Print(", " + strings.TrimSpace(href1))
+			boardUrl, exists := as.Attr("href")
+			if exists == false {
+				err = errors.New("게시글에서 게시판 URL 추출이 실패하였습니다.")
+				return false
+			}
+			u, err := url.Parse(boardUrl)
+			if err != nil {
+				err = fmt.Errorf("게시글에서 게시판 URL 파싱이 실패하였습니다. (error:%s)", err)
+				return false
+			}
+			q, err := url.ParseQuery(u.RawQuery)
+			if err != nil {
+				err = fmt.Errorf("게시글에서 게시판 URL 파싱이 실패하였습니다. (error:%s)", err)
+				return false
+			}
+			boardID := strings.TrimSpace(q.Get("search.menuid"))
+			if boardID == "" {
+				err = errors.New("게시글에서 게시판 ID 추출이 실패하였습니다.")
+				return false
+			}
+			boardName := strings.TrimSpace(as.Text())
 
-			// Title & Link
-			title := strings.TrimSpace(s.Find("a.article").Text())
-			link, _ := s.Find("a.article").Attr("href")
-			p3 := strings.Index(link, "articleid=")
-			articleId := link[p3+10:]
-			p4 := strings.Index(articleId, "&")
-			articleId = articleId[:p4]
-			aid, _ := strconv.Atoi(articleId)
+			// 제목, 링크
+			as = s.Find("td.td_article > div.board-list a.article")
+			if as.Length() != 1 {
+				err = errors.New("게시글에서 제목 정보를 찾을 수 없습니다.")
+				return false
+			}
+			title := strings.TrimSpace(as.Text())
+			link, exists := as.Attr("href")
+			if exists == false {
+				err = errors.New("게시글에서 상세페이지 URL 추출이 실패하였습니다.")
+				return false
+			}
 
-			// Description => Content
+			// 게시글ID
+			u, err = url.Parse(link)
+			if err != nil {
+				err = fmt.Errorf("게시글에서 상세페이지 URL 파싱이 실패하였습니다. (error:%s)", err)
+				return false
+			}
+			q, err = url.ParseQuery(u.RawQuery)
+			if err != nil {
+				err = fmt.Errorf("게시글에서 상세페이지 URL 파싱이 실패하였습니다. (error:%s)", err)
+				return false
+			}
+			articleID, err := strconv.ParseInt(q.Get("articleid"), 10, 64)
+			if err != nil {
+				err = fmt.Errorf("게시글에서 게시글 ID 추출이 실패하였습니다. (error:%s)", err)
+				return false
+			}
 
-			// Author
-			author := strings.TrimSpace(s.Find("td.td_name > div.pers_nick_area").Text())
+			// 이미 DB에 추가되어 있는 게시글인지 확인한다. 이후의 게시글 추출 작업은 취소된다.
+			if articleID <= latestArticleID {
+				foundArticleAlreadyAddedToDB = true
+				return false
+			}
 
-			// Created
-			fmt.Print(", " + strings.TrimSpace(s.Find("td.td_date").Text()) + "\n")
+			// 작성자
+			as = s.Find("td.td_name > div.pers_nick_area td.p-nick")
+			if as.Length() != 1 {
+				err = errors.New("게시글에서 작성자 정보를 찾을 수 없습니다.")
+				return false
+			}
+			author := strings.TrimSpace(as.Text())
 
-			var article = &model.NaverCafeArticle{
-				BoardID:   href1,
-				ArticleID: int64(aid),
+			// 작성일
+			as = s.Find("td.td_date")
+			if as.Length() != 1 {
+				err = errors.New("게시글에서 작성일 정보를 찾을 수 없습니다.")
+				return false
+			}
+			// @@@@@
+			var createdAt time.Time
+			pubDate := strings.TrimSpace(as.Text())
+			time1 := strings.Split(pubDate, ":")
+			if len(time1) == 2 {
+
+			} else {
+				date := strings.Split(pubDate, ".")
+				if len(date) == 3 {
+					createdAt = time.Date()
+				} else {
+					return false
+				}
+			}
+			//- [ ]  날짜만 추출된 게시물은 해당일의 마직 시간으로 통일 23ㅡ23ㅡ59초
+
+			articles = append(articles, &model.NaverCafeArticle{
+				BoardID:   boardID,
+				BoardName: boardName,
+				ArticleID: articleID,
 				Title:     title,
 				Content:   "",
-				Link:      link,
+				Link:      "https://cafe.naver.com" + link, //@@@@@
 				Author:    author,
-				CreatedAt: time.Now(),
-			}
-			articles = append(articles, article)
+				CreatedAt: createdAt, //@@@@@
+			})
+
+			return true
 		})
+		if err != nil {
+			return nil, fmt.Sprintf("네이버 카페('%s')의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.config.ID), err
+		}
+
+		if foundArticleAlreadyAddedToDB == true {
+			break
+		}
 	}
-	println(latestArticleID)
-	//- [ ]  날짜만 추출된 게시물은 해당일의 마직 시간으로 통일 23ㅡ23ㅡ59초
+
+	// @@@@@
 	//- [ ]  상세페이지는 리스트 다 읽고나서 고루틴풀을 이용해서 로드
-	//////////////////////////////////////////////////////////////////////////
 
 	return articles, "", nil
 }
