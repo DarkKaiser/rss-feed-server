@@ -24,6 +24,11 @@ type NaverCafeArticle struct {
 	CreatedAt time.Time
 }
 
+//@@@@@
+func (a NaverCafeArticle) String() string {
+	return fmt.Sprintf("[%s, %s, %d, %s, %s, %s, %s, %s]", a.BoardID, a.BoardName, a.ArticleID, a.Title, a.Content, a.Link, a.Author, a.CreatedAt.Format("2006-10-02 15:04:05"))
+}
+
 type NaverCafe struct {
 	db *sql.DB
 }
@@ -61,7 +66,7 @@ func (nc *NaverCafe) init(config *g.AppConfig) error {
 			}
 		}
 
-		// 일정 시간이 지난 게시물 자료를 모두 삭제한다.
+		// 일정 시간이 지난 게시글 자료를 모두 삭제한다.
 		if err := nc.deleteOutOfDateArticles(c.ID, c.ArticleArchiveDate); err != nil {
 			return err
 		}
@@ -230,17 +235,18 @@ func (nc *NaverCafe) InsertArticles(cafeId string, articles []*NaverCafeArticle)
 	defer stmt.Close()
 
 	var insertedCnt int64
+	var sentNotification = false
 	for _, article := range articles {
-		if _, err := stmt.Exec(cafeId, article.BoardID, article.ArticleID, article.Title, article.Content, article.Link, article.Author, article.CreatedAt.Format("2006-99-02 15:04:05")); err != nil {
-			// @@@@@
-			////////////////////////////
-			m := fmt.Sprintf("네이버 카페('%s')의 '%s' 게시판의 게시물 등록이 실패하였습니다.", cafeId, article.BoardName)
+		if _, err := stmt.Exec(cafeId, article.BoardID, article.ArticleID, article.Title, article.Content, article.Link, article.Author, article.CreatedAt.Format("2006-10-02 15:04:05")); err != nil {
+			m := fmt.Sprintf("네이버 카페('%s > %s')의 게시글 등록이 실패하였습니다.", cafeId, article.BoardName)
 
-			// 로그로 남기기 article.String()
-			log.Error(fmt.Sprintf("%s (error:%s)", m, err))
+			log.Error(fmt.Sprintf("%s (게시글정보:%s) (error:%s)", m, article, err))
 
-			notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
-			////////////////////////////
+			// 너무 많은 알림 메시지가 발송될 수 있으므로, 동시에 입력되는 게시글 중 최초 오류건에 대해서만 알림 메시지를 보낸다.
+			if sentNotification == false {
+				sentNotification = true
+				notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+			}
 		} else {
 			insertedCnt += 1
 		}
@@ -249,43 +255,68 @@ func (nc *NaverCafe) InsertArticles(cafeId string, articles []*NaverCafeArticle)
 	return insertedCnt, nil
 }
 
-// @@@@@
-func (nc *NaverCafe) GetArticles(cafeId string) []*NaverCafeArticle {
-	rows, err := nc.db.Query(fmt.Sprintf("SELECT boardId, articleId, title, IFNULL(content, ''), link, author, createdAt FROM naver_cafe_article WHERE cafeId = '%s'", cafeId))
+//noinspection GoUnhandledErrorResult
+func (nc *NaverCafe) GetArticles(cafeId string, maxArticleCount uint) ([]*NaverCafeArticle, error) {
+	// @@@@@ createdAt이 null일때 확인
+	stmt, err := nc.db.Prepare(`
+		SELECT boardId
+		     , articleId
+		     , title
+		     , IFNULL(content, "")
+		     , link
+		     , IFNULL(author, "")
+		     , createdAt
+		  FROM naver_cafe_article
+		 WHERE cafeId = ?
+      ORDER BY articleId DESC
+         LIMIT ?
+	`)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
+	defer stmt.Close()
 
-	var articleId int
-	var boardId, title, content, link, author string
-	var dt *time.Time
+	rows, err := stmt.Query(cafeId, maxArticleCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-	var articles []*NaverCafeArticle
+	// @@@@@
+	////////////////////////////////
+	//var articleId int
+	//var boardId, title, content, link, author string
+	//var dt *time.Time
+
+	articles := make([]*NaverCafeArticle, 0)
+
 	for rows.Next() {
-		err = rows.Scan(&boardId, &articleId, &title, &content, &link, &author, &dt)
-		if err != nil {
-			panic(err)
+		var article NaverCafeArticle
+		if err = rows.Scan(&article.BoardID, &article.ArticleID, &article.Title, &article.Content, &article.Link, &article.Author, &article.CreatedAt); err != nil {
+			return nil, err
 		}
+		//if err = rows.Scan(&boardId, &articleId, &title, &content, &link, &author, &dt); err != nil {
+		//	return nil, err
+		//}
 
-		article := &NaverCafeArticle{
-			BoardID:   boardId,
-			ArticleID: articleId,
-			Title:     title,
-			Content:   content,
-			Link:      link,
-			Author:    author,
-			CreatedAt: *dt,
-		}
+		//article := &NaverCafeArticle{
+		//	BoardID:   boardId,
+		//	ArticleID: articleId,
+		//	Title:     title,
+		//	Content:   content,
+		//	Link:      link,
+		//	Author:    author,
+		//	CreatedAt: *dt,
+		//}
 
-		articles = append(articles, article)
+		articles = append(articles, &article)
 	}
-	err = rows.Err()
-	if err != nil {
-
+	////////////////////////////////
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
-	rows.Close() //good habit to close
 
-	return articles
+	return articles, nil
 }
 
 func (nc *NaverCafe) deleteOutOfDateArticles(cafeId string, articleArchiveDate uint) error {

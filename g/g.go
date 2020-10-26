@@ -17,7 +17,8 @@ const (
 type AppConfig struct {
 	Debug   bool `json:"debug"`
 	RSSFeed struct {
-		NaverCafes []*NaverCafeCrawlingConfig `json:"naver_cafes"`
+		MaxItemsCount uint                       `json:"max_items_count"`
+		NaverCafes    []*NaverCafeCrawlingConfig `json:"naver_cafes"`
 	} `json:"rss_feed"`
 	WS struct {
 		ListenPort int `json:"listen_port"`
