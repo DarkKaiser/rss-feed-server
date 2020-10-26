@@ -24,7 +24,7 @@ type WebServiceHandlers struct {
 
 	naverCafe *model.NaverCafe
 
-	rssFeedMaxItemsCount uint
+	rssFeedMaxItemCount uint
 }
 
 func NewWebServiceHandlers(config *g.AppConfig) *WebServiceHandlers {
@@ -44,7 +44,7 @@ func NewWebServiceHandlers(config *g.AppConfig) *WebServiceHandlers {
 
 		naverCafe: model.NewNaverCafe(config, db),
 
-		rssFeedMaxItemsCount: config.RSSFeed.MaxItemsCount,
+		rssFeedMaxItemCount: config.RSSFeed.MaxItemCount,
 	}
 
 	return handlers
@@ -79,7 +79,7 @@ func (h *WebServiceHandlers) GetNaverCafeRSSFeedHandler(c echo.Context) error {
 
 	// @@@@@
 	//////////////////////////////////////////
-	articles, _ := h.naverCafe.GetArticles(cafeId, h.rssFeedMaxItemsCount)
+	articles, _ := h.naverCafe.GetArticles(cafeId, h.rssFeedMaxItemCount)
 	println(articles)
 
 	for _, cafe := range h.config.RSSFeed.NaverCafes {

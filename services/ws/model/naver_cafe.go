@@ -12,11 +12,10 @@ import (
 
 const NaverCafeModel ModelType = "naver_cafe_model"
 
-// @@@@@
 type NaverCafeArticle struct {
 	BoardID   string
 	BoardName string
-	ArticleID int
+	ArticleID int64
 	Title     string
 	Content   string
 	Link      string
@@ -24,7 +23,6 @@ type NaverCafeArticle struct {
 	CreatedAt time.Time
 }
 
-//@@@@@
 func (a NaverCafeArticle) String() string {
 	return fmt.Sprintf("[%s, %s, %d, %s, %s, %s, %s, %s]", a.BoardID, a.BoardName, a.ArticleID, a.Title, a.Content, a.Link, a.Author, a.CreatedAt.Format("2006-10-02 15:04:05"))
 }
@@ -207,8 +205,8 @@ func (nc *NaverCafe) insertNaverCafeBoardInfo(cafeId, boardId, name string) erro
 }
 
 //noinspection GoUnhandledErrorResult
-func (nc *NaverCafe) GetLatestArticleID(cafeId string) (int, error) {
-	var articleId int
+func (nc *NaverCafe) GetLatestArticleID(cafeId string) (int64, error) {
+	var articleId int64
 	err := nc.db.QueryRow(`
 		SELECT IFNULL(MAX(articleId), 0)
 		  FROM naver_cafe_article
@@ -257,7 +255,6 @@ func (nc *NaverCafe) InsertArticles(cafeId string, articles []*NaverCafeArticle)
 
 //noinspection GoUnhandledErrorResult
 func (nc *NaverCafe) GetArticles(cafeId string, maxArticleCount uint) ([]*NaverCafeArticle, error) {
-	// @@@@@ createdAt이 null일때 확인
 	stmt, err := nc.db.Prepare(`
 		SELECT boardId
 		     , articleId
@@ -282,36 +279,21 @@ func (nc *NaverCafe) GetArticles(cafeId string, maxArticleCount uint) ([]*NaverC
 	}
 	defer rows.Close()
 
-	// @@@@@
-	////////////////////////////////
-	//var articleId int
-	//var boardId, title, content, link, author string
-	//var dt *time.Time
-
 	articles := make([]*NaverCafeArticle, 0)
 
 	for rows.Next() {
 		var article NaverCafeArticle
-		if err = rows.Scan(&article.BoardID, &article.ArticleID, &article.Title, &article.Content, &article.Link, &article.Author, &article.CreatedAt); err != nil {
+
+		var createdAt sql.NullTime
+		if err = rows.Scan(&article.BoardID, &article.ArticleID, &article.Title, &article.Content, &article.Link, &article.Author, &createdAt); err != nil {
 			return nil, err
 		}
-		//if err = rows.Scan(&boardId, &articleId, &title, &content, &link, &author, &dt); err != nil {
-		//	return nil, err
-		//}
-
-		//article := &NaverCafeArticle{
-		//	BoardID:   boardId,
-		//	ArticleID: articleId,
-		//	Title:     title,
-		//	Content:   content,
-		//	Link:      link,
-		//	Author:    author,
-		//	CreatedAt: *dt,
-		//}
+		if createdAt.Valid == true {
+			article.CreatedAt = createdAt.Time
+		}
 
 		articles = append(articles, &article)
 	}
-	////////////////////////////////
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}

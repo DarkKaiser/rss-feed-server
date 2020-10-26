@@ -101,16 +101,15 @@ func (c *naverCafeCrawling) Run() {
 			// Created
 			fmt.Print(", " + strings.TrimSpace(s.Find("td.td_date").Text()) + "\n")
 
-			article := &model.NaverCafeArticle{
+			var article = &model.NaverCafeArticle{
 				BoardID:   href1,
-				ArticleID: aid,
+				ArticleID: int64(aid),
 				Title:     title,
 				Content:   "",
 				Link:      link,
 				Author:    author,
 				CreatedAt: time.Now(),
 			}
-
 			articles = append(articles, article)
 		})
 	}
