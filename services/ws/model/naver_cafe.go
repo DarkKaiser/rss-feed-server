@@ -301,7 +301,21 @@ func (nc *NaverCafe) GetArticles(cafeId string, maxArticleCount uint) ([]*NaverC
 	return articles, nil
 }
 
+//noinspection GoUnhandledErrorResult
 func (nc *NaverCafe) deleteOutOfDateArticles(cafeId string, articleArchiveDate uint) error {
-	// @@@@@
+	stmt, err := nc.db.Prepare(fmt.Sprintf(`
+		DELETE 
+		  FROM naver_cafe_article
+		 WHERE cafeId = ?
+		   AND createdAt < date('now', '-%d days')
+	`, articleArchiveDate))
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	if _, err = stmt.Exec(cafeId); err != nil {
+		return err
+	}
+
 	return nil
 }

@@ -36,9 +36,15 @@ func (c *naverCafeCrawling) Run() {
 	// @@@@@
 	//////////////////////////////////////
 	latestArticleId, err := c.model.GetLatestArticleID(c.config.ID)
-	println(latestArticleId)
-	println(err)
+	if err != nil {
 
+	}
+	println(latestArticleId)
+
+	//- [ ]  날짜만 추출된 게시물은 해당일의 마직 시간으로 통일 23ㅡ23ㅡ59초
+	//- [ ]  상세페이지는 리스트 다 읽고나서 고루틴풀을 이용해서 로드
+
+	// 페이지 중간에 오류나면???
 	var articles []*model.NaverCafeArticle
 	for pageNo := 1; pageNo <= 10; pageNo++ {
 		ncPageUrl := fmt.Sprintf("%s/ArticleList.nhn?search.clubid=%s&userDisplay=50&search.boardtype=L&search.totalCount=501&search.page=%d", c.config.Url, c.config.ClubID, pageNo)
