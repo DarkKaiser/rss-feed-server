@@ -189,7 +189,7 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, str
 			} else {
 				date := strings.Split(pubDate, ".")
 				if len(date) == 3 {
-					createdAt = time.Date()
+					//createdAt = time.Date()
 				} else {
 					return false
 				}
