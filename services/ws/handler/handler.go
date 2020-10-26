@@ -55,7 +55,7 @@ func (h *WebServiceHandlers) Close() {
 	if err != nil {
 		m := "DB를 닫는 중에 오류가 발생하였습니다."
 
-		log.Error(fmt.Sprintf("%s (error:%s)", m, err))
+		log.Errorf("%s (error:%s)", m, err)
 
 		notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 	}

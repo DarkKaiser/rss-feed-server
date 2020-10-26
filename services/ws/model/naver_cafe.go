@@ -37,7 +37,7 @@ func NewNaverCafe(config *g.AppConfig, db *sql.DB) *NaverCafe {
 	}
 
 	if err := nc.init(config); err != nil {
-		m := "네이버 카페 관련 DB를 초기화하는 중에 치명적인 오류가 발생하였습니다."
+		m := "네이버 카페 DB를 초기화하는 중에 치명적인 오류가 발생하였습니다."
 
 		notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 
@@ -238,7 +238,7 @@ func (nc *NaverCafe) InsertArticles(cafeId string, articles []*NaverCafeArticle)
 		if _, err := stmt.Exec(cafeId, article.BoardID, article.ArticleID, article.Title, article.Content, article.Link, article.Author, article.CreatedAt.Format("2006-10-02 15:04:05")); err != nil {
 			m := fmt.Sprintf("네이버 카페('%s > %s')의 게시글 등록이 실패하였습니다.", cafeId, article.BoardName)
 
-			log.Error(fmt.Sprintf("%s (게시글정보:%s) (error:%s)", m, article, err))
+			log.Errorf("%s (게시글정보:%s) (error:%s)", m, article, err)
 
 			// 너무 많은 알림 메시지가 발송될 수 있으므로, 동시에 입력되는 게시글 중 최초 오류건에 대해서만 알림 메시지를 보낸다.
 			if sentNotification == false {

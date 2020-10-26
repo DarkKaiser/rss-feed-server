@@ -61,7 +61,7 @@ func (s *WebService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 			} else {
 				m := "웹 서비스를 구성하는 중에 치명적인 오류가 발생하였습니다."
 
-				log.Error(fmt.Sprintf("%s (error:%s)", m, err))
+				log.Errorf("%s (error:%s)", m, err)
 
 				notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 			}
@@ -84,7 +84,7 @@ func (s *WebService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 				if err := e.Shutdown(ctx); err != nil {
 					m := "웹 서비스를 중지하는 중에 오류가 발생하였습니다."
 
-					log.Error(fmt.Sprintf("%s (error:%s)", m, err))
+					log.Errorf("%s (error:%s)", m, err)
 
 					notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 				}

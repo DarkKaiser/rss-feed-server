@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/darkkaiser/rss-feed-server/g"
+	"github.com/darkkaiser/rss-feed-server/notifyapi"
 	"github.com/darkkaiser/rss-feed-server/services/ws/model"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/html"
 	"golang.org/x/text/encoding/korean"
 	"io/ioutil"
@@ -35,17 +37,31 @@ func newNaverCafeCrawling(config *g.NaverCafeCrawlingConfig, model *model.NaverC
 func (c *naverCafeCrawling) Run() {
 	// @@@@@
 	//////////////////////////////////////
-	latestArticleId, err := c.model.GetLatestArticleID(c.config.ID)
-	if err != nil {
+	articles, errmsg, err := c.runArticleCrawling()
+	if errmsg != "" {
+		println(err)
+		m := ""
 
+		log.Error(m)
+
+		notifyapi.SendNotifyMessage(m, true)
 	}
-	println(latestArticleId)
+	if len(articles) > 0 {
+		c.model.InsertArticles(c.config.ID, articles)
+	}
+}
 
-	//- [ ]  날짜만 추출된 게시물은 해당일의 마직 시간으로 통일 23ㅡ23ㅡ59초
-	//- [ ]  상세페이지는 리스트 다 읽고나서 고루틴풀을 이용해서 로드
+func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, string, error) {
+	latestArticleID, err := c.model.GetLatestArticleID(c.config.ID)
+	if err != nil {
+		return nil, fmt.Sprintf("네이버 카페('%s')에 마지막으로 추가된 게시글ID를 찾는 중에 오류가 발생하였습니다.", c.config.ID), err
+	}
 
+	articles := make([]*model.NaverCafeArticle, 0)
+
+	// @@@@@
+	////////////////////////////////////
 	// 페이지 중간에 오류나면???
-	var articles []*model.NaverCafeArticle
 	for pageNo := 1; pageNo <= 10; pageNo++ {
 		ncPageUrl := fmt.Sprintf("%s/ArticleList.nhn?search.clubid=%s&userDisplay=50&search.boardtype=L&search.totalCount=501&search.page=%d", c.config.Url, c.config.ClubID, pageNo)
 
@@ -119,6 +135,10 @@ func (c *naverCafeCrawling) Run() {
 			articles = append(articles, article)
 		})
 	}
+	println(latestArticleID)
+	//- [ ]  날짜만 추출된 게시물은 해당일의 마직 시간으로 통일 23ㅡ23ㅡ59초
+	//- [ ]  상세페이지는 리스트 다 읽고나서 고루틴풀을 이용해서 로드
+	//////////////////////////////////////////////////////////////////////////
 
-	c.model.InsertArticles(c.config.ID, articles)
+	return articles, "", nil
 }
