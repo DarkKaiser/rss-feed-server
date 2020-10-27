@@ -10,7 +10,11 @@ import (
 	"time"
 )
 
-const NaverCafeModel ModelType = "naver_cafe_model"
+const (
+	NaverCafeModel ModelType = "naver_cafe_model"
+
+	NaverCafeHomeUrl = "https://cafe.naver.com"
+)
 
 type NaverCafeArticle struct {
 	BoardID   string
@@ -54,7 +58,7 @@ func (nc *NaverCafe) init(config *g.AppConfig) error {
 
 	for _, c := range config.RSSFeed.NaverCafes {
 		// 기초 데이터를 추가한다.
-		if err := nc.insertNaverCafeInfo(c.ID, c.ClubID, c.Name, c.Description, c.Url); err != nil {
+		if err := nc.insertNaverCafeInfo(c.ID, c.ClubID, c.Name, c.Description, fmt.Sprintf("%s/%s", NaverCafeHomeUrl, c.ID)); err != nil {
 			return err
 		}
 

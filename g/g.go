@@ -35,7 +35,6 @@ type NaverCafeCrawlingConfig struct {
 	ClubID      string `json:"club_id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	Url         string `json:"url"`
 	Boards      []*struct {
 		ID               string `json:"id"`
 		Name             string `json:"name"`
@@ -74,10 +73,6 @@ func InitAppConfig() *AppConfig {
 
 		if c.Name == "" {
 			log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 Name이 입력되지 않았습니다.", AppConfigFileName, c.ID)
-		}
-
-		if c.Url == "" {
-			log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 Url이 입력되지 않았습니다.", AppConfigFileName, c.ID)
 		}
 
 		var boardIDs []string

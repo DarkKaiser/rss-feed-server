@@ -87,7 +87,7 @@ func (h *WebServiceHandlers) GetNaverCafeRSSFeedHandler(c echo.Context) error {
 			now := time.Now()
 			feed := &feeds.Feed{
 				Title:       cafe.Name,
-				Link:        &feeds.Link{Href: cafe.Url},
+				Link:        &feeds.Link{Href: ""},
 				Description: cafe.Description,
 				Author:      &feeds.Author{Name: "Jason Moiron", Email: "jmoiron@jmoiron.net"},
 				Created:     now,
