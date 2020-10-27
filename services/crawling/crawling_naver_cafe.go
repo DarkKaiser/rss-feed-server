@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -42,8 +43,8 @@ func newNaverCafeCrawling(config *g.NaverCafeCrawlingConfig, model *model.NaverC
 func (c *naverCafeCrawling) Run() {
 	// @@@@@
 	//////////////////////////////////////
-	articles, errmsg, err := c.runArticleCrawling()
-	if errmsg != "" {
+	articles, errdesc, err := c.runArticleCrawling()
+	if errdesc != "" {
 		println(err)
 		m := ""
 
@@ -61,7 +62,7 @@ func (c *naverCafeCrawling) Run() {
 func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, string, error) {
 	latestArticleID, err := c.model.GetLatestArticleID(c.config.ID)
 	if err != nil {
-		return nil, fmt.Sprintf("네이버 카페('%s')에 마지막으로 추가된 게시글ID를 찾는 중에 오류가 발생하였습니다.", c.config.ID), err
+		return nil, fmt.Sprintf("네이버 카페('%s')에 마지막으로 추가된 게시글 ID를 찾는 중에 오류가 발생하였습니다.", c.config.ID), err
 	}
 
 	articles := make([]*model.NaverCafeArticle, 0)
@@ -143,7 +144,7 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, str
 				return false
 			}
 
-			// 게시글ID
+			// 게시글 ID
 			u, err = url.Parse(link)
 			if err != nil {
 				err = fmt.Errorf("게시글에서 상세페이지 URL 파싱이 실패하였습니다. (error:%s)", err)
@@ -180,21 +181,26 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, str
 				err = errors.New("게시글에서 작성일 정보를 찾을 수 없습니다.")
 				return false
 			}
-			// @@@@@
 			var createdAt time.Time
-			pubDate := strings.TrimSpace(as.Text())
-			time1 := strings.Split(pubDate, ":")
-			if len(time1) == 2 {
+			var createdAtString = strings.TrimSpace(as.Text())
+			if matched, _ := regexp.MatchString("[0-9]{2}:[0-9]{2}", createdAtString); matched == true {
+				s := strings.Split(createdAtString, ":")
+				hour, _ := strconv.Atoi(s[0])
+				minute, _ := strconv.Atoi(s[1])
 
+				var now = time.Now()
+				createdAt = time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, time.Local)
+			} else if matched, _ := regexp.MatchString("[0-9]{4}.[0-9]{2}.[0-9]{2}.", createdAtString); matched == true {
+				s := strings.Split(createdAtString, ".")
+				year, _ := strconv.Atoi(s[0])
+				month, _ := strconv.Atoi(s[1])
+				day, _ := strconv.Atoi(s[2])
+
+				createdAt = time.Date(year, time.Month(month), day, 23, 59, 59, 0, time.Local)
 			} else {
-				date := strings.Split(pubDate, ".")
-				if len(date) == 3 {
-					//createdAt = time.Date()
-				} else {
-					return false
-				}
+				err = fmt.Errorf("게시글에서 작성일('%s') 파싱이 실패하였습니다.", createdAtString)
+				return false
 			}
-			//- [ ]  날짜만 추출된 게시물은 해당일의 마직 시간으로 통일 23ㅡ23ㅡ59초
 
 			articles = append(articles, &model.NaverCafeArticle{
 				BoardID:   boardID,
@@ -204,7 +210,7 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, str
 				Content:   "",
 				Link:      "https://cafe.naver.com" + link, //@@@@@
 				Author:    author,
-				CreatedAt: createdAt, //@@@@@
+				CreatedAt: createdAt,
 			})
 
 			return true
@@ -219,7 +225,7 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, str
 	}
 
 	// @@@@@
-	//- [ ]  상세페이지는 리스트 다 읽고나서 고루틴풀을 이용해서 로드
+	// 상세페이지는 리스트 다 읽고나서 고루틴풀을 이용해서 로드
 
 	return articles, "", nil
 }
