@@ -34,7 +34,7 @@ func NewWebServiceHandlers(config *g.AppConfig) *WebServiceHandlers {
 
 		notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 
-		log.Panic(fmt.Sprintf("%s (error:%s)", m, err))
+		log.Panicf("%s (error:%s)", m, err)
 	}
 
 	handlers := &WebServiceHandlers{

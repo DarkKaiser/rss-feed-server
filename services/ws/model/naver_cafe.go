@@ -45,7 +45,7 @@ func NewNaverCafe(config *g.AppConfig, db *sql.DB) *NaverCafe {
 
 		notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 
-		log.Panic(fmt.Sprintf("%s (error:%s)", m, err))
+		log.Panicf("%s (error:%s)", m, err)
 	}
 
 	return nc
@@ -237,7 +237,7 @@ func (nc *NaverCafe) InsertArticles(cafeId string, articles []*NaverCafeArticle)
 	defer stmt.Close()
 
 	var insertedCnt int
-	var sentNotification = false
+	var sentNotifyMessage = false
 	for _, article := range articles {
 		if _, err := stmt.Exec(cafeId, article.BoardID, article.ArticleID, article.Title, article.Content, article.Link, article.Author, article.CreatedAt.Format("2006-10-02 15:04:05")); err != nil {
 			m := fmt.Sprintf("네이버 카페('%s > %s')의 게시글 등록이 실패하였습니다.", cafeId, article.BoardName)
@@ -245,8 +245,8 @@ func (nc *NaverCafe) InsertArticles(cafeId string, articles []*NaverCafeArticle)
 			log.Errorf("%s (게시글정보:%s) (error:%s)", m, article, err)
 
 			// 너무 많은 알림 메시지가 발송될 수 있으므로, 동시에 입력되는 게시글 중 최초 오류건에 대해서만 알림 메시지를 보낸다.
-			if sentNotification == false {
-				sentNotification = true
+			if sentNotifyMessage == false {
+				sentNotifyMessage = true
 				notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 			}
 		} else {

@@ -41,32 +41,38 @@ func newNaverCafeCrawling(config *g.NaverCafeCrawlingConfig, model *model.NaverC
 }
 
 func (c *naverCafeCrawling) Run() {
-	// @@@@@ 로그를 거의 다 안남겼음, 전체코드 확인해서 로그 남길 부분 있는지 확인
 	log.Debugf("네이버 카페('%s') 크롤링 작업을 시작합니다.", c.config.ID)
 
-	articles, errexplanation, err := c.runArticleCrawling()
-	if errexplanation != "" {
-		log.Error(fmt.Sprintf("%s (error:%s)", errexplanation, err))
+	articles, errDescription, err := c.runArticleCrawling()
+	if errDescription != "" {
+		log.Errorf("%s (error:%s)", errDescription, err)
 
-		notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", errexplanation, err), true)
+		notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", errDescription, err), true)
 
 		return
 	}
 
-	// @@@@@
 	if len(articles) > 0 {
+		log.Debugf("네이버 카페('%s') 크롤링 작업 결과로 %d건의 새로운 게시글이 추출되었습니다. 새로운 게시글을 DB에 추가합니다.", c.config.ID, len(articles))
+
 		insertedCnt, err := c.model.InsertArticles(c.config.ID, articles)
 		if err != nil {
+			m := fmt.Sprintf("새로운 게시글을 DB에 추가하는 중에 오류가 발생하여 네이버 카페('%s') 크롤링 작업이 실패하였습니다.", c.config.ID)
+
+			log.Errorf("%s (error:%s)", m, err)
+
+			notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+
 			return
 		}
 
 		if len(articles) != insertedCnt {
-
+			log.Debugf("네이버 카페('%s') 크롤링 작업을 종료합니다. 전체 %d건 중에서 %d건의 새로운 게시글이 DB에 추가되었습니다.", c.config.ID, len(articles), insertedCnt)
 		} else {
-
+			log.Debugf("네이버 카페('%s') 크롤링 작업을 종료합니다. %d건의 새로운 게시글이 DB에 추가되었습니다.", c.config.ID, len(articles))
 		}
 	} else {
-		log.Debugf("네이버 카페('%s') 크롤링 작업이 종료되었습니다. 총 0건의 게시글이 추출되었습니다.", c.config.ID)
+		log.Debugf("네이버 카페('%s') 크롤링 작업을 종료합니다. 새로운 게시글이 존재하지 않습니다.", c.config.ID)
 	}
 }
 
