@@ -41,24 +41,36 @@ func newNaverCafeCrawling(config *g.NaverCafeCrawlingConfig, model *model.NaverC
 }
 
 func (c *naverCafeCrawling) Run() {
+	// @@@@@ 로그를 거의 다 안남겼음, 전체코드 확인해서 로그 남길 부분 있는지 확인
+	log.Debugf("네이버 카페('%s') 크롤링 작업을 시작합니다.", c.config.ID)
+
+	articles, errexplanation, err := c.runArticleCrawling()
+	if errexplanation != "" {
+		log.Error(fmt.Sprintf("%s (error:%s)", errexplanation, err))
+
+		notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", errexplanation, err), true)
+
+		return
+	}
+
 	// @@@@@
-	//////////////////////////////////////
-	articles, errdesc, err := c.runArticleCrawling()
-	if errdesc != "" {
-		println(err)
-		m := ""
-
-		log.Error(m)
-
-		notifyapi.SendNotifyMessage(m, true)
-	}
 	if len(articles) > 0 {
-		c.model.InsertArticles(c.config.ID, articles)
+		insertedCnt, err := c.model.InsertArticles(c.config.ID, articles)
+		if err != nil {
+			return
+		}
+
+		if len(articles) != insertedCnt {
+
+		} else {
+
+		}
+	} else {
+		log.Debugf("네이버 카페('%s') 크롤링 작업이 종료되었습니다. 총 0건의 게시글이 추출되었습니다.", c.config.ID)
 	}
-	//////////////////////////////////////
 }
 
-//noinspection GoErrorStringFormat
+//noinspection GoErrorStringFormat,GoUnhandledErrorResult
 func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, string, error) {
 	latestArticleID, err := c.model.GetLatestArticleID(c.config.ID)
 	if err != nil {
@@ -128,6 +140,9 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, str
 			if boardID == "" {
 				err = errors.New("게시글에서 게시판 ID 추출이 실패하였습니다.")
 				return false
+			}
+			if c.isCrawlingTargetBoard(boardID) == false {
+				return true
 			}
 			boardName := strings.TrimSpace(as.Text())
 
@@ -228,4 +243,14 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, str
 	// 상세페이지는 리스트 다 읽고나서 고루틴풀을 이용해서 로드
 
 	return articles, "", nil
+}
+
+func (c *naverCafeCrawling) isCrawlingTargetBoard(boardID string) bool {
+	for _, board := range c.config.Boards {
+		if board.ID == boardID {
+			return true
+		}
+	}
+
+	return false
 }

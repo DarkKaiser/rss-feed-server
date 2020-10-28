@@ -225,7 +225,7 @@ func (nc *NaverCafe) GetLatestArticleID(cafeId string) (int64, error) {
 }
 
 //noinspection GoUnhandledErrorResult
-func (nc *NaverCafe) InsertArticles(cafeId string, articles []*NaverCafeArticle) (int64, error) {
+func (nc *NaverCafe) InsertArticles(cafeId string, articles []*NaverCafeArticle) (int, error) {
 	stmt, err := nc.db.Prepare(`
 		INSERT OR REPLACE
 		  INTO naver_cafe_article (cafeId, boardId, articleId, title, content, link, author, createdAt)
@@ -236,7 +236,7 @@ func (nc *NaverCafe) InsertArticles(cafeId string, articles []*NaverCafeArticle)
 	}
 	defer stmt.Close()
 
-	var insertedCnt int64
+	var insertedCnt int
 	var sentNotification = false
 	for _, article := range articles {
 		if _, err := stmt.Exec(cafeId, article.BoardID, article.ArticleID, article.Title, article.Content, article.Link, article.Author, article.CreatedAt.Format("2006-10-02 15:04:05")); err != nil {
