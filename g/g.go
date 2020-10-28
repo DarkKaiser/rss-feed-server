@@ -47,6 +47,26 @@ type NaverCafeCrawlingConfig struct {
 	} `json:"scheduler"`
 }
 
+func (c *NaverCafeCrawlingConfig) ContainsBoard(boardID string) bool {
+	for _, board := range c.Boards {
+		if board.ID == boardID {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (c *NaverCafeCrawlingConfig) ContentCanBeReadBoard(boardID string) bool {
+	for _, board := range c.Boards {
+		if board.ID == boardID {
+			return board.ContentCanBeRead
+		}
+	}
+
+	return false
+}
+
 func InitAppConfig() *AppConfig {
 	data, err := ioutil.ReadFile(AppConfigFileName)
 	utils.CheckErr(err)
