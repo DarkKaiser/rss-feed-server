@@ -115,10 +115,6 @@ func (h *WebServiceHandlers) GetNaverCafeRSSFeedHandler(c echo.Context) error {
 
 // @@@@@
 func (h *WebServiceHandlers) generateRSSFeed(c *g.NaverCafeCrawlingConfig, articles []*model.NaverCafeArticle) *feeds.RssFeed {
-	// 3. 보드타입 추가관련 작업
-	// 2. 여수맘 카페도 추가
-	// 4. 개발쪽 json도 보드 하나 추가해서 만들기
-
 	feed := &feeds.Feed{
 		Title:       c.Name,
 		Link:        &feeds.Link{Href: ""},

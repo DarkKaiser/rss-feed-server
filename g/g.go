@@ -14,8 +14,6 @@ const (
 	AppConfigFileName = AppName + ".json"
 )
 
-var SupportedNaverCafeCrawlingBoardTypes = make([]string, 0)
-
 type AppConfig struct {
 	Debug   bool `json:"debug"`
 	RSSFeed struct {
@@ -41,10 +39,9 @@ type NaverCafeCrawlingConfig struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Boards      []*struct {
-		ID               string `json:"id"`
-		Name             string `json:"name"`
-		Type             string `json:"type"`
-		ContentCanBeRead bool   `json:"content_can_be_read"`
+		ID       string `json:"id"`
+		Name     string `json:"name"`
+		Category string `json:"category"`
 	} `json:"boards"`
 	ArticleArchiveDate uint `json:"article_archive_date"`
 	Scheduler          struct {
@@ -60,26 +57,6 @@ func (c *NaverCafeCrawlingConfig) ContainsBoard(boardID string) bool {
 	}
 
 	return false
-}
-
-func (c *NaverCafeCrawlingConfig) ContentCanBeReadBoard(boardID string) bool {
-	for _, board := range c.Boards {
-		if board.ID == boardID {
-			return board.ContentCanBeRead
-		}
-	}
-
-	return false
-}
-
-func (c *NaverCafeCrawlingConfig) BoardType(boardID string) string {
-	for _, board := range c.Boards {
-		if board.ID == boardID {
-			return board.Type
-		}
-	}
-
-	return ""
 }
 
 func InitAppConfig() *AppConfig {
@@ -119,12 +96,6 @@ func InitAppConfig() *AppConfig {
 
 			if b.Name == "" {
 				log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 게시판 Name이 입력되지 않았습니다.", AppConfigFileName, c.Name)
-			}
-			if b.Type == "" {
-				log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 게시판 Type이 입력되지 않았습니다.", AppConfigFileName, c.Name)
-			}
-			if utils.Contains(SupportedNaverCafeCrawlingBoardTypes, b.Type) == false {
-				log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 게시판 Type이 유효하지 않습니다.", AppConfigFileName, c.Name)
 			}
 		}
 	}

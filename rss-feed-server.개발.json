@@ -1,0 +1,36 @@
+{
+	"debug": true,
+	"rss_feed": {
+		"max_item_count": 100,
+		"naver_cafes": [
+			{
+				"id": "ludypang",
+				"club_id": "12303558",
+				"name": "여순광 돈되는 부동산 정보(여수,순천,광양)",
+				"description": "여수 순천 광양 돈되는 부동산 정보 리얼 재테크 커뮤니티",
+				"boards": [
+					{
+						"id": "222",
+						"name": "부동산 소식",
+						"category": "여순광 부동산 정보"
+					}
+				],
+				"article_archive_date": 90,
+				"scheduler": {
+					"time_spec": "*/1 * * * *"
+				}
+			}
+		]
+	},
+	"ws": {
+		"tls_server": false,
+		"certfile_path": "",
+		"keyfile_path": "",
+		"listen_port": 80
+	},
+	"notify_api": {
+		"url": "http://api.darkkaiser.com:5340/api/notify/message/send",
+		"api_key": "MDA5OEU1MkItQjhFMi00QzcyLTlDQUQtRURCRUNDOUNGRjBE",
+		"application_id": "rss-feed-server"
+	}
+}

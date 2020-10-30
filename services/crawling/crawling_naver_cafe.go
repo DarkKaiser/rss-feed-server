@@ -21,18 +21,9 @@ import (
 )
 
 const (
-	naverCafeCrawlingBoardTypeList string = "L"
-
-	// 보드 타입이 이미지인 경우, 상세페이지의 내용에 이미지가 포함되어 있지 않는 경우는 상세페이지 접근시 로그인 팝업이 뜸!!!
-	naverCafeCrawlingBoardTypeImage string = "I"
-
 	// 크롤링 할 최대 페이지 수
 	crawlingMaxPageCount = 10
 )
-
-func init() {
-	g.SupportedNaverCafeCrawlingBoardTypes = append(g.SupportedNaverCafeCrawlingBoardTypes, naverCafeCrawlingBoardTypeList, naverCafeCrawlingBoardTypeImage)
-}
 
 type naverCafeCrawling struct {
 	config *g.NaverCafeCrawlingConfig
@@ -273,45 +264,43 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, str
 	// 로그아웃 상태에서 게시판의 내용이 접근 가능한 게시판이더라도 특정 게시글은 로그인 페이지가 나타나는 현상이 있음!!!
 	//
 	for _, article := range articles {
-		if c.config.ContentCanBeReadBoard(article.BoardID) == true {
-			res, err := http.Get(article.Link)
-			if err != nil {
-				log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 상세페이지 접근이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
-				continue
-			}
-			if res.StatusCode != http.StatusOK {
-				log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 상세페이지 접근이 실패하였습니다. (HTTP Response StatusCode:%d)", c.config.ID, article.BoardName, article.ArticleID, res.StatusCode)
-				continue
-			}
-
-			bodyBytes, err := ioutil.ReadAll(res.Body)
-			if err != nil {
-				log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 상세페이지 내용을 읽을 수 없습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
-				continue
-			}
-			res.Body.Close()
-
-			bodyString, err := euckrDecoder.String(string(bodyBytes))
-			if err != nil {
-				log.Warnf("네이버 카페('%s > %s') 게시글(%d) 상세페이지의 문자열 변환(EUC-KR to UTF-8)이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
-				continue
-			}
-
-			root, err := html.Parse(strings.NewReader(bodyString))
-			if err != nil {
-				log.Warnf("네이버 카페('%s > %s') 게시글(%d) 상세페이지의 HTML 파싱이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
-				continue
-			}
-
-			doc := goquery.NewDocumentFromNode(root)
-			ncSelection := doc.Find("#tbody div.se-viewer > div.se-main-container")
-			if len(ncSelection.Nodes) == 0 {
-				log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 상세페이지 내용 추출이 실패하였습니다.", c.config.ID, article.BoardName, article.ArticleID)
-				continue
-			}
-
-			article.Content = utils.CleanString(ncSelection.Text())
+		res, err := http.Get(article.Link)
+		if err != nil {
+			log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 상세페이지 접근이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
+			continue
 		}
+		if res.StatusCode != http.StatusOK {
+			log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 상세페이지 접근이 실패하였습니다. (HTTP Response StatusCode:%d)", c.config.ID, article.BoardName, article.ArticleID, res.StatusCode)
+			continue
+		}
+
+		bodyBytes, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 상세페이지 내용을 읽을 수 없습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
+			continue
+		}
+		res.Body.Close()
+
+		bodyString, err := euckrDecoder.String(string(bodyBytes))
+		if err != nil {
+			log.Warnf("네이버 카페('%s > %s') 게시글(%d) 상세페이지의 문자열 변환(EUC-KR to UTF-8)이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
+			continue
+		}
+
+		root, err := html.Parse(strings.NewReader(bodyString))
+		if err != nil {
+			log.Warnf("네이버 카페('%s > %s') 게시글(%d) 상세페이지의 HTML 파싱이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
+			continue
+		}
+
+		doc := goquery.NewDocumentFromNode(root)
+		ncSelection := doc.Find("#tbody div.se-viewer > div.se-main-container")
+		if len(ncSelection.Nodes) == 0 {
+			// 로그인을 하지 않아 접근 권한이 없는 페이지인 경우 오류가 발생하므로 로그 처리를 하지 않는다.
+			continue
+		}
+
+		article.Content = utils.CleanString(ncSelection.Text())
 	}
 
 	return articles, "", nil
