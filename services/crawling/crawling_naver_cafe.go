@@ -10,6 +10,7 @@ import (
 	"github.com/darkkaiser/rss-feed-server/utils"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/html"
+	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/korean"
 	"io/ioutil"
 	"net/http"
@@ -17,6 +18,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -262,46 +264,72 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, str
 	//
 	// 게시글 내용 크롤링 : 내용은 크롤링이 실패해도 에러를 발생하지 않고 무시한다.
 	//
-	// @@@@@ 고루틴??? https://stackoverrun.com/ko/q/13138612
-	for _, article := range articles {
-		res, err := http.Get(article.Link)
-		if err != nil {
-			log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 상세페이지 접근이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
-			continue
-		}
-		if res.StatusCode != http.StatusOK {
-			log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 상세페이지 접근이 실패하였습니다. (HTTP Response StatusCode:%d)", c.config.ID, article.BoardName, article.ArticleID, res.StatusCode)
-			continue
-		}
+	crawlingWaiter := &sync.WaitGroup{}
+	crawlingRequestC := make(chan *model.NaverCafeArticle, len(articles))
 
-		bodyBytes, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 상세페이지 내용을 읽을 수 없습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
-			continue
-		}
-		res.Body.Close()
+	for i := 1; i <= 5; i++ {
+		go func(crawlingRequestC <-chan *model.NaverCafeArticle, crawlingWaiter *sync.WaitGroup) {
+			euckrDecoder := korean.EUCKR.NewDecoder()
 
-		bodyString, err := euckrDecoder.String(string(bodyBytes))
-		if err != nil {
-			log.Warnf("네이버 카페('%s > %s') 게시글(%d) 상세페이지의 문자열 변환(EUC-KR to UTF-8)이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
-			continue
-		}
-
-		root, err := html.Parse(strings.NewReader(bodyString))
-		if err != nil {
-			log.Warnf("네이버 카페('%s > %s') 게시글(%d) 상세페이지의 HTML 파싱이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
-			continue
-		}
-
-		doc := goquery.NewDocumentFromNode(root)
-		ncSelection := doc.Find("#tbody div.se-viewer > div.se-main-container")
-		if len(ncSelection.Nodes) == 0 {
-			// 로그인을 하지 않아 접근 권한이 없는 페이지인 경우 오류가 발생하므로 로그 처리를 하지 않는다.
-			continue
-		}
-
-		article.Content = utils.CleanString(ncSelection.Text())
+			for article := range crawlingRequestC {
+				c.runArticleContentCrawling(article, euckrDecoder, crawlingWaiter)
+			}
+		}(crawlingRequestC, crawlingWaiter)
 	}
 
+	crawlingWaiter.Add(len(articles))
+	for _, article := range articles {
+		crawlingRequestC <- article
+	}
+
+	// 채널을 닫는다. 더이상 채널에 데이터를 추가하지는 못하지만 이미 추가한 데이터는 처리가 완료된다.
+	close(crawlingRequestC)
+
+	// 크롤링 작업이 모두 완료될 때 까지 대기한다.
+	crawlingWaiter.Wait()
+
 	return articles, "", nil
+}
+
+//noinspection GoUnhandledErrorResult
+func (c *naverCafeCrawling) runArticleContentCrawling(article *model.NaverCafeArticle, euckrDecoder *encoding.Decoder, crawlingWaiter *sync.WaitGroup) {
+	defer crawlingWaiter.Done()
+
+	res, err := http.Get(article.Link)
+	if err != nil {
+		log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 상세페이지 접근이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
+		return
+	}
+	if res.StatusCode != http.StatusOK {
+		log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 상세페이지 접근이 실패하였습니다. (HTTP Response StatusCode:%d)", c.config.ID, article.BoardName, article.ArticleID, res.StatusCode)
+		return
+	}
+
+	bodyBytes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 상세페이지 내용을 읽을 수 없습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
+		return
+	}
+	res.Body.Close()
+
+	bodyString, err := euckrDecoder.String(string(bodyBytes))
+	if err != nil {
+		log.Warnf("네이버 카페('%s > %s') 게시글(%d) 상세페이지의 문자열 변환(EUC-KR to UTF-8)이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
+		return
+	}
+
+	root, err := html.Parse(strings.NewReader(bodyString))
+	if err != nil {
+		log.Warnf("네이버 카페('%s > %s') 게시글(%d) 상세페이지의 HTML 파싱이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
+		return
+	}
+
+	doc := goquery.NewDocumentFromNode(root)
+	ncSelection := doc.Find("#tbody div.se-viewer > div.se-main-container")
+	if len(ncSelection.Nodes) == 0 {
+		// 로그인을 하지 않아 접근 권한이 없는 페이지인 경우 오류가 발생하므로 로그 처리를 하지 않는다.
+		return
+	}
+
+	article.Content = utils.CleanString(ncSelection.Text())
 }
