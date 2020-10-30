@@ -14,6 +14,8 @@ const (
 	AppConfigFileName = AppName + ".json"
 )
 
+var SupportedNaverCafeCrawlingBoardTypes = make([]string, 0)
+
 type AppConfig struct {
 	Debug   bool `json:"debug"`
 	RSSFeed struct {
@@ -120,6 +122,9 @@ func InitAppConfig() *AppConfig {
 			}
 			if b.Type == "" {
 				log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 게시판 Type이 입력되지 않았습니다.", AppConfigFileName, c.Name)
+			}
+			if utils.Contains(SupportedNaverCafeCrawlingBoardTypes, b.Type) == false {
+				log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 게시판 Type이 유효하지 않습니다.", AppConfigFileName, c.Name)
 			}
 		}
 	}

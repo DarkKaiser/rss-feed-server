@@ -21,12 +21,18 @@ import (
 )
 
 const (
-	naverCafeCrawlingBoardTypeList  string = "L"
+	naverCafeCrawlingBoardTypeList string = "L"
+
+	// 보드 타입이 이미지인 경우, 상세페이지의 내용에 이미지가 포함되어 있지 않는 경우는 상세페이지 접근시 로그인 팝업이 뜸!!!
 	naverCafeCrawlingBoardTypeImage string = "I"
 
 	// 크롤링 할 최대 페이지 수
 	crawlingMaxPageCount = 10
 )
+
+func init() {
+	g.SupportedNaverCafeCrawlingBoardTypes = append(g.SupportedNaverCafeCrawlingBoardTypes, naverCafeCrawlingBoardTypeList, naverCafeCrawlingBoardTypeImage)
+}
 
 type naverCafeCrawling struct {
 	config *g.NaverCafeCrawlingConfig
@@ -300,7 +306,6 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, str
 			doc := goquery.NewDocumentFromNode(root)
 			ncSelection := doc.Find("#tbody div.se-viewer > div.se-main-container")
 			if len(ncSelection.Nodes) == 0 {
-				// @@@@@
 				log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 상세페이지 내용 추출이 실패하였습니다.", c.config.ID, article.BoardName, article.ArticleID)
 				continue
 			}
