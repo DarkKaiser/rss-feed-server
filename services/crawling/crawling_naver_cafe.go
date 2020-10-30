@@ -262,7 +262,7 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, str
 	//
 	// 게시글 내용 크롤링 : 내용은 크롤링이 실패해도 에러를 발생하지 않고 무시한다.
 	//
-	// @@@@@ 고루틴???
+	// @@@@@ 고루틴??? https://stackoverrun.com/ko/q/13138612
 	for _, article := range articles {
 		res, err := http.Get(article.Link)
 		if err != nil {

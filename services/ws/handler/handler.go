@@ -120,90 +120,54 @@ func (h *WebServiceHandlers) GetNaverCafeRSSFeedHandler(c echo.Context) error {
 
 // @@@@@
 func (h *WebServiceHandlers) generateRSSFeed(c *g.NaverCafeCrawlingConfig, articles []*model.NaverCafeArticle) *feeds.RssFeed {
-	feed := &feeds.Feed{
-		Title:       c.Name,
-		Link:        &feeds.Link{Href: ""},
-		Description: c.Description,
-		Author:      &feeds.Author{Name: "Jason Moiron", Email: "jmoiron@jmoiron.net"},
-		Created:     time.Now(),
-	}
-
-	for _, article := range articles {
-		item := &feeds.Item{
-			Title:       article.Title,
-			Link:        &feeds.Link{Href: article.Link},
-			Author:      &feeds.Author{Name: article.Author, Email: "jmoiron@jmoiron.net"},
-			Description: article.Content,
-			//Id:          article.ArticleID,
-			Content: article.Content,
-		}
-
-		feed.Items = append(feed.Items, item)
-	}
-
-	//https://github.com/gorilla/feeds/blob/master/doc.go
-	rssFeed := &feeds.Rss{Feed: feed}
-
-	return RssFeed(rssFeed)
-}
-
-// @@@@@
-func RssFeed(r *feeds.Rss) *feeds.RssFeed {
-	pub := utils.AnyTimeFormat(time.RFC1123Z, r.Created, r.Updated)
-	build := utils.AnyTimeFormat(time.RFC1123Z, r.Updated)
-	author := ""
-	if r.Author != nil {
-		author = r.Author.Email
-		if len(r.Author.Name) > 0 {
-			author = fmt.Sprintf("%s (%s)", r.Author.Email, r.Author.Name)
-		}
-	}
-
-	var image *feeds.RssImage
-	if r.Image != nil {
-		image = &feeds.RssImage{Url: r.Image.Url, Title: r.Image.Title, Link: r.Image.Link, Width: r.Image.Width, Height: r.Image.Height}
-	}
+	var now = time.Now()
+	pub := utils.AnyTimeFormat(time.RFC1123Z, now)
+	build := ""
+	//author := ""
 
 	channel := &feeds.RssFeed{
-		Title:          r.Title,
-		Link:           r.Link.Href,
-		Description:    r.Description,
-		ManagingEditor: author,
+		Title:          c.Name,
+		Link:           fmt.Sprintf("%s/%s", model.NaverCafeHomeUrl, c.ID),
+		Description:    c.Description,
+		ManagingEditor: "",
 		PubDate:        pub,
 		LastBuildDate:  build,
-		Copyright:      r.Copyright,
-		Image:          image,
+		Copyright:      "",
 	}
-	for _, i := range r.Items {
-		channel.Items = append(channel.Items, newRssItem(i))
+	for _, article := range articles {
+		channel.Items = append(channel.Items, newRssItem2(article))
 	}
+	//for _, i := range r.Items {
+	//	channel.Items = append(channel.Items, newRssItem(i))
+	//}
 	return channel
+	//////////////////////////////
 }
 
 // @@@@@
 // create a new RssItem with a generic Item struct's data
-func newRssItem(i *feeds.Item) *feeds.RssItem {
+func newRssItem2(i *model.NaverCafeArticle) *feeds.RssItem {
 	item := &feeds.RssItem{
 		Title:       i.Title,
-		Link:        i.Link.Href,
-		Description: i.Description,
-		Guid:        i.Id,
-		PubDate:     utils.AnyTimeFormat(time.RFC1123Z, i.Created, i.Updated),
+		Link:        i.Link,
+		Description: i.Content,
+		Guid:        i.Link,
+		PubDate:     utils.AnyTimeFormat(time.RFC1123Z, i.CreatedAt),
 	}
 	if len(i.Content) > 0 {
 		item.Content = &feeds.RssContent{Content: i.Content}
 	}
-	if i.Source != nil {
-		item.Source = i.Source.Href
-	}
+	//if i.Source != nil {
+	//	item.Source = i.Source.Href
+	//}
 
 	// Define a closure
-	if i.Enclosure != nil && i.Enclosure.Type != "" && i.Enclosure.Length != "" {
-		item.Enclosure = &feeds.RssEnclosure{Url: i.Enclosure.Url, Type: i.Enclosure.Type, Length: i.Enclosure.Length}
-	}
+	//if i.Enclosure != nil && i.Enclosure.Type != "" && i.Enclosure.Length != "" {
+	//	item.Enclosure = &feeds.RssEnclosure{Url: i.Enclosure.Url, Type: i.Enclosure.Type, Length: i.Enclosure.Length}
+	//}
 
-	if i.Author != nil {
-		item.Author = i.Author.Name
+	if i.Author != "" {
+		item.Author = i.Author
 	}
 
 	item.Category = "category"
