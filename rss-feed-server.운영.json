@@ -1,0 +1,49 @@
+{
+	"debug": false,
+	"rss_feed": {
+		"max_item_count": 100,
+		"naver_cafes": [
+			{
+				"id": "ludypang",
+				"club_id": "12303558",
+				"name": "여순광 돈되는 부동산 정보(여수,순천,광양)",
+				"description": "여수 순천 광양 돈되는 부동산 정보 리얼 재테크 커뮤니티",
+				"boards": [
+					{
+						"id": "17",
+						"name": "여수 Q&A",
+						"type": "L",
+						"content_can_be_read": false
+					},
+					{
+						"id": "164",
+						"name": "순천 Q&A",
+						"type": "L",
+						"content_can_be_read": false
+					},
+					{
+						"id": "179",
+						"name": "가입인사",
+						"type": "L",
+						"content_can_be_read": true
+					}
+				],
+				"article_archive_date": 90,
+				"scheduler": {
+					"time_spec": "0 * * * *"
+				}
+			}
+		]
+	},
+	"ws": {
+		"tls_server": true,
+		"certfile_path": "/etc/letsencrypt/live/darkkaiser.com/fullchain.pem",
+		"keyfile_path": "/etc/letsencrypt/live/darkkaiser.com/privkey.pem",
+		"listen_port": 443
+	},
+	"notify_api": {
+		"url": "http://api.darkkaiser.com:5340/api/notify/message/send",
+		"api_key": "MDA5OEU1MkItQjhFMi00QzcyLTlDQUQtRURCRUNDOUNGRjBE",
+		"application_id": "rss-feed-server"
+	}
+}

@@ -55,7 +55,14 @@ func (s *WebService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 
 	go func(listenPort int) {
 		log.Debug("웹 서비스 > http 서버 시작")
-		if err := e.Start(fmt.Sprintf(":%d", listenPort)); err != nil {
+
+		var err error
+		if s.config.WS.TLSServer == true {
+			err = e.StartTLS(fmt.Sprintf(":%d", listenPort), s.config.WS.CertFilePath, s.config.WS.KeyFilePath)
+		} else {
+			err = e.Start(fmt.Sprintf(":%d", listenPort))
+		}
+		if err != nil {
 			if err == http.ErrServerClosed {
 				log.Debug("웹 서비스 > http 서버 중지됨")
 			} else {

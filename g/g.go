@@ -21,7 +21,10 @@ type AppConfig struct {
 		NaverCafes   []*NaverCafeCrawlingConfig `json:"naver_cafes"`
 	} `json:"rss_feed"`
 	WS struct {
-		ListenPort int `json:"listen_port"`
+		TLSServer    bool   `json:"tls_server"`
+		CertFilePath string `json:"certfile_path"`
+		KeyFilePath  string `json:"keyfile_path"`
+		ListenPort   int    `json:"listen_port"`
 	} `json:"ws"`
 	NotifyAPI struct {
 		Url           string `json:"url"`
@@ -108,6 +111,15 @@ func InitAppConfig() *AppConfig {
 			if b.Type == "" {
 				log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 게시판 Type이 입력되지 않았습니다.", AppConfigFileName, c.Name)
 			}
+		}
+	}
+
+	if config.WS.TLSServer == true {
+		if config.WS.CertFilePath == "" {
+			log.Panicf("%s 파일의 내용이 유효하지 않습니다. 웹서버의 Cert 파일 경로가 입력되지 않았습니다.", AppConfigFileName)
+		}
+		if config.WS.KeyFilePath == "" {
+			log.Panicf("%s 파일의 내용이 유효하지 않습니다. 웹서버의 Key 파일 경로가 입력되지 않았습니다.", AppConfigFileName)
 		}
 	}
 
