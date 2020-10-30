@@ -74,22 +74,22 @@ func (h *WebServiceHandlers) Find(modelType model.ModelType) interface{} {
 
 func (h *WebServiceHandlers) GetNaverCafeRSSFeedHandler(c echo.Context) error {
 	// 입력된 네이버 카페의 ID를 구한다.
-	cafeId := c.Param("cafeid")
-	if strings.HasSuffix(strings.ToLower(cafeId), ".xml") == true {
-		cafeId = cafeId[:len(cafeId)-len(".xml")]
+	cafeID := c.Param("cafeid")
+	if strings.HasSuffix(strings.ToLower(cafeID), ".xml") == true {
+		cafeID = cafeID[:len(cafeID)-len(".xml")]
 	}
 
 	rssFeed := &feeds.RssFeed{}
 	for _, c := range h.config.RSSFeed.NaverCafes {
-		if c.ID == cafeId {
+		if c.ID == cafeID {
 			var boardIDs []string
 			for _, b := range c.Boards {
 				boardIDs = append(boardIDs, b.ID)
 			}
 
-			articles, err := h.naverCafe.GetArticles(cafeId, boardIDs, h.rssFeedMaxItemCount)
+			articles, err := h.naverCafe.GetArticles(cafeID, boardIDs, h.rssFeedMaxItemCount)
 			if err != nil {
-				m := fmt.Sprintf("네이버 카페('%s')의 게시글을 DB에서 읽어오는 중에 오류가 발생하였습니다.", cafeId)
+				m := fmt.Sprintf("네이버 카페('%s')의 게시글을 DB에서 읽어오는 중에 오류가 발생하였습니다.", cafeID)
 
 				log.Errorf("%s (error:%s)", m, err)
 
@@ -106,7 +106,7 @@ func (h *WebServiceHandlers) GetNaverCafeRSSFeedHandler(c echo.Context) error {
 
 	xmlBytes, err := xml.MarshalIndent(rssFeed.FeedXml(), "", "  ")
 	if err != nil {
-		m := fmt.Sprintf("네이버 카페('%s')의 게시글을 RSS Feed로 변환하는 중에 오류가 발생하였습니다.", cafeId)
+		m := fmt.Sprintf("네이버 카페('%s')의 게시글을 RSS Feed로 변환하는 중에 오류가 발생하였습니다.", cafeID)
 
 		log.Errorf("%s (error:%s)", m, err)
 

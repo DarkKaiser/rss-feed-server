@@ -182,13 +182,13 @@ func (nc *NaverCafe) createTables() error {
 }
 
 //noinspection GoUnhandledErrorResult
-func (nc *NaverCafe) insertNaverCafeInfo(cafeId, clubId, name, description, url string) error {
+func (nc *NaverCafe) insertNaverCafeInfo(cafeID, clubID, name, description, url string) error {
 	stmt, err := nc.db.Prepare("INSERT OR REPLACE INTO naver_cafe_info (cafeId, clubId, name, description, url) VALUES (?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
-	if _, err = stmt.Exec(cafeId, clubId, name, description, url); err != nil {
+	if _, err = stmt.Exec(cafeID, clubID, name, description, url); err != nil {
 		return err
 	}
 
@@ -196,13 +196,13 @@ func (nc *NaverCafe) insertNaverCafeInfo(cafeId, clubId, name, description, url 
 }
 
 //noinspection GoUnhandledErrorResult
-func (nc *NaverCafe) insertNaverCafeBoardInfo(cafeId, boardId, name string) error {
+func (nc *NaverCafe) insertNaverCafeBoardInfo(cafeID, boardID, name string) error {
 	stmt, err := nc.db.Prepare("INSERT OR REPLACE INTO naver_cafe_board_info (cafeId, boardId, name) VALUES (?, ?, ?)")
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
-	if _, err = stmt.Exec(cafeId, boardId, name); err != nil {
+	if _, err = stmt.Exec(cafeID, boardID, name); err != nil {
 		return err
 	}
 
@@ -210,23 +210,23 @@ func (nc *NaverCafe) insertNaverCafeBoardInfo(cafeId, boardId, name string) erro
 }
 
 //noinspection GoUnhandledErrorResult
-func (nc *NaverCafe) GetLatestArticleID(cafeId string) (int64, error) {
-	var articleId int64
+func (nc *NaverCafe) GetLatestArticleID(cafeID string) (int64, error) {
+	var articleID int64
 	err := nc.db.QueryRow(`
 		SELECT IFNULL(MAX(articleId), 0)
 		  FROM naver_cafe_article
 		 WHERE cafeId = ?
-	`, cafeId).Scan(&articleId)
+	`, cafeID).Scan(&articleID)
 
 	if err != nil {
 		return 0, err
 	}
 
-	return articleId, nil
+	return articleID, nil
 }
 
 //noinspection GoUnhandledErrorResult
-func (nc *NaverCafe) InsertArticles(cafeId string, articles []*NaverCafeArticle) (int, error) {
+func (nc *NaverCafe) InsertArticles(cafeID string, articles []*NaverCafeArticle) (int, error) {
 	stmt, err := nc.db.Prepare(`
 		INSERT OR REPLACE
 		  INTO naver_cafe_article (cafeId, boardId, articleId, title, content, link, author, createdAt)
@@ -240,8 +240,8 @@ func (nc *NaverCafe) InsertArticles(cafeId string, articles []*NaverCafeArticle)
 	var insertedCnt int
 	var sentNotifyMessage = false
 	for _, article := range articles {
-		if _, err := stmt.Exec(cafeId, article.BoardID, article.ArticleID, article.Title, article.Content, article.Link, article.Author, article.CreatedAt.Format("2006-01-02 15:04:05")); err != nil {
-			m := fmt.Sprintf("네이버 카페('%s > %s')의 게시글 등록이 실패하였습니다.", cafeId, article.BoardName)
+		if _, err := stmt.Exec(cafeID, article.BoardID, article.ArticleID, article.Title, article.Content, article.Link, article.Author, article.CreatedAt.Format("2006-01-02 15:04:05")); err != nil {
+			m := fmt.Sprintf("네이버 카페('%s > %s')의 게시글 등록이 실패하였습니다.", cafeID, article.BoardName)
 
 			log.Errorf("%s (게시글정보:%s) (error:%s)", m, article, err)
 
@@ -259,7 +259,7 @@ func (nc *NaverCafe) InsertArticles(cafeId string, articles []*NaverCafeArticle)
 }
 
 //noinspection GoUnhandledErrorResult
-func (nc *NaverCafe) GetArticles(cafeId string, boardIDs []string, maxArticleCount uint) ([]*NaverCafeArticle, error) {
+func (nc *NaverCafe) GetArticles(cafeID string, boardIDs []string, maxArticleCount uint) ([]*NaverCafeArticle, error) {
 	stmt, err := nc.db.Prepare(fmt.Sprintf(`
 		SELECT boardId
 		     , articleId
@@ -279,7 +279,7 @@ func (nc *NaverCafe) GetArticles(cafeId string, boardIDs []string, maxArticleCou
 	}
 	defer stmt.Close()
 
-	rows, err := stmt.Query(cafeId, maxArticleCount)
+	rows, err := stmt.Query(cafeID, maxArticleCount)
 	if err != nil {
 		return nil, err
 	}
@@ -308,7 +308,7 @@ func (nc *NaverCafe) GetArticles(cafeId string, boardIDs []string, maxArticleCou
 }
 
 //noinspection GoUnhandledErrorResult
-func (nc *NaverCafe) deleteOutOfDateArticles(cafeId string, articleArchiveDate uint) error {
+func (nc *NaverCafe) deleteOutOfDateArticles(cafeID string, articleArchiveDate uint) error {
 	stmt, err := nc.db.Prepare(fmt.Sprintf(`
 		DELETE 
 		  FROM naver_cafe_article
@@ -319,7 +319,7 @@ func (nc *NaverCafe) deleteOutOfDateArticles(cafeId string, articleArchiveDate u
 		return err
 	}
 	defer stmt.Close()
-	if _, err = stmt.Exec(cafeId); err != nil {
+	if _, err = stmt.Exec(cafeID); err != nil {
 		return err
 	}
 
