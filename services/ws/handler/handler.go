@@ -82,7 +82,12 @@ func (h *WebServiceHandlers) GetNaverCafeRSSFeedHandler(c echo.Context) error {
 	rssFeed := &feeds.RssFeed{}
 	for _, c := range h.config.RSSFeed.NaverCafes {
 		if c.ID == cafeId {
-			articles, err := h.naverCafe.GetArticles(cafeId, h.rssFeedMaxItemCount)
+			var boardIDs []string
+			for _, b := range c.Boards {
+				boardIDs = append(boardIDs, b.ID)
+			}
+
+			articles, err := h.naverCafe.GetArticles(cafeId, boardIDs, h.rssFeedMaxItemCount)
 			if err != nil {
 				m := fmt.Sprintf("네이버 카페('%s')의 게시글을 DB에서 읽어오는 중에 오류가 발생하였습니다.", cafeId)
 

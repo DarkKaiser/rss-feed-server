@@ -261,8 +261,8 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, str
 
 	//
 	// 게시글 내용 크롤링 : 내용은 크롤링이 실패해도 에러를 발생하지 않고 무시한다.
-	// 로그아웃 상태에서 게시판의 내용이 접근 가능한 게시판이더라도 특정 게시글은 로그인 페이지가 나타나는 현상이 있음!!!
 	//
+	// @@@@@ 고루틴???
 	for _, article := range articles {
 		res, err := http.Get(article.Link)
 		if err != nil {
