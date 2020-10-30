@@ -7,6 +7,7 @@ import (
 	"github.com/darkkaiser/rss-feed-server/notifyapi"
 	_ "github.com/mattn/go-sqlite3"
 	log "github.com/sirupsen/logrus"
+	"strings"
 	"time"
 )
 
@@ -259,8 +260,7 @@ func (nc *NaverCafe) InsertArticles(cafeId string, articles []*NaverCafeArticle)
 
 //noinspection GoUnhandledErrorResult
 func (nc *NaverCafe) GetArticles(cafeId string, boardIDs []string, maxArticleCount uint) ([]*NaverCafeArticle, error) {
-	// @@@@@
-	stmt, err := nc.db.Prepare(`
+	stmt, err := nc.db.Prepare(fmt.Sprintf(`
 		SELECT boardId
 		     , articleId
 		     , title
@@ -270,9 +270,10 @@ func (nc *NaverCafe) GetArticles(cafeId string, boardIDs []string, maxArticleCou
 		     , createdAt
 		  FROM naver_cafe_article
 		 WHERE cafeId = ?
+		   AND boardId IN (%s)
       ORDER BY articleId DESC
          LIMIT ?
-	`)
+	`, fmt.Sprintf("'%s'", strings.Join(boardIDs, "', '"))))
 	if err != nil {
 		return nil, err
 	}
