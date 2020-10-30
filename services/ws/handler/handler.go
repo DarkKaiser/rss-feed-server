@@ -7,6 +7,7 @@ import (
 	"github.com/darkkaiser/rss-feed-server/g"
 	"github.com/darkkaiser/rss-feed-server/notifyapi"
 	"github.com/darkkaiser/rss-feed-server/services/ws/model"
+	"github.com/darkkaiser/rss-feed-server/utils"
 	"github.com/gorilla/feeds"
 	"github.com/labstack/echo"
 	log "github.com/sirupsen/logrus"
@@ -114,6 +115,10 @@ func (h *WebServiceHandlers) GetNaverCafeRSSFeedHandler(c echo.Context) error {
 
 // @@@@@
 func (h *WebServiceHandlers) generateRSSFeed(c *g.NaverCafeCrawlingConfig, articles []*model.NaverCafeArticle) *feeds.RssFeed {
+	// 3. 보드타입 추가관련 작업
+	// 2. 여수맘 카페도 추가
+	// 4. 개발쪽 json도 보드 하나 추가해서 만들기
+
 	feed := &feeds.Feed{
 		Title:       c.Name,
 		Link:        &feeds.Link{Href: ""},
@@ -143,8 +148,8 @@ func (h *WebServiceHandlers) generateRSSFeed(c *g.NaverCafeCrawlingConfig, artic
 
 // @@@@@
 func RssFeed(r *feeds.Rss) *feeds.RssFeed {
-	pub := anyTimeFormat(time.RFC1123Z, r.Created, r.Updated)
-	build := anyTimeFormat(time.RFC1123Z, r.Updated)
+	pub := utils.AnyTimeFormat(time.RFC1123Z, r.Created, r.Updated)
+	build := utils.AnyTimeFormat(time.RFC1123Z, r.Updated)
 	author := ""
 	if r.Author != nil {
 		author = r.Author.Email
@@ -182,7 +187,7 @@ func newRssItem(i *feeds.Item) *feeds.RssItem {
 		Link:        i.Link.Href,
 		Description: i.Description,
 		Guid:        i.Id,
-		PubDate:     anyTimeFormat(time.RFC1123Z, i.Created, i.Updated),
+		PubDate:     utils.AnyTimeFormat(time.RFC1123Z, i.Created, i.Updated),
 	}
 	if len(i.Content) > 0 {
 		item.Content = &feeds.RssContent{Content: i.Content}
@@ -203,14 +208,4 @@ func newRssItem(i *feeds.Item) *feeds.RssItem {
 	item.Category = "category"
 
 	return item
-}
-
-// @@@@@
-func anyTimeFormat(format string, times ...time.Time) string {
-	for _, t := range times {
-		if !t.IsZero() {
-			return t.Format(format)
-		}
-	}
-	return ""
 }

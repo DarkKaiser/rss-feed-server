@@ -10,27 +10,147 @@
 				"description": "여수 순천 광양 돈되는 부동산 정보 리얼 재테크 커뮤니티",
 				"boards": [
 					{
+						"id": "222",
+						"name": "부동산 소식",
+						"category": "여순광 부동산 정보",
+						"type": "L",
+						"content_can_be_read": false
+					},
+					{
 						"id": "17",
 						"name": "여수 Q&A",
+						"category": "여순광 부동산 Q&A",
 						"type": "L",
 						"content_can_be_read": false
 					},
 					{
 						"id": "164",
 						"name": "순천 Q&A",
+						"category": "여순광 부동산 Q&A",
 						"type": "L",
 						"content_can_be_read": false
 					},
 					{
-						"id": "179",
-						"name": "가입인사",
+						"id": "58",
+						"name": "광양 Q&A",
+						"category": "여순광 부동산 Q&A",
 						"type": "L",
+						"content_can_be_read": false
+					},
+					{
+						"id": "167",
+						"name": "기타 Q&A",
+						"category": "여순광 부동산 Q&A",
+						"type": "L",
+						"content_can_be_read": false
+					},
+					{
+						"id": "72",
+						"name": "여수 자유발언",
+						"category": "여순광 부동산 이야기",
+						"type": "L",
+						"content_can_be_read": false
+					},
+					{
+						"id": "246",
+						"name": "순천 자유발언",
+						"category": "여순광 부동산 이야기",
+						"type": "L",
+						"content_can_be_read": false
+					},
+					{
+						"id": "247",
+						"name": "광양 자유발언",
+						"category": "여순광 부동산 이야기",
+						"type": "L",
+						"content_can_be_read": false
+					},
+					{
+						"id": "248",
+						"name": "기타 자유발언",
+						"category": "여순광 부동산 이야기",
+						"type": "L",
+						"content_can_be_read": false
+					},
+					{
+						"id": "249",
+						"name": "여순광 지역 소식",
+						"category": "여순광 생활 정보",
+						"type": "L",
+						"content_can_be_read": false
+					},
+					{
+						"id": "5",
+						"name": "여순광 문화 행사",
+						"category": "여순광 생활 정보",
+						"type": "I",
 						"content_can_be_read": true
+					},
+					{
+						"id": "403",
+						"name": "여순광 여행 정보",
+						"category": "여순광 생활 정보",
+						"type": "L",
+						"content_can_be_read": false
+					},
+					{
+						"id": "225",
+						"name": "여순광 맛집",
+						"category": "여순광 생활 정보",
+						"type": "I",
+						"content_can_be_read": true
+					},
+					{
+						"id": "363",
+						"name": "여순광 생할 정보",
+						"category": "여순광 생활 정보",
+						"type": "L",
+						"content_can_be_read": false
+					},
+					{
+						"id": "401",
+						"name": "여순광 자동차 정보",
+						"category": "여순광 생활 정보",
+						"type": "L",
+						"content_can_be_read": false
+					},
+					{
+						"id": "288",
+						"name": "여순광 교육 정보",
+						"category": "여순광 생활 정보",
+						"type": "L",
+						"content_can_be_read": false
+					},
+					{
+						"id": "307",
+						"name": "여순광 의료 정보",
+						"category": "여순광 생활 정보",
+						"type": "L",
+						"content_can_be_read": false
 					}
 				],
 				"article_archive_date": 90,
 				"scheduler": {
-					"time_spec": "0 * * * *"
+					"time_spec": "50 * * * *"
+				}
+			},
+			{
+				"id": "yeosumam",
+				"club_id": "19246017",
+				"name": "여수맘들 모여라",
+				"description": "여수맘들의 자유로운 공간~ 수다, 중고 장터, 직거래, 여수맛집, 여수여행, 육아정보 공유",
+				"boards": [
+					{
+						"id": "1",
+						"name": "공지/행사 게시판",
+						"category": "규칙/공지",
+						"type": "L",
+						"content_can_be_read": false
+					}
+				],
+				"article_archive_date": 90,
+				"scheduler": {
+					"time_spec": "51 * * * *"
 				}
 			}
 		]

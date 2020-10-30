@@ -21,7 +21,8 @@ import (
 )
 
 const (
-	naverCafeCrawlingBoardTypeList string = "L"
+	naverCafeCrawlingBoardTypeList  string = "L"
+	naverCafeCrawlingBoardTypeImage string = "I"
 
 	// 크롤링 할 최대 페이지 수
 	crawlingMaxPageCount = 10
@@ -125,8 +126,20 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, str
 
 		var foundArticleAlreadyAddedToDB = false
 		ncSelection.EachWithBreak(func(i int, s *goquery.Selection) bool {
+			// 게시글의 답글을 표시하는 행인지 확인한다.
+			// 게시글 제목 오른쪽에 답글이라는 링크가 있으며 이 링크를 클릭하면 아래쪽에 등록된 답글이 나타난다.
+			// 이 때 사용할 목적으로 답글이 있는 게시물 아래에 보이지 않는 <TR> 태그가 하나 있다.
+			as := s.Find("td")
+			if as.Length() == 1 {
+				for _, attr := range as.Nodes[0].Attr {
+					if attr.Key == "id" && strings.HasPrefix(attr.Val, "reply_") == true {
+						return true
+					}
+				}
+			}
+
 			// 게시판
-			as := s.Find("td.td_article > div.board-name a.link_name")
+			as = s.Find("td.td_article > div.board-name a.link_name")
 			if as.Length() != 1 {
 				err = errors.New("게시글에서 게시판 정보를 찾을 수 없습니다.")
 				return false
@@ -287,6 +300,7 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, str
 			doc := goquery.NewDocumentFromNode(root)
 			ncSelection := doc.Find("#tbody div.se-viewer > div.se-main-container")
 			if len(ncSelection.Nodes) == 0 {
+				// @@@@@
 				log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 상세페이지 내용 추출이 실패하였습니다.", c.config.ID, article.BoardName, article.ArticleID)
 				continue
 			}

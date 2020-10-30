@@ -70,6 +70,16 @@ func (c *NaverCafeCrawlingConfig) ContentCanBeReadBoard(boardID string) bool {
 	return false
 }
 
+func (c *NaverCafeCrawlingConfig) BoardType(boardID string) string {
+	for _, board := range c.Boards {
+		if board.ID == boardID {
+			return board.Type
+		}
+	}
+
+	return ""
+}
+
 func InitAppConfig() *AppConfig {
 	data, err := ioutil.ReadFile(AppConfigFileName)
 	utils.CheckErr(err)

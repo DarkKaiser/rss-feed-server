@@ -5,6 +5,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"regexp"
 	"strings"
+	"time"
 )
 
 func CheckErr(err error) {
@@ -44,4 +45,14 @@ func FormatCommas(num int) string {
 		str = re.ReplaceAllString(str, "$1,$2")
 	}
 	return str
+}
+
+// returns the first non-zero time formatted as a string or ""
+func AnyTimeFormat(format string, times ...time.Time) string {
+	for _, t := range times {
+		if !t.IsZero() {
+			return t.Format(format)
+		}
+	}
+	return ""
 }
