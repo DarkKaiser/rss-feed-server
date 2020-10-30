@@ -78,9 +78,9 @@ func (h *WebServiceHandlers) GetNaverCafeRSSFeedHandler(c echo.Context) error {
 		cafeId = cafeId[:len(cafeId)-len(".xml")]
 	}
 
-	var feed *feeds.Feed
-	for _, nc := range h.config.RSSFeed.NaverCafes {
-		if nc.ID == cafeId {
+	rssFeed := &feeds.RssFeed{}
+	for _, c := range h.config.RSSFeed.NaverCafes {
+		if c.ID == cafeId {
 			articles, err := h.naverCafe.GetArticles(cafeId, h.rssFeedMaxItemCount)
 			if err != nil {
 				m := fmt.Sprintf("네이버 카페('%s')의 게시글을 DB에서 읽어오는 중에 오류가 발생하였습니다.", cafeId)
@@ -92,41 +92,13 @@ func (h *WebServiceHandlers) GetNaverCafeRSSFeedHandler(c echo.Context) error {
 				return echo.NewHTTPError(http.StatusInternalServerError, err)
 			}
 
-			// @@@@@
-			//////////////////////////////////////////
-			feed = &feeds.Feed{
-				Title:       nc.Name,
-				Link:        &feeds.Link{Href: ""},
-				Description: nc.Description,
-				Author:      &feeds.Author{Name: "Jason Moiron", Email: "jmoiron@jmoiron.net"},
-				Created:     time.Now(),
-			}
-
-			for _, article := range articles {
-				item := &feeds.Item{
-					Title:       article.Title,
-					Link:        &feeds.Link{Href: article.Link},
-					Author:      &feeds.Author{Name: article.Author, Email: "jmoiron@jmoiron.net"},
-					Description: article.Content,
-					//Id:          article.ArticleID,
-					Content: article.Content,
-				}
-
-				feed.Items = append(feed.Items, item)
-			}
-			////////////////////////
+			rssFeed = h.generateRSSFeed(c, articles)
 
 			break
 		}
 	}
 
-	// @@@@@
-	///////////////////////////////
-	//https://github.com/gorilla/feeds/blob/master/doc.go
-	rssFeed := &feeds.Rss{Feed: feed}
-	x := RssFeed(rssFeed).FeedXml()
-	xmlBytes, err := xml.MarshalIndent(x, "", "  ")
-	///////////////////////////////
+	xmlBytes, err := xml.MarshalIndent(rssFeed.FeedXml(), "", "  ")
 	if err != nil {
 		m := fmt.Sprintf("네이버 카페('%s')의 게시글을 RSS Feed로 변환하는 중에 오류가 발생하였습니다.", cafeId)
 
@@ -138,6 +110,35 @@ func (h *WebServiceHandlers) GetNaverCafeRSSFeedHandler(c echo.Context) error {
 	}
 
 	return c.XMLBlob(http.StatusOK, xmlBytes)
+}
+
+// @@@@@
+func (h *WebServiceHandlers) generateRSSFeed(c *g.NaverCafeCrawlingConfig, articles []*model.NaverCafeArticle) *feeds.RssFeed {
+	feed := &feeds.Feed{
+		Title:       c.Name,
+		Link:        &feeds.Link{Href: ""},
+		Description: c.Description,
+		Author:      &feeds.Author{Name: "Jason Moiron", Email: "jmoiron@jmoiron.net"},
+		Created:     time.Now(),
+	}
+
+	for _, article := range articles {
+		item := &feeds.Item{
+			Title:       article.Title,
+			Link:        &feeds.Link{Href: article.Link},
+			Author:      &feeds.Author{Name: article.Author, Email: "jmoiron@jmoiron.net"},
+			Description: article.Content,
+			//Id:          article.ArticleID,
+			Content: article.Content,
+		}
+
+		feed.Items = append(feed.Items, item)
+	}
+
+	//https://github.com/gorilla/feeds/blob/master/doc.go
+	rssFeed := &feeds.Rss{Feed: feed}
+
+	return RssFeed(rssFeed)
 }
 
 // @@@@@
