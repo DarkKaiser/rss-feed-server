@@ -6,6 +6,7 @@ package feeds
 
 import (
 	"encoding/xml"
+	"time"
 )
 
 type CDATA string
@@ -102,4 +103,56 @@ func (r *RssFeed) FeedXml() interface{} {
 		Channel:          r,
 		ContentNamespace: "http://purl.org/rss/1.0/modules/content/",
 	}
+}
+
+// returns the first non-zero time formatted as a string or ""
+func anyTimeFormat(format string, times ...time.Time) string {
+	for _, t := range times {
+		if !t.IsZero() {
+			return t.Format(format)
+		}
+	}
+	return ""
+}
+
+// @@@@@
+func NewRssFeed(title, link, description, language string, pubDate time.Time, generator string) *RssFeed {
+	return &RssFeed{
+		Title:       CDATA(title),
+		Link:        link,
+		Description: CDATA(description),
+		Language:    language,
+		PubDate:     anyTimeFormat(time.RFC1123Z, pubDate),
+		Generator:   generator,
+	}
+}
+
+// @@@@@
+func NewRssFeedItem(title, link, description, content, author, category string, createdAt time.Time) *RssItem {
+	item := &RssItem{
+		Title:       title,
+		Link:        link,
+		Description: description,
+		Guid:        link,
+		PubDate:     anyTimeFormat(time.RFC1123Z, createdAt),
+	}
+	if len(content) > 0 {
+		item.Content = &RssContent{Content: content}
+	}
+	//if i.Source != nil {
+	//	item.Source = i.Source.Href
+	//}
+
+	// Define a closure
+	//if i.Enclosure != nil && i.Enclosure.Type != "" && i.Enclosure.Length != "" {
+	//	item.Enclosure = &feeds.RssEnclosure{Url: i.Enclosure.Url, Type: i.Enclosure.Type, Length: i.Enclosure.Length}
+	//}
+
+	if author != "" {
+		item.Author = author
+	}
+
+	item.Category = category
+
+	return item
 }

@@ -8,7 +8,6 @@ import (
 	"github.com/darkkaiser/rss-feed-server/g"
 	"github.com/darkkaiser/rss-feed-server/notifyapi"
 	"github.com/darkkaiser/rss-feed-server/services/ws/model"
-	"github.com/darkkaiser/rss-feed-server/utils"
 	"github.com/labstack/echo"
 	log "github.com/sirupsen/logrus"
 	"net/http"
@@ -99,7 +98,16 @@ func (h *WebServiceHandlers) GetNaverCafeRssFeedHandler(c echo.Context) error {
 				return echo.NewHTTPError(http.StatusInternalServerError, err)
 			}
 
-			rssFeed = h.convertArticlesToRssFeeds(c, articles)
+			// @@@@@
+			/////////////////
+			rssFeed = feeds.NewRssFeed(c.Name, fmt.Sprintf("%s/%s", model.NaverCafeHomeUrl, c.ID), c.Description, "ko", time.Now(), g.AppName)
+
+			// @@@@@ 생성시간 확인 필요, gmt로 변환해야 하는지
+			// https://m.blog.naver.com/PostView.nhn?blogId=achadol&logNo=150037368471&proxyReferer=https:%2F%2Fwww.google.com%2F
+			for _, article := range articles {
+				rssFeed.Items = append(rssFeed.Items, feeds.NewRssFeedItem(article.Title, article.Link, article.Content, article.Content, article.Author, article.BoardName, article.CreatedAt))
+			}
+			/////////////////
 
 			break
 		}
@@ -117,54 +125,4 @@ func (h *WebServiceHandlers) GetNaverCafeRssFeedHandler(c echo.Context) error {
 	}
 
 	return c.XMLBlob(http.StatusOK, xmlBytes)
-}
-
-func (h *WebServiceHandlers) convertArticlesToRssFeeds(config *g.NaverCafeCrawlingConfig, articles []*model.NaverCafeArticle) *feeds.RssFeed {
-	// @@@@@
-	// 생성시간 확인 필요, gmt로 변환해야 하는지
-	// https://m.blog.naver.com/PostView.nhn?blogId=achadol&logNo=150037368471&proxyReferer=https:%2F%2Fwww.google.com%2F
-	//var now = time.Now()
-	//pub := utils.AnyTimeFormat(time.RFC1123Z, now)
-	//build := ""
-	//author := ""
-
-	channel := &feeds.RssFeed{
-		Title:       feeds.CDATA(config.Name),
-		Link:        fmt.Sprintf("%s/%s", model.NaverCafeHomeUrl, config.ID),
-		Description: feeds.CDATA(config.Description),
-		Language:    "ko",
-		PubDate:     utils.AnyTimeFormat(time.RFC1123Z, time.Now()),
-		Generator:   g.AppName,
-	}
-
-	for _, article := range articles {
-		item := &feeds.RssItem{
-			Title:       article.Title,
-			Link:        article.Link,
-			Description: article.Content,
-			Guid:        article.Link,
-			PubDate:     utils.AnyTimeFormat(time.RFC1123Z, article.CreatedAt),
-		}
-		if len(article.Content) > 0 {
-			item.Content = &feeds.RssContent{Content: article.Content}
-		}
-		//if i.Source != nil {
-		//	item.Source = i.Source.Href
-		//}
-
-		// Define a closure
-		//if i.Enclosure != nil && i.Enclosure.Type != "" && i.Enclosure.Length != "" {
-		//	item.Enclosure = &feeds.RssEnclosure{Url: i.Enclosure.Url, Type: i.Enclosure.Type, Length: i.Enclosure.Length}
-		//}
-
-		if article.Author != "" {
-			item.Author = article.Author
-		}
-
-		item.Category = article.BoardName
-
-		channel.Items = append(channel.Items, item)
-	}
-
-	return channel
 }

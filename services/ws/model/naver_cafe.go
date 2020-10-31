@@ -261,17 +261,19 @@ func (nc *NaverCafe) InsertArticles(cafeID string, articles []*NaverCafeArticle)
 //noinspection GoUnhandledErrorResult
 func (nc *NaverCafe) GetArticles(cafeID string, boardIDs []string, maxArticleCount uint) ([]*NaverCafeArticle, error) {
 	stmt, err := nc.db.Prepare(fmt.Sprintf(`
-		SELECT boardId
-		     , articleId
-		     , title
-		     , IFNULL(content, "")
-		     , link
-		     , IFNULL(author, "")
-		     , createdAt
-		  FROM naver_cafe_article
-		 WHERE cafeId = ?
-		   AND boardId IN (%s)
-      ORDER BY articleId DESC
+		SELECT a.boardId
+             , b.name boardName
+		     , a.articleId
+		     , a.title
+		     , IFNULL(a.content, "") content
+		     , a.link
+		     , IFNULL(a.author, "") author
+		     , a.createdAt
+		  FROM naver_cafe_article a
+               INNER JOIN naver_cafe_board_info b ON ( a.cafeId = b.cafeId AND a.boardId = b.boardId )
+		 WHERE a.cafeId = ?
+		   AND a.boardId IN (%s)
+      ORDER BY a.articleId DESC
          LIMIT ?
 	`, fmt.Sprintf("'%s'", strings.Join(boardIDs, "', '"))))
 	if err != nil {
@@ -291,7 +293,7 @@ func (nc *NaverCafe) GetArticles(cafeID string, boardIDs []string, maxArticleCou
 		var article NaverCafeArticle
 
 		var createdAt sql.NullTime
-		if err = rows.Scan(&article.BoardID, &article.ArticleID, &article.Title, &article.Content, &article.Link, &article.Author, &createdAt); err != nil {
+		if err = rows.Scan(&article.BoardID, &article.BoardName, &article.ArticleID, &article.Title, &article.Content, &article.Link, &article.Author, &createdAt); err != nil {
 			return nil, err
 		}
 		if createdAt.Valid == true {
