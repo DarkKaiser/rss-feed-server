@@ -91,7 +91,7 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, str
 	//
 	euckrDecoder := korean.EUCKR.NewDecoder()
 	for pageNo := 1; pageNo <= crawlingMaxPageCount; pageNo++ {
-		ncPageUrl := fmt.Sprintf("%s/%s/ArticleList.nhn?search.clubid=%s&userDisplay=50&search.boardtype=L&search.totalCount=501&search.page=%d", model.NaverCafeHomeUrl, c.config.ID, c.config.ClubID, pageNo)
+		ncPageUrl := fmt.Sprintf("%s/ArticleList.nhn?search.clubid=%s&userDisplay=50&search.boardtype=L&search.totalCount=501&search.page=%d", model.NaverCafeUrl(c.config.ID), c.config.ClubID, pageNo)
 
 		res, err := http.Get(ncPageUrl)
 		if err != nil {
@@ -245,7 +245,7 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, str
 				ArticleID: articleID,
 				Title:     title,
 				Content:   "",
-				Link:      fmt.Sprintf("%s/%s/ArticleRead.nhn?articleid=%d&clubid=%s", model.NaverCafeHomeUrl, c.config.ID, articleID, c.config.ClubID),
+				Link:      fmt.Sprintf("%s/ArticleRead.nhn?articleid=%d&clubid=%s", model.NaverCafeUrl(c.config.ID), articleID, c.config.ClubID),
 				Author:    author,
 				CreatedAt: createdAt,
 			})

@@ -100,11 +100,19 @@ func (h *WebServiceHandlers) GetNaverCafeRssFeedHandler(c echo.Context) error {
 
 			// @@@@@
 			/////////////////
-			rssFeed = feeds.NewRssFeed(c.Name, fmt.Sprintf("%s/%s", model.NaverCafeHomeUrl, c.ID), c.Description, "ko", time.Now(), g.AppName)
+			rssFeed = feeds.NewRssFeed(
+				c.Name,
+				model.NaverCafeUrl(c.ID),
+				c.Description,
+				"ko",
+				g.AppName,
+				time.Now(),
+				time.Now(), //@@@@@
+			)
 
-			// @@@@@ 생성시간 확인 필요, gmt로 변환해야 하는지
 			// https://m.blog.naver.com/PostView.nhn?blogId=achadol&logNo=150037368471&proxyReferer=https:%2F%2Fwww.google.com%2F
 			for _, article := range articles {
+				// @@@@@ 생성시간 확인 필요, gmt로 변환해야 하는지
 				rssFeed.Items = append(rssFeed.Items, feeds.NewRssFeedItem(article.Title, article.Link, article.Content, article.Content, article.Author, article.BoardName, article.CreatedAt))
 			}
 			/////////////////

@@ -17,6 +17,10 @@ const (
 	NaverCafeHomeUrl = "https://cafe.naver.com"
 )
 
+func NaverCafeUrl(cafeID string) string {
+	return fmt.Sprintf("%s/%s", NaverCafeHomeUrl, cafeID)
+}
+
 type NaverCafeArticle struct {
 	BoardID   string
 	BoardName string
@@ -59,7 +63,7 @@ func (nc *NaverCafe) init(config *g.AppConfig) error {
 
 	for _, c := range config.RssFeed.NaverCafes {
 		// 기초 데이터를 추가한다.
-		if err := nc.insertNaverCafeInfo(c.ID, c.ClubID, c.Name, c.Description, fmt.Sprintf("%s/%s", NaverCafeHomeUrl, c.ID)); err != nil {
+		if err := nc.insertNaverCafeInfo(c.ID, c.ClubID, c.Name, c.Description, NaverCafeUrl(c.ID)); err != nil {
 			return err
 		}
 

@@ -19,6 +19,7 @@ type CDATA2 struct {
 	Text string `xml:",cdata"`
 }
 
+// @@@@@
 // private wrapper around the RssFeed which gives us the <rss>..</rss> xml
 type RssFeedXml struct {
 	XMLName          xml.Name `xml:"rss"`
@@ -27,6 +28,7 @@ type RssFeedXml struct {
 	Channel          *RssFeed
 }
 
+// @@@@@
 type RssContent struct {
 	XMLName xml.Name `xml:"content:encoded"`
 	Content string   `xml:",cdata"`
@@ -73,6 +75,7 @@ type RssFeed struct {
 	Items          []*RssItem `xml:"item"`
 }
 
+// @@@@@
 type RssItem struct {
 	XMLName     xml.Name `xml:"item"`
 	Title       string   `xml:"title"`       // required
@@ -96,6 +99,7 @@ type RssEnclosure struct {
 	Type    string   `xml:"type,attr"`
 }
 
+// @@@@@
 // FeedXml returns an XML-ready object for an RssFeed object
 func (r *RssFeed) FeedXml() interface{} {
 	return &RssFeedXml{
@@ -115,15 +119,15 @@ func anyTimeFormat(format string, times ...time.Time) string {
 	return ""
 }
 
-// @@@@@
-func NewRssFeed(title, link, description, language string, pubDate time.Time, generator string) *RssFeed {
+func NewRssFeed(title, link, description, language, generator string, pubDate, lastBuildDate time.Time) *RssFeed {
 	return &RssFeed{
-		Title:       CDATA(title),
-		Link:        link,
-		Description: CDATA(description),
-		Language:    language,
-		PubDate:     anyTimeFormat(time.RFC1123Z, pubDate),
-		Generator:   generator,
+		Title:         CDATA(title),
+		Link:          link,
+		Description:   CDATA(description),
+		Language:      language,
+		Generator:     generator,
+		PubDate:       anyTimeFormat(time.RFC1123Z, pubDate),
+		LastBuildDate: anyTimeFormat(time.RFC1123Z, lastBuildDate),
 	}
 }
 
