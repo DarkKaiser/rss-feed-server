@@ -19,13 +19,11 @@ type CDATA2 struct {
 	Text string `xml:",cdata"`
 }
 
-// @@@@@
 // private wrapper around the RssFeed which gives us the <rss>..</rss> xml
 type RssFeedXml struct {
-	XMLName          xml.Name `xml:"rss"`
-	Version          string   `xml:"version,attr"`
-	ContentNamespace string   `xml:"xmlns:content,attr"`
-	Channel          *RssFeed
+	XMLName xml.Name `xml:"rss"`
+	Version string   `xml:"version,attr"`
+	Channel *RssFeed
 }
 
 // @@@@@
@@ -78,12 +76,12 @@ type RssFeed struct {
 // @@@@@
 type RssItem struct {
 	XMLName     xml.Name `xml:"item"`
-	Title       string   `xml:"title"`       // required
+	Title       CDATA    `xml:"title"`       // required
 	Link        string   `xml:"link"`        // required
-	Description string   `xml:"description"` // required
+	Description CDATA    `xml:"description"` // required
 	Content     *RssContent
-	Author      string `xml:"author,omitempty"`
-	Category    string `xml:"category,omitempty"`
+	Author      CDATA  `xml:"author,omitempty"`
+	Category    CDATA  `xml:"category,omitempty"`
 	Comments    string `xml:"comments,omitempty"`
 	Enclosure   *RssEnclosure
 	Guid        string `xml:"guid,omitempty"`    // Id used
@@ -99,13 +97,11 @@ type RssEnclosure struct {
 	Type    string   `xml:"type,attr"`
 }
 
-// @@@@@
 // FeedXml returns an XML-ready object for an RssFeed object
 func (r *RssFeed) FeedXml() interface{} {
 	return &RssFeedXml{
-		Version:          "2.0",
-		Channel:          r,
-		ContentNamespace: "http://purl.org/rss/1.0/modules/content/",
+		Version: "2.0",
+		Channel: r,
 	}
 }
 
@@ -132,31 +128,20 @@ func NewRssFeed(title, link, description, language, generator string, pubDate, l
 }
 
 // @@@@@
-func NewRssFeedItem(title, link, description, content, author, category string, createdAt time.Time) *RssItem {
+func NewRssFeedItem(title, link, description, author, category string, pubDate time.Time) *RssItem {
+	// https://m.blog.naver.com/PostView.nhn?blogId=achadol&logNo=150037368471&proxyReferer=https:%2F%2Fwww.google.com%2F
 	item := &RssItem{
-		Title:       title,
+		Title:       CDATA(title),
 		Link:        link,
-		Description: description,
+		Description: CDATA(description),
 		Guid:        link,
-		PubDate:     anyTimeFormat(time.RFC1123Z, createdAt),
+		Category:    CDATA(category),
+		PubDate:     anyTimeFormat(time.RFC1123Z, pubDate),
 	}
-	if len(content) > 0 {
-		item.Content = &RssContent{Content: content}
-	}
-	//if i.Source != nil {
-	//	item.Source = i.Source.Href
-	//}
-
-	// Define a closure
-	//if i.Enclosure != nil && i.Enclosure.Type != "" && i.Enclosure.Length != "" {
-	//	item.Enclosure = &feeds.RssEnclosure{Url: i.Enclosure.Url, Type: i.Enclosure.Type, Length: i.Enclosure.Length}
-	//}
 
 	if author != "" {
-		item.Author = author
+		item.Author = CDATA(author)
 	}
-
-	item.Category = category
 
 	return item
 }

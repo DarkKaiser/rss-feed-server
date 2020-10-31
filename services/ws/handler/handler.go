@@ -82,6 +82,9 @@ func (h *WebServiceHandlers) GetNaverCafeRssFeedHandler(c echo.Context) error {
 
 	for _, c := range h.config.RssFeed.NaverCafes {
 		if c.ID == cafeID {
+			//
+			// 게시글을 검색한다.
+			//
 			var boardIDs []string
 			for _, b := range c.Boards {
 				boardIDs = append(boardIDs, b.ID)
@@ -98,24 +101,23 @@ func (h *WebServiceHandlers) GetNaverCafeRssFeedHandler(c echo.Context) error {
 				return echo.NewHTTPError(http.StatusInternalServerError, err)
 			}
 
-			// @@@@@
-			/////////////////
-			rssFeed = feeds.NewRssFeed(
-				c.Name,
-				model.NaverCafeUrl(c.ID),
-				c.Description,
-				"ko",
-				g.AppName,
-				time.Now(),
-				time.Now(), //@@@@@
-			)
+			//
+			// 검색된 게시글을 RSS Feed로 변환한다.
+			//
 
-			// https://m.blog.naver.com/PostView.nhn?blogId=achadol&logNo=150037368471&proxyReferer=https:%2F%2Fwww.google.com%2F
-			for _, article := range articles {
-				// @@@@@ 생성시간 확인 필요, gmt로 변환해야 하는지
-				rssFeed.Items = append(rssFeed.Items, feeds.NewRssFeedItem(article.Title, article.Link, article.Content, article.Content, article.Author, article.BoardName, article.CreatedAt))
+			// 가장 최근에 작성된 게시글의 작성시간을 구한다.
+			var lastBuildDate time.Time
+			if len(articles) > 0 {
+				lastBuildDate = articles[0].CreatedAt
 			}
-			/////////////////
+
+			rssFeed = feeds.NewRssFeed(c.Name, model.NaverCafeUrl(c.ID), c.Description, "ko", g.AppName, time.Now(), lastBuildDate)
+
+			for _, article := range articles {
+				rssFeed.Items = append(rssFeed.Items,
+					feeds.NewRssFeedItem(article.Title, article.Link, article.Content, article.Author, article.BoardName, article.CreatedAt),
+				)
+			}
 
 			break
 		}
