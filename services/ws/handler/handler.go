@@ -4,11 +4,11 @@ import (
 	"database/sql"
 	"encoding/xml"
 	"fmt"
+	"github.com/darkkaiser/rss-feed-server/feeds"
 	"github.com/darkkaiser/rss-feed-server/g"
 	"github.com/darkkaiser/rss-feed-server/notifyapi"
 	"github.com/darkkaiser/rss-feed-server/services/ws/model"
 	"github.com/darkkaiser/rss-feed-server/utils"
-	"github.com/gorilla/feeds"
 	"github.com/labstack/echo"
 	log "github.com/sirupsen/logrus"
 	"net/http"
@@ -46,7 +46,7 @@ func NewWebServiceHandlers(config *g.AppConfig) *WebServiceHandlers {
 
 		naverCafe: model.NewNaverCafe(config, db),
 
-		rssFeedMaxItemCount: config.RSSFeed.MaxItemCount,
+		rssFeedMaxItemCount: config.RssFeed.MaxItemCount,
 	}
 
 	return handlers
@@ -72,7 +72,7 @@ func (h *WebServiceHandlers) Find(modelType model.ModelType) interface{} {
 	return nil
 }
 
-func (h *WebServiceHandlers) GetNaverCafeRSSFeedHandler(c echo.Context) error {
+func (h *WebServiceHandlers) GetNaverCafeRssFeedHandler(c echo.Context) error {
 	// 입력된 네이버 카페의 ID를 구한다.
 	cafeID := c.Param("cafeid")
 	if strings.HasSuffix(strings.ToLower(cafeID), ".xml") == true {
@@ -80,7 +80,8 @@ func (h *WebServiceHandlers) GetNaverCafeRSSFeedHandler(c echo.Context) error {
 	}
 
 	rssFeed := &feeds.RssFeed{}
-	for _, c := range h.config.RSSFeed.NaverCafes {
+
+	for _, c := range h.config.RssFeed.NaverCafes {
 		if c.ID == cafeID {
 			var boardIDs []string
 			for _, b := range c.Boards {
@@ -98,7 +99,7 @@ func (h *WebServiceHandlers) GetNaverCafeRSSFeedHandler(c echo.Context) error {
 				return echo.NewHTTPError(http.StatusInternalServerError, err)
 			}
 
-			rssFeed = h.generateRSSFeed(c, articles)
+			rssFeed = h.convertArticlesToRssFeeds(c, articles)
 
 			break
 		}
@@ -118,59 +119,52 @@ func (h *WebServiceHandlers) GetNaverCafeRSSFeedHandler(c echo.Context) error {
 	return c.XMLBlob(http.StatusOK, xmlBytes)
 }
 
-// @@@@@
-func (h *WebServiceHandlers) generateRSSFeed(c *g.NaverCafeCrawlingConfig, articles []*model.NaverCafeArticle) *feeds.RssFeed {
-	var now = time.Now()
-	pub := utils.AnyTimeFormat(time.RFC1123Z, now)
-	build := ""
+func (h *WebServiceHandlers) convertArticlesToRssFeeds(config *g.NaverCafeCrawlingConfig, articles []*model.NaverCafeArticle) *feeds.RssFeed {
+	// @@@@@
+	// 생성시간 확인 필요, gmt로 변환해야 하는지
+	// https://m.blog.naver.com/PostView.nhn?blogId=achadol&logNo=150037368471&proxyReferer=https:%2F%2Fwww.google.com%2F
+	//var now = time.Now()
+	//pub := utils.AnyTimeFormat(time.RFC1123Z, now)
+	//build := ""
 	//author := ""
 
 	channel := &feeds.RssFeed{
-		Title:          c.Name,
-		Link:           fmt.Sprintf("%s/%s", model.NaverCafeHomeUrl, c.ID),
-		Description:    c.Description,
-		ManagingEditor: "",
-		PubDate:        pub,
-		LastBuildDate:  build,
-		Copyright:      "",
+		Title:       feeds.CDATA(config.Name),
+		Link:        fmt.Sprintf("%s/%s", model.NaverCafeHomeUrl, config.ID),
+		Description: feeds.CDATA(config.Description),
+		Language:    "ko",
+		PubDate:     utils.AnyTimeFormat(time.RFC1123Z, time.Now()),
+		Generator:   g.AppName,
 	}
+
 	for _, article := range articles {
-		channel.Items = append(channel.Items, newRssItem2(article))
+		item := &feeds.RssItem{
+			Title:       article.Title,
+			Link:        article.Link,
+			Description: article.Content,
+			Guid:        article.Link,
+			PubDate:     utils.AnyTimeFormat(time.RFC1123Z, article.CreatedAt),
+		}
+		if len(article.Content) > 0 {
+			item.Content = &feeds.RssContent{Content: article.Content}
+		}
+		//if i.Source != nil {
+		//	item.Source = i.Source.Href
+		//}
+
+		// Define a closure
+		//if i.Enclosure != nil && i.Enclosure.Type != "" && i.Enclosure.Length != "" {
+		//	item.Enclosure = &feeds.RssEnclosure{Url: i.Enclosure.Url, Type: i.Enclosure.Type, Length: i.Enclosure.Length}
+		//}
+
+		if article.Author != "" {
+			item.Author = article.Author
+		}
+
+		item.Category = article.BoardName
+
+		channel.Items = append(channel.Items, item)
 	}
-	//for _, i := range r.Items {
-	//	channel.Items = append(channel.Items, newRssItem(i))
-	//}
+
 	return channel
-	//////////////////////////////
-}
-
-// @@@@@
-// create a new RssItem with a generic Item struct's data
-func newRssItem2(i *model.NaverCafeArticle) *feeds.RssItem {
-	item := &feeds.RssItem{
-		Title:       i.Title,
-		Link:        i.Link,
-		Description: i.Content,
-		Guid:        i.Link,
-		PubDate:     utils.AnyTimeFormat(time.RFC1123Z, i.CreatedAt),
-	}
-	if len(i.Content) > 0 {
-		item.Content = &feeds.RssContent{Content: i.Content}
-	}
-	//if i.Source != nil {
-	//	item.Source = i.Source.Href
-	//}
-
-	// Define a closure
-	//if i.Enclosure != nil && i.Enclosure.Type != "" && i.Enclosure.Length != "" {
-	//	item.Enclosure = &feeds.RssEnclosure{Url: i.Enclosure.Url, Type: i.Enclosure.Type, Length: i.Enclosure.Length}
-	//}
-
-	if i.Author != "" {
-		item.Author = i.Author
-	}
-
-	item.Category = "category"
-
-	return item
 }

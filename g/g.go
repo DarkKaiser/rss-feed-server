@@ -16,7 +16,7 @@ const (
 
 type AppConfig struct {
 	Debug   bool `json:"debug"`
-	RSSFeed struct {
+	RssFeed struct {
 		MaxItemCount uint                       `json:"max_item_count"`
 		NaverCafes   []*NaverCafeCrawlingConfig `json:"naver_cafes"`
 	} `json:"rss_feed"`
@@ -72,7 +72,7 @@ func InitAppConfig() *AppConfig {
 	//
 	var naverCafeIDs []string
 	var naverCafeClubIDs []string
-	for _, c := range config.RSSFeed.NaverCafes {
+	for _, c := range config.RssFeed.NaverCafes {
 		if utils.Contains(naverCafeIDs, c.ID) == true {
 			log.Panicf("%s 파일의 내용이 유효하지 않습니다. 네이버 카페 ID(%s)가 중복되었습니다.", AppConfigFileName, c.ID)
 		}

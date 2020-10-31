@@ -57,7 +57,7 @@ func (nc *NaverCafe) init(config *g.AppConfig) error {
 		return err
 	}
 
-	for _, c := range config.RSSFeed.NaverCafes {
+	for _, c := range config.RssFeed.NaverCafes {
 		// 기초 데이터를 추가한다.
 		if err := nc.insertNaverCafeInfo(c.ID, c.ClubID, c.Name, c.Description, fmt.Sprintf("%s/%s", NaverCafeHomeUrl, c.ID)); err != nil {
 			return err

@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # 서버명
-SRV_NAME=RSSFeedServer
+SRV_NAME=RssFeedServer
 
 cd /usr/local/go-workspace/src/github.com/darkkaiser/rss-feed-server
 

@@ -54,7 +54,7 @@ func (s *CrawlingService) Run(serviceStopCtx context.Context, serviceStopWaiter 
 
 	// 크롤링 스케쥴러를 시작한다.
 	if m, ok := s.modelFinder.Find(model.NaverCafeModel).(*model.NaverCafe); ok == true {
-		for _, c := range s.config.RSSFeed.NaverCafes {
+		for _, c := range s.config.RssFeed.NaverCafes {
 			if _, err := s.cron.AddJob(c.Scheduler.TimeSpec, newNaverCafeCrawling(c, m)); err != nil {
 				m := fmt.Sprintf("네이버 카페(%s) 크롤링 작업의 스케쥴러 등록이 실패하였습니다. (error:%s)", c.ID, err)
 
