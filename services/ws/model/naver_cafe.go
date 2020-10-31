@@ -263,7 +263,7 @@ func (nc *NaverCafe) InsertArticles(cafeID string, articles []*NaverCafeArticle)
 }
 
 //noinspection GoUnhandledErrorResult
-func (nc *NaverCafe) GetArticles(cafeID string, boardIDs []string, maxArticleCount uint) ([]*NaverCafeArticle, error) {
+func (nc *NaverCafe) Articles(cafeID string, boardIDs []string, maxArticleCount uint) ([]*NaverCafeArticle, error) {
 	stmt, err := nc.db.Prepare(fmt.Sprintf(`
 		SELECT a.boardId
              , b.name boardName

@@ -87,7 +87,7 @@ func (h *WebServiceHandlers) GetNaverCafeRssFeedHandler(c echo.Context) error {
 				boardIDs = append(boardIDs, b.ID)
 			}
 
-			articles, err := h.naverCafe.GetArticles(cafeID, boardIDs, h.rssFeedMaxItemCount)
+			articles, err := h.naverCafe.Articles(cafeID, boardIDs, h.rssFeedMaxItemCount)
 			if err != nil {
 				m := fmt.Sprintf("네이버 카페('%s')의 게시글을 DB에서 읽어오는 중에 오류가 발생하였습니다.", cafeID)
 
