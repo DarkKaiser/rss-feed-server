@@ -26,7 +26,6 @@ type RssFeedXml struct {
 	Channel *RssFeed
 }
 
-// @@@@@
 type RssContent struct {
 	XMLName xml.Name `xml:"content:encoded"`
 	Content string   `xml:",cdata"`
@@ -73,7 +72,6 @@ type RssFeed struct {
 	Items          []*RssItem `xml:"item"`
 }
 
-// @@@@@
 type RssItem struct {
 	XMLName     xml.Name `xml:"item"`
 	Title       CDATA    `xml:"title"`       // required
@@ -127,21 +125,14 @@ func NewRssFeed(title, link, description, language, generator string, pubDate, l
 	}
 }
 
-// @@@@@
 func NewRssFeedItem(title, link, description, author, category string, pubDate time.Time) *RssItem {
-	// https://m.blog.naver.com/PostView.nhn?blogId=achadol&logNo=150037368471&proxyReferer=https:%2F%2Fwww.google.com%2F
-	item := &RssItem{
+	return &RssItem{
 		Title:       CDATA(title),
 		Link:        link,
 		Description: CDATA(description),
-		Guid:        link,
+		Author:      CDATA(author),
 		Category:    CDATA(category),
+		Guid:        link,
 		PubDate:     anyTimeFormat(time.RFC1123Z, pubDate),
 	}
-
-	if author != "" {
-		item.Author = CDATA(author)
-	}
-
-	return item
 }
