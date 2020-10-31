@@ -244,7 +244,7 @@ func (nc *NaverCafe) InsertArticles(cafeID string, articles []*NaverCafeArticle)
 	var insertedCnt int
 	var sentNotifyMessage = false
 	for _, article := range articles {
-		if _, err := stmt.Exec(cafeID, article.BoardID, article.ArticleID, article.Title, article.Content, article.Link, article.Author, article.CreatedAt.Format("2006-01-02 15:04:05")); err != nil {
+		if _, err := stmt.Exec(cafeID, article.BoardID, article.ArticleID, article.Title, article.Content, article.Link, article.Author, article.CreatedAt.UTC().Format("2006-01-02 15:04:05")); err != nil {
 			m := fmt.Sprintf("네이버 카페('%s > %s')의 게시글 등록이 실패하였습니다.", cafeID, article.BoardName)
 
 			log.Errorf("%s (게시글정보:%s) (error:%s)", m, article, err)
@@ -301,7 +301,7 @@ func (nc *NaverCafe) Articles(cafeID string, boardIDs []string, maxArticleCount 
 			return nil, err
 		}
 		if createdAt.Valid == true {
-			article.CreatedAt = createdAt.Time
+			article.CreatedAt = createdAt.Time.Local()
 		}
 
 		articles = append(articles, &article)
@@ -319,7 +319,7 @@ func (nc *NaverCafe) deleteOutOfDateArticles(cafeID string, articleArchiveDate u
 		DELETE 
 		  FROM naver_cafe_article
 		 WHERE cafeId = ?
-		   AND createdAt < date('now', '-%d days')
+		   AND createdAt < date(datetime('now', 'utc'), '-%d days')
 	`, articleArchiveDate))
 	if err != nil {
 		return err
