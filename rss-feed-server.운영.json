@@ -97,7 +97,7 @@
 				],
 				"article_archive_date": 90,
 				"scheduler": {
-					"time_spec": "50 * * * *"
+					"time_spec": "15,35,55 * * * *"
 				}
 			},
 			{
@@ -174,7 +174,7 @@
 				],
 				"article_archive_date": 90,
 				"scheduler": {
-					"time_spec": "52 * * * *"
+					"time_spec": "16,36,56 * * * *"
 				}
 			}
 		]
