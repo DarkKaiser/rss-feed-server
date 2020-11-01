@@ -71,6 +71,78 @@ func (h *WebServiceHandlers) Find(modelType model.ModelType) interface{} {
 	return nil
 }
 
+func (h *WebServiceHandlers) GetRssFeedViewHandler(c echo.Context) error {
+	var html = `
+		<!DOCTYPE html>
+		<html>
+		<head>
+		<style>
+		#naver_cafes {
+		  font-family: Arial, Helvetica, sans-serif;
+		  border-collapse: collapse;
+		  width: 100%;
+		}
+		
+		#naver_cafes td, #naver_cafes th {
+		  border: 1px solid #ddd;
+		  padding: 8px;
+		}
+		
+		#naver_cafes tr:nth-child(even) { background-color: #f2f2f2; }
+		
+		#naver_cafes tr:hover { background-color: #ddd; }
+		
+		#naver_cafes th {
+		  padding-top: 12px;
+		  padding-bottom: 12px;
+		  text-align: left;
+		  background-color: #4CAF50;
+		  color: white;
+		}
+		</style>
+		</head>
+		<body>
+		<h3>RSS 피드 제공 네이버카페 목록</h3>
+		<table id="naver_cafes">
+		  <tr>
+		    <th>카페ID</th>
+		    <th>카페명</th>
+		    <th>카페URL</th>
+		    <th>게시판목록</th>
+		    <th>스케쥴</th>
+		    <th>게시글 저장기간</th>
+		  </tr>
+	`
+
+	for _, nc := range h.config.RssFeed.NaverCafes {
+		url := fmt.Sprintf("%s://%s/naver/cafe/%s.xml", c.Scheme(), c.Request().Host, nc.ID)
+
+		boardNames := ""
+		for _, board := range nc.Boards {
+			boardNames += fmt.Sprintf("%s<br>", board.Name)
+		}
+
+		html += fmt.Sprintf(`
+		  <tr>
+		    <td>%s</td>
+		    <td>%s</td>
+		    <td><a href="%s" target="_blank">%s</a></td>
+		    <td>%s</td>
+		    <td>%s</td>
+		    <td>%d일</td>
+		  </tr>
+ 		`, nc.ID, nc.Name, url, url, boardNames, nc.Scheduler.TimeSpec, nc.ArticleArchiveDate)
+	}
+
+	html += `
+		</table>
+		</body>
+		</html>
+	`
+
+	return c.HTML(200, html)
+}
+
 func (h *WebServiceHandlers) GetNaverCafeRssFeedHandler(c echo.Context) error {
 	// 입력된 네이버 카페의 ID를 구한다.
 	cafeID := c.Param("cafeid")
