@@ -114,25 +114,39 @@ func anyTimeFormat(format string, times ...time.Time) string {
 }
 
 func NewRssFeed(title, link, description, language, generator string, pubDate, lastBuildDate time.Time) *RssFeed {
-	return &RssFeed{
+	feed := &RssFeed{
 		Title:         CDATA(title),
 		Link:          link,
 		Description:   CDATA(description),
-		Language:      language,
-		Generator:     generator,
 		PubDate:       anyTimeFormat(time.RFC1123Z, pubDate),
 		LastBuildDate: anyTimeFormat(time.RFC1123Z, lastBuildDate),
 	}
+
+	if len(language) > 0 {
+		feed.Language = language
+	}
+	if len(generator) > 0 {
+		feed.Generator = generator
+	}
+
+	return feed
 }
 
 func NewRssFeedItem(title, link, description, author, category string, pubDate time.Time) *RssItem {
-	return &RssItem{
+	item := &RssItem{
 		Title:       CDATA(title),
 		Link:        link,
 		Description: CDATA(description),
-		Author:      CDATA(author),
-		Category:    CDATA(category),
 		Guid:        link,
 		PubDate:     anyTimeFormat(time.RFC1123Z, pubDate),
 	}
+
+	if len(author) > 0 {
+		item.Author = CDATA(author)
+	}
+	if len(category) > 0 {
+		item.Category = CDATA(category)
+	}
+
+	return item
 }
