@@ -44,11 +44,11 @@ func newNaverCafeCrawling(config *g.NaverCafeCrawlingConfig, model *model.NaverC
 func (c *naverCafeCrawling) Run() {
 	log.Debugf("네이버 카페('%s') 크롤링 작업을 시작합니다.", c.config.ID)
 
-	articles, errDescription, err := c.runArticleCrawling()
-	if errDescription != "" {
-		log.Errorf("%s (error:%s)", errDescription, err)
+	articles, newCrawledLatestArticleID, errOccurred, err := c.runArticleCrawling()
+	if errOccurred != "" {
+		log.Errorf("%s (error:%s)", errOccurred, err)
 
-		notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", errDescription, err), true)
+		notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", errOccurred, err), true)
 
 		return
 	}
@@ -67,6 +67,14 @@ func (c *naverCafeCrawling) Run() {
 			return
 		}
 
+		if err = c.model.UpdateCrawledLatestArticleID(c.config.ID, newCrawledLatestArticleID); err != nil {
+			m := fmt.Sprintf("네이버 카페('%s') 크롤링 된 최근 게시글 ID의 DB 반영이 실패하였습니다.", c.config.ID)
+
+			log.Errorf("%s (error:%s)", m, err)
+
+			notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+		}
+
 		if len(articles) != insertedCnt {
 			log.Debugf("네이버 카페('%s') 크롤링 작업을 종료합니다. 전체 %d건 중에서 %d건의 새로운 게시글이 DB에 추가되었습니다.", c.config.ID, len(articles), insertedCnt)
 		} else {
@@ -78,13 +86,14 @@ func (c *naverCafeCrawling) Run() {
 }
 
 //noinspection GoErrorStringFormat,GoUnhandledErrorResult
-func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, string, error) {
-	latestArticleID, err := c.model.GetLatestArticleID(c.config.ID)
+func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, int64, string, error) {
+	crawledLatestArticleID, err := c.model.CrawledLatestArticleID(c.config.ID)
 	if err != nil {
-		return nil, fmt.Sprintf("네이버 카페('%s')에 마지막으로 추가된 게시글 ID를 찾는 중에 오류가 발생하였습니다.", c.config.ID), err
+		return nil, 0, fmt.Sprintf("네이버 카페('%s')에 마지막으로 추가된 게시글 ID를 찾는 중에 오류가 발생하였습니다.", c.config.ID), err
 	}
 
 	articles := make([]*model.NaverCafeArticle, 0)
+	newCrawledLatestArticleID := crawledLatestArticleID
 
 	//
 	// 게시글 크롤링
@@ -95,35 +104,35 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, str
 
 		res, err := http.Get(ncPageUrl)
 		if err != nil {
-			return nil, fmt.Sprintf("네이버 카페('%s') 페이지 접근이 실패하였습니다.", c.config.ID), err
+			return nil, 0, fmt.Sprintf("네이버 카페('%s') 페이지 접근이 실패하였습니다.", c.config.ID), err
 		}
 		if res.StatusCode != http.StatusOK {
-			return nil, fmt.Sprintf("네이버 카페('%s') 페이지 접근이 실패하였습니다.", c.config.ID), fmt.Errorf("HTTP Response StatusCode:%d", res.StatusCode)
+			return nil, 0, fmt.Sprintf("네이버 카페('%s') 페이지 접근이 실패하였습니다.", c.config.ID), fmt.Errorf("HTTP Response StatusCode:%d", res.StatusCode)
 		}
 
 		bodyBytes, err := ioutil.ReadAll(res.Body)
 		if err != nil {
-			return nil, fmt.Sprintf("네이버 카페('%s') 페이지의 내용을 읽을 수 없습니다.", c.config.ID), err
+			return nil, 0, fmt.Sprintf("네이버 카페('%s') 페이지의 내용을 읽을 수 없습니다.", c.config.ID), err
 		}
 		res.Body.Close()
 
 		bodyString, err := euckrDecoder.String(string(bodyBytes))
 		if err != nil {
-			return nil, fmt.Sprintf("네이버 카페('%s') 페이지의 문자열 변환(EUC-KR to UTF-8)이 실패하였습니다.", c.config.ID), err
+			return nil, 0, fmt.Sprintf("네이버 카페('%s') 페이지의 문자열 변환(EUC-KR to UTF-8)이 실패하였습니다.", c.config.ID), err
 		}
 
 		root, err := html.Parse(strings.NewReader(bodyString))
 		if err != nil {
-			return nil, fmt.Sprintf("네이버 카페('%s') 페이지의 HTML 파싱이 실패하였습니다.", c.config.ID), err
+			return nil, 0, fmt.Sprintf("네이버 카페('%s') 페이지의 HTML 파싱이 실패하였습니다.", c.config.ID), err
 		}
 
 		doc := goquery.NewDocumentFromNode(root)
 		ncSelection := doc.Find("div.article-board > table > tbody > tr:not(.board-notice)")
 		if len(ncSelection.Nodes) == 0 { // 전체글보기의 게시글이 0건이라면 CSS 파싱이 실패한것으로 본다.
-			return nil, fmt.Sprintf("네이버 카페('%s')의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.config.ID), err
+			return nil, 0, fmt.Sprintf("네이버 카페('%s')의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.config.ID), err
 		}
 
-		var foundArticleAlreadyAddedToDB = false
+		var foundArticleAlreadyCrawled = false
 		ncSelection.EachWithBreak(func(i int, s *goquery.Selection) bool {
 			// 게시글의 답글을 표시하는 행인지 확인한다.
 			// 게시글 제목 오른쪽에 답글이라는 링크가 있으며 이 링크를 클릭하면 아래쪽에 등록된 답글이 나타난다.
@@ -163,9 +172,6 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, str
 				err = errors.New("게시글에서 게시판 ID 추출이 실패하였습니다.")
 				return false
 			}
-			if c.config.ContainsBoard(boardID) == false {
-				return true
-			}
 			boardName := strings.TrimSpace(as.Text())
 
 			// 제목, 링크
@@ -198,9 +204,19 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, str
 				return false
 			}
 
-			// 이미 DB에 추가되어 있는 게시글인지 확인한다. 이후의 게시글 추출 작업은 취소된다.
-			if articleID <= latestArticleID {
-				foundArticleAlreadyAddedToDB = true
+			// 크롤링 된 게시글 목록 중에서 가장 최근의 게시글 ID를 구한다.
+			if newCrawledLatestArticleID < articleID {
+				newCrawledLatestArticleID = articleID
+			}
+
+			// 추출해야 할 게시판인지 확인한다.
+			if c.config.ContainsBoard(boardID) == false {
+				return true
+			}
+
+			// 이미 크롤링 작업을 했었던 게시글인지 확인한다. 이후의 게시글 추출 작업은 취소된다.
+			if articleID <= crawledLatestArticleID {
+				foundArticleAlreadyCrawled = true
 				return false
 			}
 
@@ -253,10 +269,10 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, str
 			return true
 		})
 		if err != nil {
-			return nil, fmt.Sprintf("네이버 카페('%s')의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.config.ID), err
+			return nil, 0, fmt.Sprintf("네이버 카페('%s')의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.config.ID), err
 		}
 
-		if foundArticleAlreadyAddedToDB == true {
+		if foundArticleAlreadyCrawled == true {
 			break
 		}
 	}
@@ -288,7 +304,7 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, str
 	// 크롤링 작업이 모두 완료될 때 까지 대기한다.
 	crawlingWaiter.Wait()
 
-	return articles, "", nil
+	return articles, newCrawledLatestArticleID, "", nil
 }
 
 //noinspection GoUnhandledErrorResult

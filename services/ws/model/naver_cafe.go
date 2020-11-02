@@ -89,11 +89,12 @@ func (nc *NaverCafe) createTables() error {
 	//
 	stmt1, err := nc.db.Prepare(`
 		CREATE TABLE IF NOT EXISTS naver_cafe_info (
-			cafeId 		VARCHAR( 30) PRIMARY KEY NOT NULL UNIQUE,
-			clubId 		VARCHAR( 30) NOT NULL,
-			name 		VARCHAR(130) NOT NULL,
-			description VARCHAR(200),
-			url 		VARCHAR( 50) NOT NULL
+			cafeId 					VARCHAR( 30) PRIMARY KEY NOT NULL UNIQUE,
+			clubId 					VARCHAR( 30) NOT NULL,
+			name 					VARCHAR(130) NOT NULL,
+			description 			VARCHAR(200),
+			url 					VARCHAR( 50) NOT NULL,
+			crawledLatestArticleId	INTEGER NOT NULL
 		)
 	`)
 	if err != nil {
@@ -187,7 +188,7 @@ func (nc *NaverCafe) createTables() error {
 
 //noinspection GoUnhandledErrorResult
 func (nc *NaverCafe) insertNaverCafeInfo(cafeID, clubID, name, description, url string) error {
-	stmt, err := nc.db.Prepare("INSERT OR REPLACE INTO naver_cafe_info (cafeId, clubId, name, description, url) VALUES (?, ?, ?, ?, ?)")
+	stmt, err := nc.db.Prepare("INSERT OR REPLACE INTO naver_cafe_info (cafeId, clubId, name, description, url, crawledLatestArticleId) VALUES (?, ?, ?, ?, ?, 0)")
 	if err != nil {
 		return err
 	}
@@ -214,19 +215,39 @@ func (nc *NaverCafe) insertNaverCafeBoardInfo(cafeID, boardID, name string) erro
 }
 
 //noinspection GoUnhandledErrorResult
-func (nc *NaverCafe) GetLatestArticleID(cafeID string) (int64, error) {
-	var articleID int64
+func (nc *NaverCafe) CrawledLatestArticleID(cafeID string) (int64, error) {
+	var crawledLatestArticleID int64
 	err := nc.db.QueryRow(`
-		SELECT IFNULL(MAX(articleId), 0)
-		  FROM naver_cafe_article
-		 WHERE cafeId = ?
-	`, cafeID).Scan(&articleID)
+		SELECT MAX(articleId) 
+		  FROM (    SELECT IFNULL(crawledLatestArticleId, 0) articleId
+		              FROM naver_cafe_info
+		             WHERE cafeId = ?
+                 UNION ALL
+                    SELECT IFNULL(MAX(articleId), 0) articleId
+		              FROM naver_cafe_article
+		             WHERE cafeId = ?
+		       )
+	`, cafeID, cafeID).Scan(&crawledLatestArticleID)
 
 	if err != nil {
 		return 0, err
 	}
 
-	return articleID, nil
+	return crawledLatestArticleID, nil
+}
+
+//noinspection GoUnhandledErrorResult
+func (nc *NaverCafe) UpdateCrawledLatestArticleID(cafeID string, articleID int64) error {
+	stmt, err := nc.db.Prepare("UPDATE naver_cafe_info SET crawledLatestArticleId = ? WHERE cafeId = ?")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	if _, err = stmt.Exec(articleID, cafeID); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 //noinspection GoUnhandledErrorResult
