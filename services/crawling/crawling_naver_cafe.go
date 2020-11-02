@@ -81,6 +81,14 @@ func (c *naverCafeCrawling) Run() {
 			log.Debugf("네이버 카페('%s') 크롤링 작업을 종료합니다. %d건의 새로운 게시글이 DB에 추가되었습니다.", c.config.ID, len(articles))
 		}
 	} else {
+		if err = c.model.UpdateCrawledLatestArticleID(c.config.ID, newCrawledLatestArticleID); err != nil {
+			m := fmt.Sprintf("네이버 카페('%s') 크롤링 된 최근 게시글 ID의 DB 반영이 실패하였습니다.", c.config.ID)
+
+			log.Errorf("%s (error:%s)", m, err)
+
+			notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+		}
+
 		log.Debugf("네이버 카페('%s') 크롤링 작업을 종료합니다. 새로운 게시글이 존재하지 않습니다.", c.config.ID)
 	}
 }

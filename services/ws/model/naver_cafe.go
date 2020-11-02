@@ -94,7 +94,7 @@ func (nc *NaverCafe) createTables() error {
 			name 					VARCHAR(130) NOT NULL,
 			description 			VARCHAR(200),
 			url 					VARCHAR( 50) NOT NULL,
-			crawledLatestArticleId	INTEGER NOT NULL
+			crawledLatestArticleId	INTEGER DEFAULT 0
 		)
 	`)
 	if err != nil {
@@ -188,12 +188,18 @@ func (nc *NaverCafe) createTables() error {
 
 //noinspection GoUnhandledErrorResult
 func (nc *NaverCafe) insertNaverCafeInfo(cafeID, clubID, name, description, url string) error {
-	stmt, err := nc.db.Prepare("INSERT OR REPLACE INTO naver_cafe_info (cafeId, clubId, name, description, url, crawledLatestArticleId) VALUES (?, ?, ?, ?, ?, 0)")
+	stmt, err := nc.db.Prepare(`
+		INSERT OR REPLACE
+		  INTO naver_cafe_info (cafeId, clubId, name, description, url, crawledLatestArticleId) 
+	    VALUES (?, ?, ?, ?, ?, ( SELECT crawledLatestArticleId
+	                               FROM naver_cafe_info
+	                              WHERE cafeId = ? ) )
+	`)
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
-	if _, err = stmt.Exec(cafeID, clubID, name, description, url); err != nil {
+	if _, err = stmt.Exec(cafeID, clubID, name, description, url, cafeID); err != nil {
 		return err
 	}
 
