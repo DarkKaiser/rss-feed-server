@@ -349,7 +349,7 @@ func (c *naverCafeCrawling) runArticleContentCrawling(article *model.NaverCafeAr
 	}
 
 	doc := goquery.NewDocumentFromNode(root)
-	ncSelection := doc.Find("#tbody div.se-viewer > div.se-main-container")
+	ncSelection := doc.Find("#tbody")
 	if len(ncSelection.Nodes) == 0 {
 		// 로그인을 하지 않아 접근 권한이 없는 페이지인 경우 오류가 발생하므로 로그 처리를 하지 않는다.
 		return
