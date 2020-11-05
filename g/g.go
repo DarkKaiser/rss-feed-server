@@ -18,8 +18,8 @@ const (
 type AppConfig struct {
 	Debug   bool `json:"debug"`
 	RssFeed struct {
-		MaxItemCount uint                      `json:"max_item_count"`
-		Providers    []*ProviderCrawlingConfig `json:"providers"`
+		MaxItemCount uint              `json:"max_item_count"`
+		Providers    []*ProviderConfig `json:"providers"`
 	} `json:"rss_feed"`
 	WS struct {
 		TLSServer    bool   `json:"tls_server"`
@@ -34,11 +34,12 @@ type AppConfig struct {
 	} `json:"notify_api"`
 }
 
-type ProviderCrawlingConfig struct {
+type ProviderConfig struct {
 	Type        string `json:"type"`
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	Url         string `jsin:"url"`
 	Boards      []*struct {
 		ID       string `json:"id"`
 		Name     string `json:"name"`
@@ -51,7 +52,7 @@ type ProviderCrawlingConfig struct {
 	Data map[string]interface{} `json:"data"`
 }
 
-func (c *ProviderCrawlingConfig) ContainsBoard(boardID string) bool {
+func (c *ProviderConfig) ContainsBoard(boardID string) bool {
 	for _, board := range c.Boards {
 		if board.ID == boardID {
 			return true

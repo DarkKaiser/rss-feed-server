@@ -16,19 +16,13 @@ const (
 	RssProviderModel ModelType = "rss_provider_model"
 
 	RssProviderSupportedTypeNaverCafe = "naver_cafe"
-
-	NaverCafeHomeUrl = "https://cafe.naver.com"
 )
 
-func NaverCafeUrl(cafeID string) string {
-	return fmt.Sprintf("%s/%s", NaverCafeHomeUrl, cafeID)
-}
-
 // @@@@@ RssProviderPosts
-type NaverCafeArticle struct {
+type RssProviderPosts struct {
 	BoardID   string
 	BoardName string
-	ArticleID int64
+	PostsID   int64
 	Title     string
 	Content   string
 	Link      string
@@ -36,8 +30,8 @@ type NaverCafeArticle struct {
 	CreatedAt time.Time
 }
 
-func (a NaverCafeArticle) String() string {
-	return fmt.Sprintf("[%s, %s, %d, %s, %s, %s, %s, %s]", a.BoardID, a.BoardName, a.ArticleID, a.Title, a.Content, a.Link, a.Author, a.CreatedAt.Format("2006-10-02 15:04:05"))
+func (p RssProviderPosts) String() string {
+	return fmt.Sprintf("[%s, %s, %d, %s, %s, %s, %s, %s]", p.BoardID, p.BoardName, p.PostsID, p.Title, p.Content, p.Link, p.Author, p.CreatedAt.Format("2006-10-02 15:04:05"))
 }
 
 type RssProvider struct {

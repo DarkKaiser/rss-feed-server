@@ -23,7 +23,6 @@ import (
 	"time"
 )
 
-// @@@@@
 const (
 	// 크롤링 할 최대 페이지 수
 	crawlingMaxPageCount = 10
@@ -35,11 +34,11 @@ const (
 	crawlingDelayTimeMinutes = 40
 )
 
-type naverCafeData struct {
+type naverCafeCrawlingConfigData struct {
 	ClubID string `json:"club_id"`
 }
 
-func (d *naverCafeData) fillFromMap(m map[string]interface{}) error {
+func (d *naverCafeCrawlingConfigData) fillFromMap(m map[string]interface{}) error {
 	data, err := json.Marshal(m)
 	if err != nil {
 		return err
@@ -51,29 +50,33 @@ func (d *naverCafeData) fillFromMap(m map[string]interface{}) error {
 }
 
 type naverCafeCrawling struct {
-	config *g.ProviderCrawlingConfig
+	config *g.ProviderConfig
+
+	rssProvider *model.RssProvider
 
 	clubID string
-
-	model *model.NaverCafe
 }
 
-func newNaverCafeCrawling(config *g.ProviderCrawlingConfig, model *model.RssProvider) *naverCafeCrawling {
-	// @@@@@
-	cafeData := naverCafeData{}
-	if err := cafeData.fillFromMap(config.Data); err != nil {
-		// return nil, errors.New(fmt.Sprintf("작업 데이터가 유효하지 않습니다.(error:%s)", err))
+func newNaverCafeCrawling(config *g.ProviderConfig, rssProvider *model.RssProvider) *naverCafeCrawling {
+	configData := naverCafeCrawlingConfigData{}
+	if err := configData.fillFromMap(config.Data); err != nil {
+		m := fmt.Sprintf("작업 데이터가 유효하지 않아 네이버 카페(%s) 크롤링 객체 생성이 실패하였습니다. (error:%s)", config.ID, err)
+
+		notifyapi.SendNotifyMessage(m, true)
+
+		log.Panic(m)
 	}
 
 	return &naverCafeCrawling{
 		config: config,
 
-		clubID: cafeData.ClubID,
+		rssProvider: rssProvider,
 
-		//model: model,
+		clubID: configData.ClubID,
 	}
 }
 
+// @@@@@
 func (c *naverCafeCrawling) Run() {
 	log.Debugf("네이버 카페('%s') 크롤링 작업을 시작합니다.", c.config.ID)
 
@@ -126,14 +129,15 @@ func (c *naverCafeCrawling) Run() {
 	}
 }
 
+// @@@@@
 //noinspection GoErrorStringFormat,GoUnhandledErrorResult
-func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, int64, string, error) {
+func (c *naverCafeCrawling) runArticleCrawling() ([]*model.RssProviderPosts, int64, string, error) {
 	crawledLatestArticleID, err := c.model.CrawledLatestArticleID(c.config.ID)
 	if err != nil {
 		return nil, 0, fmt.Sprintf("네이버 카페('%s')에 마지막으로 추가된 게시글 ID를 찾는 중에 오류가 발생하였습니다.", c.config.ID), err
 	}
 
-	articles := make([]*model.NaverCafeArticle, 0)
+	articles := make([]*model.RssProviderPosts, 0)
 	newCrawledLatestArticleID := crawledLatestArticleID
 
 	crawlingDelayStartTime := time.Now().Add(time.Duration(-1*crawlingDelayTimeMinutes) * time.Minute)
@@ -303,13 +307,13 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, int
 			}
 			author := strings.TrimSpace(as.Text())
 
-			articles = append(articles, &model.NaverCafeArticle{
+			articles = append(articles, &model.RssProviderPosts{
 				BoardID:   boardID,
 				BoardName: boardName,
-				ArticleID: articleID,
+				PostsID:   articleID,
 				Title:     title,
 				Content:   "",
-				Link:      fmt.Sprintf("%s/ArticleRead.nhn?articleid=%d&clubid=%s", model.NaverCafeUrl(c.config.ID), articleID, c.clubID),
+				Link:      fmt.Sprintf("%s/ArticleRead.nhn?articleid=%d&clubid=%s", c.config.Url, articleID, c.clubID),
 				Author:    author,
 				CreatedAt: createdAt,
 			})
@@ -329,14 +333,14 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, int
 	// 게시글 내용 크롤링 : 내용은 크롤링이 실패해도 에러를 발생하지 않고 무시한다.
 	//
 	crawlingWaiter := &sync.WaitGroup{}
-	crawlingRequestC := make(chan *model.NaverCafeArticle, len(articles))
+	crawlingRequestC := make(chan *model.RssProviderPosts, len(articles))
 
 	for i := 1; i <= 5; i++ {
-		go func(crawlingRequestC <-chan *model.NaverCafeArticle, crawlingWaiter *sync.WaitGroup) {
+		go func(crawlingRequestC <-chan *model.RssProviderPosts, crawlingWaiter *sync.WaitGroup) {
 			euckrDecoder := korean.EUCKR.NewDecoder()
 
 			for article := range crawlingRequestC {
-				c.runArticleContentCrawling(article, euckrDecoder, crawlingWaiter)
+				c.runPostsContentCrawling(article, euckrDecoder, crawlingWaiter)
 			}
 		}(crawlingRequestC, crawlingWaiter)
 	}
@@ -356,43 +360,44 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, int
 }
 
 //noinspection GoUnhandledErrorResult
-func (c *naverCafeCrawling) runArticleContentCrawling(article *model.NaverCafeArticle, euckrDecoder *encoding.Decoder, crawlingWaiter *sync.WaitGroup) {
+func (c *naverCafeCrawling) runPostsContentCrawling(posts *model.RssProviderPosts, euckrDecoder *encoding.Decoder, crawlingWaiter *sync.WaitGroup) {
 	defer crawlingWaiter.Done()
 
-	c.runArticleContentCrawlingUsingNaverSearch(article)
-	if article.Content == "" {
-		c.runArticleContentCrawlingUsingLink(article, euckrDecoder)
+	c.runPostsContentCrawlingUsingNaverSearch(posts)
+	if posts.Content == "" {
+		c.runPostsContentCrawlingUsingLink(posts, euckrDecoder)
 	}
 }
 
+// @@@@@
 //noinspection GoUnhandledErrorResult
-func (c *naverCafeCrawling) runArticleContentCrawlingUsingLink(article *model.NaverCafeArticle, euckrDecoder *encoding.Decoder) {
-	res, err := http.Get(article.Link)
+func (c *naverCafeCrawling) runPostsContentCrawlingUsingLink(posts *model.RssProviderPosts, euckrDecoder *encoding.Decoder) {
+	res, err := http.Get(posts.Link)
 	if err != nil {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 상세페이지 접근이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
+		log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 상세페이지 접근이 실패하였습니다. (error:%s)", c.config.ID, posts.BoardName, posts.PostsID, err)
 		return
 	}
 	if res.StatusCode != http.StatusOK {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 상세페이지 접근이 실패하였습니다. (HTTP Response StatusCode:%d)", c.config.ID, article.BoardName, article.ArticleID, res.StatusCode)
+		log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 상세페이지 접근이 실패하였습니다. (HTTP Response StatusCode:%d)", c.config.ID, posts.BoardName, posts.PostsID, res.StatusCode)
 		return
 	}
 
 	bodyBytes, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 상세페이지 내용을 읽을 수 없습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
+		log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 상세페이지 내용을 읽을 수 없습니다. (error:%s)", c.config.ID, posts.BoardName, posts.PostsID, err)
 		return
 	}
 	res.Body.Close()
 
 	bodyString, err := euckrDecoder.String(string(bodyBytes))
 	if err != nil {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 상세페이지 문자열 변환(EUC-KR to UTF-8)이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
+		log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 상세페이지 문자열 변환(EUC-KR to UTF-8)이 실패하였습니다. (error:%s)", c.config.ID, posts.BoardName, posts.PostsID, err)
 		return
 	}
 
 	root, err := html.Parse(strings.NewReader(bodyString))
 	if err != nil {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 상세페이지 HTML 파싱이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
+		log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 상세페이지 HTML 파싱이 실패하였습니다. (error:%s)", c.config.ID, posts.BoardName, posts.PostsID, err)
 		return
 	}
 
@@ -403,39 +408,40 @@ func (c *naverCafeCrawling) runArticleContentCrawlingUsingLink(article *model.Na
 		return
 	}
 
-	article.Content = utils.CleanString(ncSelection.Text())
+	posts.Content = utils.CleanString(ncSelection.Text())
 }
 
+// @@@@@
 //noinspection GoUnhandledErrorResult
-func (c *naverCafeCrawling) runArticleContentCrawlingUsingNaverSearch(article *model.NaverCafeArticle) {
-	searchUrl := fmt.Sprintf("https://search.naver.com/search.naver?where=article&query=%s&ie=utf8&st=date&date_option=0&date_from=&date_to=&board=&srchby=title&dup_remove=0&cafe_url=%s&without_cafe_url=&sm=tab_opt&nso=so:dd,p:all,a:t&t=0&mson=0&prdtype=0", url.QueryEscape(article.Title), c.config.ID)
+func (c *naverCafeCrawling) runPostsContentCrawlingUsingNaverSearch(posts *model.RssProviderPosts) {
+	searchUrl := fmt.Sprintf("https://search.naver.com/search.naver?where=article&query=%s&ie=utf8&st=date&date_option=0&date_from=&date_to=&board=&srchby=title&dup_remove=0&cafe_url=%s&without_cafe_url=&sm=tab_opt&nso=so:dd,p:all,a:t&t=0&mson=0&prdtype=0", url.QueryEscape(posts.Title), c.config.ID)
 
 	res, err := http.Get(searchUrl)
 	if err != nil {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 네이버 검색페이지 접근이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
+		log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 네이버 검색페이지 접근이 실패하였습니다. (error:%s)", c.config.ID, posts.BoardName, posts.PostsID, err)
 		return
 	}
 	if res.StatusCode != http.StatusOK {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 네이버 검색페이지 접근이 실패하였습니다. (HTTP Response StatusCode:%d)", c.config.ID, article.BoardName, article.ArticleID, res.StatusCode)
+		log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 네이버 검색페이지 접근이 실패하였습니다. (HTTP Response StatusCode:%d)", c.config.ID, posts.BoardName, posts.PostsID, res.StatusCode)
 		return
 	}
 
 	bodyBytes, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 네이버 검색페이지 내용을 읽을 수 없습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
+		log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 네이버 검색페이지 내용을 읽을 수 없습니다. (error:%s)", c.config.ID, posts.BoardName, posts.PostsID, err)
 		return
 	}
 	res.Body.Close()
 
 	root, err := html.Parse(strings.NewReader(string(bodyBytes)))
 	if err != nil {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 네이버 검색페이지 HTML 파싱이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
+		log.Warnf("네이버 카페('%s > %s') 게시글(%d)의 네이버 검색페이지 HTML 파싱이 실패하였습니다. (error:%s)", c.config.ID, posts.BoardName, posts.PostsID, err)
 		return
 	}
 
 	doc := goquery.NewDocumentFromNode(root)
-	ncSelection := doc.Find(fmt.Sprintf("a.total_dsc[href='%s/%d']", model.NaverCafeUrl(c.config.ID), article.ArticleID))
+	ncSelection := doc.Find(fmt.Sprintf("a.total_dsc[href='%s/%d']", c.config.Url, posts.PostsID))
 	if ncSelection.Length() == 1 {
-		article.Content = utils.CleanString(ncSelection.Text())
+		posts.Content = utils.CleanString(ncSelection.Text())
 	}
 }
