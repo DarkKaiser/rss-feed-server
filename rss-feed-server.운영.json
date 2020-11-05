@@ -96,7 +96,7 @@
 						"category": "여순광 생활 정보"
 					}
 				],
-				"posts_archive_date": 90,
+				"article_archive_date": 90,
 				"scheduler": {
 					"time_spec": "15,35,55 * * * *"
 				},
@@ -177,7 +177,7 @@
 						"category": "협력기관 / 정보안내"
 					}
 				],
-				"posts_archive_date": 90,
+				"article_archive_date": 90,
 				"scheduler": {
 					"time_spec": "16,36,56 * * * *"
 				},

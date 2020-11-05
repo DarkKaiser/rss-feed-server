@@ -45,8 +45,8 @@ type ProviderConfig struct {
 		Name     string `json:"name"`
 		Category string `json:"category"`
 	} `json:"boards"`
-	PostsArchiveDate uint `json:"posts_archive_date"`
-	Scheduler        struct {
+	ArticleArchiveDate uint `json:"article_archive_date"`
+	Scheduler          struct {
 		TimeSpec string `json:"time_spec"`
 	} `json:"scheduler"`
 	Data map[string]interface{} `json:"data"`

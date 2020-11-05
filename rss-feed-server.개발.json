@@ -16,7 +16,7 @@
 						"category": "여순광 부동산 정보"
 					}
 				],
-				"posts_archive_date": 90,
+				"article_archive_date": 90,
 				"scheduler": {
 					"time_spec": "0 * * * *"
 				},

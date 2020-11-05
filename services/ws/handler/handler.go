@@ -132,7 +132,7 @@ func (h *WebServiceHandlers) GetRssFeedSummaryViewHandler(c echo.Context) error 
 		    <td>%s</td>
 		    <td>%d일</td>
 		  </tr>
- 		`, nc.ID, nc.Name, url, url, boardNames, nc.Scheduler.TimeSpec, nc.PostsArchiveDate)
+ 		`, nc.ID, nc.Name, url, url, boardNames, nc.Scheduler.TimeSpec, nc.ArticleArchiveDate)
 	}
 
 	html += `

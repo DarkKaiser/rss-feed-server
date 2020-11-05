@@ -79,7 +79,7 @@ func newNaverCafeCrawling(config *g.ProviderConfig, rssProvider *model.RssProvid
 func (c *naverCafeCrawling) Run() {
 	log.Debugf("네이버 카페('%s') 크롤링 작업을 시작합니다.", c.config.ID)
 
-	postsList, newCrawledLatestPostsID, errOccurred, err := c.runPostsCrawling()
+	articles, newCrawledLatestArticleID, errOccurred, err := c.runArticleCrawling()
 	if errOccurred != "" {
 		log.Errorf("%s (error:%s)", errOccurred, err)
 
@@ -90,10 +90,10 @@ func (c *naverCafeCrawling) Run() {
 
 	// @@@@@
 	//////////////////////////////////
-	if len(postsList) > 0 {
-		log.Debugf("네이버 카페('%s') 크롤링 작업 결과로 %d건의 새로운 게시글이 추출되었습니다. 새로운 게시글을 DB에 추가합니다.", c.config.ID, len(postsList))
+	if len(articles) > 0 {
+		log.Debugf("네이버 카페('%s') 크롤링 작업 결과로 %d건의 새로운 게시글이 추출되었습니다. 새로운 게시글을 DB에 추가합니다.", c.config.ID, len(articles))
 
-		insertedCnt, err := c.rssProvider.InsertArticles(c.config.ID, postsList)
+		insertedCnt, err := c.rssProvider.InsertArticles(c.config.ID, articles)
 		if err != nil {
 			m := fmt.Sprintf("새로운 게시글을 DB에 추가하는 중에 오류가 발생하여 네이버 카페('%s') 크롤링 작업이 실패하였습니다.", c.config.ID)
 
@@ -104,7 +104,7 @@ func (c *naverCafeCrawling) Run() {
 			return
 		}
 
-		if err = c.rssProvider.UpdateCrawledLatestArticleID(c.config.ID, newCrawledLatestPostsID); err != nil {
+		if err = c.rssProvider.UpdateCrawledLatestArticleID(c.config.ID, newCrawledLatestArticleID); err != nil {
 			m := fmt.Sprintf("네이버 카페('%s') 크롤링 된 최근 게시글 ID의 DB 반영이 실패하였습니다.", c.config.ID)
 
 			log.Errorf("%s (error:%s)", m, err)
@@ -112,13 +112,13 @@ func (c *naverCafeCrawling) Run() {
 			notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 		}
 
-		if len(postsList) != insertedCnt {
-			log.Debugf("네이버 카페('%s') 크롤링 작업을 종료합니다. 전체 %d건 중에서 %d건의 새로운 게시글이 DB에 추가되었습니다.", c.config.ID, len(postsList), insertedCnt)
+		if len(articles) != insertedCnt {
+			log.Debugf("네이버 카페('%s') 크롤링 작업을 종료합니다. 전체 %d건 중에서 %d건의 새로운 게시글이 DB에 추가되었습니다.", c.config.ID, len(articles), insertedCnt)
 		} else {
-			log.Debugf("네이버 카페('%s') 크롤링 작업을 종료합니다. %d건의 새로운 게시글이 DB에 추가되었습니다.", c.config.ID, len(postsList))
+			log.Debugf("네이버 카페('%s') 크롤링 작업을 종료합니다. %d건의 새로운 게시글이 DB에 추가되었습니다.", c.config.ID, len(articles))
 		}
 	} else {
-		if err = c.rssProvider.UpdateCrawledLatestArticleID(c.config.ID, newCrawledLatestPostsID); err != nil {
+		if err = c.rssProvider.UpdateCrawledLatestArticleID(c.config.ID, newCrawledLatestArticleID); err != nil {
 			m := fmt.Sprintf("네이버 카페('%s') 크롤링 된 최근 게시글 ID의 DB 반영이 실패하였습니다.", c.config.ID)
 
 			log.Errorf("%s (error:%s)", m, err)
@@ -132,13 +132,13 @@ func (c *naverCafeCrawling) Run() {
 
 // @@@@@
 //noinspection GoErrorStringFormat,GoUnhandledErrorResult
-func (c *naverCafeCrawling) runPostsCrawling() ([]*model.RssProviderPosts, int64, string, error) {
+func (c *naverCafeCrawling) runArticleCrawling() ([]*model.RssProviderArticle, int64, string, error) {
 	crawledLatestArticleID, err := c.rssProvider.CrawledLatestArticleID(c.config.ID)
 	if err != nil {
 		return nil, 0, fmt.Sprintf("네이버 카페('%s')에 마지막으로 추가된 게시글 ID를 찾는 중에 오류가 발생하였습니다.", c.config.ID), err
 	}
 
-	articles := make([]*model.RssProviderPosts, 0)
+	articles := make([]*model.RssProviderArticle, 0)
 	newCrawledLatestArticleID := crawledLatestArticleID
 
 	crawlingDelayStartTime := time.Now().Add(time.Duration(-1*crawlingDelayTimeMinutes) * time.Minute)
@@ -308,10 +308,10 @@ func (c *naverCafeCrawling) runPostsCrawling() ([]*model.RssProviderPosts, int64
 			}
 			author := strings.TrimSpace(as.Text())
 
-			articles = append(articles, &model.RssProviderPosts{
+			articles = append(articles, &model.RssProviderArticle{
 				BoardID:   boardID,
 				BoardName: boardName,
-				PostsID:   articleID,
+				ArticleID: articleID,
 				Title:     title,
 				Content:   "",
 				Link:      fmt.Sprintf("%s/ArticleRead.nhn?articleid=%d&clubid=%s", c.config.Url, articleID, c.clubID),
@@ -334,14 +334,14 @@ func (c *naverCafeCrawling) runPostsCrawling() ([]*model.RssProviderPosts, int64
 	// 게시글 내용 크롤링 : 내용은 크롤링이 실패해도 에러를 발생하지 않고 무시한다.
 	//
 	crawlingWaiter := &sync.WaitGroup{}
-	crawlingRequestC := make(chan *model.RssProviderPosts, len(articles))
+	crawlingRequestC := make(chan *model.RssProviderArticle, len(articles))
 
 	for i := 1; i <= 5; i++ {
-		go func(crawlingRequestC <-chan *model.RssProviderPosts, crawlingWaiter *sync.WaitGroup) {
+		go func(crawlingRequestC <-chan *model.RssProviderArticle, crawlingWaiter *sync.WaitGroup) {
 			euckrDecoder := korean.EUCKR.NewDecoder()
 
 			for article := range crawlingRequestC {
-				c.runPostsContentCrawling(article, euckrDecoder, crawlingWaiter)
+				c.runArticleContentCrawling(article, euckrDecoder, crawlingWaiter)
 			}
 		}(crawlingRequestC, crawlingWaiter)
 	}
@@ -361,43 +361,43 @@ func (c *naverCafeCrawling) runPostsCrawling() ([]*model.RssProviderPosts, int64
 }
 
 //noinspection GoUnhandledErrorResult
-func (c *naverCafeCrawling) runPostsContentCrawling(posts *model.RssProviderPosts, euckrDecoder *encoding.Decoder, crawlingWaiter *sync.WaitGroup) {
+func (c *naverCafeCrawling) runArticleContentCrawling(article *model.RssProviderArticle, euckrDecoder *encoding.Decoder, crawlingWaiter *sync.WaitGroup) {
 	defer crawlingWaiter.Done()
 
-	c.runPostsContentCrawlingUsingNaverSearch(posts)
-	if posts.Content == "" {
-		c.runPostsContentCrawlingUsingLink(posts, euckrDecoder)
+	c.runArticleContentCrawlingUsingNaverSearch(article)
+	if article.Content == "" {
+		c.runArticleContentCrawlingUsingLink(article, euckrDecoder)
 	}
 }
 
 //noinspection GoUnhandledErrorResult
-func (c *naverCafeCrawling) runPostsContentCrawlingUsingLink(posts *model.RssProviderPosts, euckrDecoder *encoding.Decoder) {
-	res, err := http.Get(posts.Link)
+func (c *naverCafeCrawling) runArticleContentCrawlingUsingLink(article *model.RssProviderArticle, euckrDecoder *encoding.Decoder) {
+	res, err := http.Get(article.Link)
 	if err != nil {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 상세페이지 접근이 실패하였습니다. (error:%s)", c.config.ID, posts.BoardName, posts.PostsID, err)
+		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 상세페이지 접근이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
 		return
 	}
 	if res.StatusCode != http.StatusOK {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 상세페이지 접근이 실패하였습니다. (HTTP Response StatusCode:%d)", c.config.ID, posts.BoardName, posts.PostsID, res.StatusCode)
+		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 상세페이지 접근이 실패하였습니다. (HTTP Response StatusCode:%d)", c.config.ID, article.BoardName, article.ArticleID, res.StatusCode)
 		return
 	}
 
 	bodyBytes, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 상세페이지 내용을 읽을 수 없습니다. (error:%s)", c.config.ID, posts.BoardName, posts.PostsID, err)
+		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 상세페이지 내용을 읽을 수 없습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
 		return
 	}
 	res.Body.Close()
 
 	bodyString, err := euckrDecoder.String(string(bodyBytes))
 	if err != nil {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 상세페이지 문자열 변환(EUC-KR to UTF-8)이 실패하였습니다. (error:%s)", c.config.ID, posts.BoardName, posts.PostsID, err)
+		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 상세페이지 문자열 변환(EUC-KR to UTF-8)이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
 		return
 	}
 
 	root, err := html.Parse(strings.NewReader(bodyString))
 	if err != nil {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 상세페이지 HTML 파싱이 실패하였습니다. (error:%s)", c.config.ID, posts.BoardName, posts.PostsID, err)
+		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 상세페이지 HTML 파싱이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
 		return
 	}
 
@@ -408,39 +408,39 @@ func (c *naverCafeCrawling) runPostsContentCrawlingUsingLink(posts *model.RssPro
 		return
 	}
 
-	posts.Content = utils.CleanString(ncSelection.Text())
+	article.Content = utils.CleanString(ncSelection.Text())
 }
 
 //noinspection GoUnhandledErrorResult
-func (c *naverCafeCrawling) runPostsContentCrawlingUsingNaverSearch(posts *model.RssProviderPosts) {
-	searchUrl := fmt.Sprintf("https://search.naver.com/search.naver?where=article&query=%s&ie=utf8&st=date&date_option=0&date_from=&date_to=&board=&srchby=title&dup_remove=0&cafe_url=%s&without_cafe_url=&sm=tab_opt&nso=so:dd,p:all,a:t&t=0&mson=0&prdtype=0", url.QueryEscape(posts.Title), c.config.ID)
+func (c *naverCafeCrawling) runArticleContentCrawlingUsingNaverSearch(article *model.RssProviderArticle) {
+	searchUrl := fmt.Sprintf("https://search.naver.com/search.naver?where=article&query=%s&ie=utf8&st=date&date_option=0&date_from=&date_to=&board=&srchby=title&dup_remove=0&cafe_url=%s&without_cafe_url=&sm=tab_opt&nso=so:dd,p:all,a:t&t=0&mson=0&prdtype=0", url.QueryEscape(article.Title), c.config.ID)
 
 	res, err := http.Get(searchUrl)
 	if err != nil {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 네이버 검색페이지 접근이 실패하였습니다. (error:%s)", c.config.ID, posts.BoardName, posts.PostsID, err)
+		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 네이버 검색페이지 접근이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
 		return
 	}
 	if res.StatusCode != http.StatusOK {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 네이버 검색페이지 접근이 실패하였습니다. (HTTP Response StatusCode:%d)", c.config.ID, posts.BoardName, posts.PostsID, res.StatusCode)
+		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 네이버 검색페이지 접근이 실패하였습니다. (HTTP Response StatusCode:%d)", c.config.ID, article.BoardName, article.ArticleID, res.StatusCode)
 		return
 	}
 
 	bodyBytes, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 네이버 검색페이지 내용을 읽을 수 없습니다. (error:%s)", c.config.ID, posts.BoardName, posts.PostsID, err)
+		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 네이버 검색페이지 내용을 읽을 수 없습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
 		return
 	}
 	res.Body.Close()
 
 	root, err := html.Parse(strings.NewReader(string(bodyBytes)))
 	if err != nil {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 네이버 검색페이지 HTML 파싱이 실패하였습니다. (error:%s)", c.config.ID, posts.BoardName, posts.PostsID, err)
+		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 네이버 검색페이지 HTML 파싱이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
 		return
 	}
 
 	doc := goquery.NewDocumentFromNode(root)
-	ncSelection := doc.Find(fmt.Sprintf("a.total_dsc[href='%s/%s']", c.config.Url, posts.PostsID))
+	ncSelection := doc.Find(fmt.Sprintf("a.total_dsc[href='%s/%s']", c.config.Url, article.ArticleID))
 	if ncSelection.Length() == 1 {
-		posts.Content = utils.CleanString(ncSelection.Text())
+		article.Content = utils.CleanString(ncSelection.Text())
 	}
 }

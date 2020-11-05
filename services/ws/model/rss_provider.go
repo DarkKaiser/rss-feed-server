@@ -18,11 +18,11 @@ const (
 	RssProviderSupportedTypeNaverCafe = "naver_cafe"
 )
 
-// @@@@@ RssProviderPosts
-type RssProviderPosts struct {
+// @@@@@
+type RssProviderArticle struct {
 	BoardID   string
 	BoardName string
-	PostsID   string
+	ArticleID string
 	Title     string
 	Content   string
 	Link      string
@@ -31,8 +31,8 @@ type RssProviderPosts struct {
 }
 
 // @@@@@
-func (p RssProviderPosts) String() string {
-	return fmt.Sprintf("[%s, %s, %s, %s, %s, %s, %s, %s]", p.BoardID, p.BoardName, p.PostsID, p.Title, p.Content, p.Link, p.Author, p.CreatedAt.Format("2006-10-02 15:04:05"))
+func (p RssProviderArticle) String() string {
+	return fmt.Sprintf("[%s, %s, %s, %s, %s, %s, %s, %s]", p.BoardID, p.BoardName, p.ArticleID, p.Title, p.Content, p.Link, p.Author, p.CreatedAt.Format("2006-10-02 15:04:05"))
 }
 
 // @@@@@
@@ -47,7 +47,7 @@ func NewRssProvider(config *g.AppConfig, db *sql.DB) *RssProvider {
 	}
 
 	if err := nc.init(config); err != nil {
-		m := "네이버 카페 DB를 초기화하는 중에 치명적인 오류가 발생하였습니다."
+		m := "RSS Feed DB를 초기화하는 중에 치명적인 오류가 발생하였습니다."
 
 		notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 
@@ -76,7 +76,7 @@ func (nc *RssProvider) init(config *g.AppConfig) error {
 		}
 
 		// 일정 시간이 지난 게시글 자료를 모두 삭제한다.
-		if err := nc.deleteOutOfDatePosts(c.ID, c.PostsArchiveDate); err != nil {
+		if err := nc.deleteOutOfDateArticle(c.ID, c.ArticleArchiveDate); err != nil {
 			return err
 		}
 	}
@@ -265,7 +265,7 @@ func (nc *RssProvider) UpdateCrawledLatestArticleID(cafeID string, articleID int
 
 // @@@@@
 //noinspection GoUnhandledErrorResult
-func (nc *RssProvider) InsertArticles(cafeID string, articles []*RssProviderPosts) (int, error) {
+func (nc *RssProvider) InsertArticles(cafeID string, articles []*RssProviderArticle) (int, error) {
 	stmt, err := nc.db.Prepare(`
 		INSERT OR REPLACE
 		  INTO naver_cafe_article (cafeId, boardId, articleId, title, content, link, author, createdAt)
@@ -299,7 +299,7 @@ func (nc *RssProvider) InsertArticles(cafeID string, articles []*RssProviderPost
 
 // @@@@@
 //noinspection GoUnhandledErrorResult
-func (nc *RssProvider) Articles(cafeID string, boardIDs []string, maxArticleCount uint) ([]*RssProviderPosts, error) {
+func (nc *RssProvider) Articles(cafeID string, boardIDs []string, maxArticleCount uint) ([]*RssProviderArticle, error) {
 	stmt, err := nc.db.Prepare(fmt.Sprintf(`
 		SELECT a.boardId
              , b.name boardName
@@ -327,10 +327,10 @@ func (nc *RssProvider) Articles(cafeID string, boardIDs []string, maxArticleCoun
 	}
 	defer rows.Close()
 
-	articles := make([]*RssProviderPosts, 0)
+	articles := make([]*RssProviderArticle, 0)
 
 	for rows.Next() {
-		var article RssProviderPosts
+		var article RssProviderArticle
 
 		var createdAt sql.NullTime
 		if err = rows.Scan(&article.BoardID, &article.BoardName, &article.ArticleID, &article.Title, &article.Content, &article.Link, &article.Author, &createdAt); err != nil {
@@ -351,13 +351,13 @@ func (nc *RssProvider) Articles(cafeID string, boardIDs []string, maxArticleCoun
 
 // @@@@@
 //noinspection GoUnhandledErrorResult
-func (nc *RssProvider) deleteOutOfDatePosts(cafeID string, postsArchiveDate uint) error {
+func (nc *RssProvider) deleteOutOfDateArticle(cafeID string, articleArchiveDate uint) error {
 	stmt, err := nc.db.Prepare(fmt.Sprintf(`
 		DELETE 
 		  FROM naver_cafe_article
 		 WHERE cafeId = ?
 		   AND createdAt < date(datetime('now', 'utc'), '-%d days')
-	`, postsArchiveDate))
+	`, articleArchiveDate))
 	if err != nil {
 		return err
 	}
