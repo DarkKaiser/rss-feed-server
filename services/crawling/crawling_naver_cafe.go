@@ -61,7 +61,7 @@ type naverCafeCrawling struct {
 func newNaverCafeCrawling(config *g.ProviderConfig, rssProviderID string, rssProviderModel *model.RssProvider) *naverCafeCrawling {
 	data := naverCafeCrawlingConfigData{}
 	if err := data.fillFromMap(config.Data); err != nil {
-		m := fmt.Sprintf("작업 데이터가 유효하지 않아 네이버 카페(%s) 크롤링 객체 생성이 실패하였습니다. (error:%s)", config.ID, err)
+		m := fmt.Sprintf("작업 데이터가 유효하지 않아 네이버 카페('%s') 크롤링 객체 생성이 실패하였습니다. (error:%s)", config.ID, err)
 
 		notifyapi.SendNotifyMessage(m, true)
 
@@ -150,7 +150,7 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.RssProviderArticle, i
 	//
 	euckrDecoder := korean.EUCKR.NewDecoder()
 	for pageNo := 1; pageNo <= crawlingMaxPageCount; pageNo++ {
-		ncPageUrl := fmt.Sprintf("%s/ArticleList.nhn?search.clubid=%s&userDisplay=50&search.boardtype=L&search.totalCount=501&search.page=%d", model.NaverCafeUrl(c.config.ID), c.clubID, pageNo)
+		ncPageUrl := fmt.Sprintf("%s/ArticleList.nhn?search.clubid=%s&userDisplay=50&search.boardtype=L&search.totalCount=501&search.page=%d", c.config.Url, c.clubID, pageNo)
 
 		res, err := http.Get(ncPageUrl)
 		if err != nil {
@@ -313,7 +313,7 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.RssProviderArticle, i
 			articles = append(articles, &model.RssProviderArticle{
 				BoardID:   boardID,
 				BoardName: boardName,
-				ArticleID: articleID,
+				ArticleID: strconv.Itoa(int(articleID)), //@@@@@
 				Title:     title,
 				Content:   "",
 				Link:      fmt.Sprintf("%s/ArticleRead.nhn?articleid=%d&clubid=%s", c.config.Url, articleID, c.clubID),
@@ -376,30 +376,30 @@ func (c *naverCafeCrawling) runArticleContentCrawling(article *model.RssProvider
 func (c *naverCafeCrawling) runArticleContentCrawlingUsingLink(article *model.RssProviderArticle, euckrDecoder *encoding.Decoder) {
 	res, err := http.Get(article.Link)
 	if err != nil {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 상세페이지 접근이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
+		log.Warnf("네이버 카페('%s > %s') 게시글('%s')의 상세페이지 접근이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
 		return
 	}
 	if res.StatusCode != http.StatusOK {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 상세페이지 접근이 실패하였습니다. (HTTP Response StatusCode:%d)", c.config.ID, article.BoardName, article.ArticleID, res.StatusCode)
+		log.Warnf("네이버 카페('%s > %s') 게시글('%s')의 상세페이지 접근이 실패하였습니다. (HTTP Response StatusCode:%d)", c.config.ID, article.BoardName, article.ArticleID, res.StatusCode)
 		return
 	}
 
 	bodyBytes, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 상세페이지 내용을 읽을 수 없습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
+		log.Warnf("네이버 카페('%s > %s') 게시글('%s')의 상세페이지 내용을 읽을 수 없습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
 		return
 	}
 	res.Body.Close()
 
 	bodyString, err := euckrDecoder.String(string(bodyBytes))
 	if err != nil {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 상세페이지 문자열 변환(EUC-KR to UTF-8)이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
+		log.Warnf("네이버 카페('%s > %s') 게시글('%s')의 상세페이지 문자열 변환(EUC-KR to UTF-8)이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
 		return
 	}
 
 	root, err := html.Parse(strings.NewReader(bodyString))
 	if err != nil {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 상세페이지 HTML 파싱이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
+		log.Warnf("네이버 카페('%s > %s') 게시글('%s')의 상세페이지 HTML 파싱이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
 		return
 	}
 
@@ -419,24 +419,24 @@ func (c *naverCafeCrawling) runArticleContentCrawlingUsingNaverSearch(article *m
 
 	res, err := http.Get(searchUrl)
 	if err != nil {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 네이버 검색페이지 접근이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
+		log.Warnf("네이버 카페('%s > %s') 게시글('%s')의 네이버 검색페이지 접근이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
 		return
 	}
 	if res.StatusCode != http.StatusOK {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 네이버 검색페이지 접근이 실패하였습니다. (HTTP Response StatusCode:%d)", c.config.ID, article.BoardName, article.ArticleID, res.StatusCode)
+		log.Warnf("네이버 카페('%s > %s') 게시글('%s')의 네이버 검색페이지 접근이 실패하였습니다. (HTTP Response StatusCode:%d)", c.config.ID, article.BoardName, article.ArticleID, res.StatusCode)
 		return
 	}
 
 	bodyBytes, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 네이버 검색페이지 내용을 읽을 수 없습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
+		log.Warnf("네이버 카페('%s > %s') 게시글('%s')의 네이버 검색페이지 내용을 읽을 수 없습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
 		return
 	}
 	res.Body.Close()
 
 	root, err := html.Parse(strings.NewReader(string(bodyBytes)))
 	if err != nil {
-		log.Warnf("네이버 카페('%s > %s') 게시글(%s)의 네이버 검색페이지 HTML 파싱이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
+		log.Warnf("네이버 카페('%s > %s') 게시글('%s')의 네이버 검색페이지 HTML 파싱이 실패하였습니다. (error:%s)", c.config.ID, article.BoardName, article.ArticleID, err)
 		return
 	}
 

@@ -55,18 +55,24 @@ func (s *CrawlingService) Run(serviceStopCtx context.Context, serviceStopWaiter 
 	// 크롤링 스케쥴러를 시작한다.
 	if rssProviderModel, ok := s.modelFinder.Find(model.RssProviderModel).(*model.RssProvider); ok == true {
 		for _, p := range s.config.RssFeed.Providers {
-			switch p.Site {
-			case model.RssProviderSupportedSiteNaverCafe:
+			if rssProviderModel.RssFeedSupportedSite(p.Site) == false {
+				m := fmt.Sprintf("RSS Feed Provider에서 지원되지 않는 Site('%s')입니다.", p.Site)
+
+				notifyapi.SendNotifyMessage(m, true)
+
+				log.Panic(m)
+			}
+
+			if p.Site == g.RssFeedSupportedSiteNaverCafe {
 				if _, err := s.cron.AddJob(p.CrawlingScheduler.TimeSpec, newNaverCafeCrawling(p.Config, p.ID, rssProviderModel)); err != nil {
-					m := fmt.Sprintf("네이버 카페(%s) 크롤링 작업의 스케쥴러 등록이 실패하였습니다. (error:%s)", p.Config.ID, err)
+					m := fmt.Sprintf("네이버 카페('%s') 크롤링 작업의 스케쥴러 등록이 실패하였습니다. (error:%s)", p.Config.ID, err)
 
 					notifyapi.SendNotifyMessage(m, true)
 
 					log.Panic(m)
 				}
-
-			default:
-				m := fmt.Sprintf("RSS Feed Provider 모델에서 지원되지 않는 사이트('%s')입니다.", p.Site)
+			} else {
+				m := fmt.Sprintf("RSS Feed Provider에서 지원 가능한 Site('%s')가 크롤링 작업의 스케쥴러 등록에서 미구현 되었습니다.", p.Site)
 
 				notifyapi.SendNotifyMessage(m, true)
 

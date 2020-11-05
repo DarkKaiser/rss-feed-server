@@ -5,6 +5,7 @@ import (
 	"github.com/darkkaiser/rss-feed-server/utils"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
+	"strings"
 )
 
 const (
@@ -12,6 +13,9 @@ const (
 	AppVersion string = "0.2.0"
 
 	AppConfigFileName = AppName + ".json"
+
+	// RSS Feed로 지원 가능한 전체 사이트 목록, 각각의 모델별로 지원 가능하지 않을 수 있다.
+	RssFeedSupportedSiteNaverCafe string = "NaverCafe"
 )
 
 type AppConfig struct {
@@ -72,42 +76,64 @@ func InitAppConfig() *AppConfig {
 	err = json.Unmarshal(data, &config)
 	utils.CheckErr(err)
 
-	// @@@@@ url 마지막에 / 있는지 체크
-	//////////////////////////
 	//
 	// 파일 내용에 대해 유효성 검사를 한다.
 	//
-	var naverCafeIDs []string
-	//var naverCafeClubIDs []string
-	for _, c := range config.RssFeed.Providers {
-		if utils.Contains(naverCafeIDs, c.ID) == true {
-			log.Panicf("%s 파일의 내용이 유효하지 않습니다. 네이버 카페 ID(%s)가 중복되었습니다.", AppConfigFileName, c.ID)
+	var rssProviderIDs, naverCafeIDs, naverCafeClubIDs []string
+	for _, p := range config.RssFeed.Providers {
+		if utils.Contains(rssProviderIDs, p.ID) == true {
+			log.Panicf("%s 파일의 내용이 유효하지 않습니다. RSS Feed Provider의 ID('%s')가 중복되었습니다.", AppConfigFileName, p.ID)
 		}
-		naverCafeIDs = append(naverCafeIDs, c.ID)
+		rssProviderIDs = append(rssProviderIDs, p.ID)
 
-		//@@@@@
-		//if utils.Contains(naverCafeClubIDs, c.ClubID) == true {
-		//	log.Panicf("%s 파일의 내용이 유효하지 않습니다. 네이버 카페 ClubID(%s)가 중복되었습니다.", AppConfigFileName, c.ClubID)
-		//}
-		//naverCafeClubIDs = append(naverCafeClubIDs, c.ClubID)
+		if p.Site == "" {
+			log.Panicf("%s 파일의 내용이 유효하지 않습니다. RSS Feed Provider의 Site가 입력되지 않았습니다.", AppConfigFileName, p.Site)
+		}
 
-		//if c.Name == "" {
-		//	log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 Name이 입력되지 않았습니다.", AppConfigFileName, c.ID)
-		//}
-		//
-		//var boardIDs []string
-		//for _, b := range c.Boards {
-		//	if utils.Contains(boardIDs, b.ID) == true {
-		//		log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 게시판 ID(%s)가 중복되었습니다.", AppConfigFileName, c.Name, b.ID)
-		//	}
-		//	boardIDs = append(boardIDs, b.ID)
-		//
-		//	if b.Name == "" {
-		//		log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 게시판 Name이 입력되지 않았습니다.", AppConfigFileName, c.Name)
-		//	}
-		//}
+		switch p.Site {
+		case RssFeedSupportedSiteNaverCafe:
+			if utils.Contains(naverCafeIDs, p.Config.ID) == true {
+				log.Panicf("%s 파일의 내용이 유효하지 않습니다. 네이버 카페의 ID('%s')가 중복되었습니다.", AppConfigFileName, p.Config.ID)
+			}
+			naverCafeIDs = append(naverCafeIDs, p.Config.ID)
+
+			if p.Config.Name == "" {
+				log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 Name이 입력되지 않았습니다.", AppConfigFileName, p.Config.ID)
+			}
+
+			if p.Config.Url == "" {
+				log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 URL이 입력되지 않았습니다.", AppConfigFileName, p.Config.ID)
+			}
+
+			if strings.HasSuffix(p.Config.Url, "/") == true {
+				p.Config.Url = p.Config.Url[:len(p.Config.Url)-1]
+			}
+
+			var boardIDs []string
+			for _, b := range p.Config.Boards {
+				if utils.Contains(boardIDs, b.ID) == true {
+					log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 게시판 ID('%s')가 중복되었습니다.", AppConfigFileName, p.Config.ID, b.ID)
+				}
+				boardIDs = append(boardIDs, b.ID)
+
+				if b.Name == "" {
+					log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 게시판 Name이 입력되지 않았습니다.", AppConfigFileName, p.Config.ID)
+				}
+			}
+
+			clubID, ok := p.Config.Data["club_id"].(string)
+			if ok == false {
+				log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 ClubID가 입력되지 않았거나 타입이 일치하지 않습니다.", AppConfigFileName, p.Config.ID)
+			}
+			if utils.Contains(naverCafeClubIDs, clubID) == true {
+				log.Panicf("%s 파일의 내용이 유효하지 않습니다. 네이버 카페의 ClubID('%s')가 중복되었습니다.", AppConfigFileName, clubID)
+			}
+			naverCafeClubIDs = append(naverCafeClubIDs, clubID)
+
+		default:
+			log.Panicf("%s 파일의 내용이 유효하지 않습니다. RSS Feed Provider에서 지원되지 않는 Site('%s')입니다.", AppConfigFileName, p.Site)
+		}
 	}
-	//////////////////////////
 
 	if config.WS.TLSServer == true {
 		if config.WS.CertFilePath == "" {

@@ -12,7 +12,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"strings"
-	"time"
 )
 
 //
@@ -114,26 +113,26 @@ func (h *WebServiceHandlers) GetRssFeedSummaryViewHandler(c echo.Context) error 
 		    <th>게시글 저장기간</th>
 		  </tr>
 	`
-
-	for _, nc := range h.config.RssFeed.Providers {
-		url := fmt.Sprintf("%s://%s/naver/cafe/%s.xml", c.Scheme(), c.Request().Host, nc.ID)
-
-		boardNames := ""
-		for _, board := range nc.Boards {
-			boardNames += fmt.Sprintf("%s<br>", board.Name)
-		}
-
-		html += fmt.Sprintf(`
-		  <tr>
-		    <td>%s</td>
-		    <td>%s</td>
-		    <td><a href="%s" target="_blank">%s</a></td>
-		    <td>%s</td>
-		    <td>%s</td>
-		    <td>%d일</td>
-		  </tr>
- 		`, nc.ID, nc.Name, url, url, boardNames, nc.Scheduler.TimeSpec, nc.ArticleArchiveDate)
-	}
+	//
+	//for _, nc := range h.config.RssFeed.Providers {
+	//	url := fmt.Sprintf("%s://%s/naver/cafe/%s.xml", c.Scheme(), c.Request().Host, nc.ID)
+	//
+	//	boardNames := ""
+	//	for _, board := range nc.Boards {
+	//		boardNames += fmt.Sprintf("%s<br>", board.Name)
+	//	}
+	//
+	//	html += fmt.Sprintf(`
+	//	  <tr>
+	//	    <td>%s</td>
+	//	    <td>%s</td>
+	//	    <td><a href="%s" target="_blank">%s</a></td>
+	//	    <td>%s</td>
+	//	    <td>%s</td>
+	//	    <td>%d일</td>
+	//	  </tr>
+	//	`, nc.ID, nc.Name, url, url, boardNames, nc.Scheduler.TimeSpec, nc.ArticleArchiveDate)
+	//}
 
 	html += `
 		</table>
@@ -154,48 +153,48 @@ func (h *WebServiceHandlers) GetRssFeedHandler(c echo.Context) error {
 
 	rssFeed := &feeds.RssFeed{}
 
-	for _, c := range h.config.RssFeed.Providers {
-		if c.ID == cafeID {
-			//
-			// 게시글을 검색한다.
-			//
-			var boardIDs []string
-			for _, b := range c.Boards {
-				boardIDs = append(boardIDs, b.ID)
-			}
-
-			articles, err := h.rssProviderModel.Articles(cafeID, boardIDs, h.rssFeedMaxItemCount)
-			if err != nil {
-				m := fmt.Sprintf("네이버 카페('%s')의 게시글을 DB에서 읽어오는 중에 오류가 발생하였습니다.", cafeID)
-
-				log.Errorf("%s (error:%s)", m, err)
-
-				notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
-
-				return echo.NewHTTPError(http.StatusInternalServerError, err)
-			}
-
-			//
-			// 검색된 게시글을 RSS Feed로 변환한다.
-			//
-
-			// 가장 최근에 작성된 게시글의 작성시간을 구한다.
-			var lastBuildDate time.Time
-			if len(articles) > 0 {
-				lastBuildDate = articles[0].CreatedAt
-			}
-
-			rssFeed = feeds.NewRssFeed(c.Name, c.Url, c.Description, "ko", g.AppName, time.Now(), lastBuildDate)
-
-			for _, article := range articles {
-				rssFeed.Items = append(rssFeed.Items,
-					feeds.NewRssFeedItem(article.Title, article.Link, article.Content, article.Author, article.BoardName, article.CreatedAt),
-				)
-			}
-
-			break
-		}
-	}
+	//for _, c := range h.config.RssFeed.Providers {
+	//	if c.ID == cafeID {
+	//		//
+	//		// 게시글을 검색한다.
+	//		//
+	//		var boardIDs []string
+	//		for _, b := range c.Boards {
+	//			boardIDs = append(boardIDs, b.ID)
+	//		}
+	//
+	//		articles, err := h.rssProviderModel.Articles(cafeID, boardIDs, h.rssFeedMaxItemCount)
+	//		if err != nil {
+	//			m := fmt.Sprintf("네이버 카페('%s')의 게시글을 DB에서 읽어오는 중에 오류가 발생하였습니다.", cafeID)
+	//
+	//			log.Errorf("%s (error:%s)", m, err)
+	//
+	//			notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+	//
+	//			return echo.NewHTTPError(http.StatusInternalServerError, err)
+	//		}
+	//
+	//		//
+	//		// 검색된 게시글을 RSS Feed로 변환한다.
+	//		//
+	//
+	//		// 가장 최근에 작성된 게시글의 작성시간을 구한다.
+	//		var lastBuildDate time.Time
+	//		if len(articles) > 0 {
+	//			lastBuildDate = articles[0].CreatedAt
+	//		}
+	//
+	//		rssFeed = feeds.NewRssFeed(c.Name, c.Url, c.Description, "ko", g.AppName, time.Now(), lastBuildDate)
+	//
+	//		for _, article := range articles {
+	//			rssFeed.Items = append(rssFeed.Items,
+	//				feeds.NewRssFeedItem(article.Title, article.Link, article.Content, article.Author, article.BoardName, article.CreatedAt),
+	//			)
+	//		}
+	//
+	//		break
+	//	}
+	//}
 
 	xmlBytes, err := xml.MarshalIndent(rssFeed.FeedXml(), "", "  ")
 	if err != nil {
