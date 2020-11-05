@@ -26,6 +26,7 @@ func Init(config *g.AppConfig) {
 	applicationID = config.NotifyAPI.ApplicationID
 }
 
+//noinspection GoUnhandledErrorResult
 func SendNotifyMessage(message string, errorOccured bool) {
 	notifyMessage := notifyMessage{
 		Message:       message,

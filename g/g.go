@@ -7,9 +7,10 @@ import (
 	"io/ioutil"
 )
 
+// @@@@@
 const (
 	AppName    string = "rss-feed-server"
-	AppVersion string = "0.1.0"
+	AppVersion string = "0.2.0"
 
 	AppConfigFileName = AppName + ".json"
 )
@@ -17,8 +18,8 @@ const (
 type AppConfig struct {
 	Debug   bool `json:"debug"`
 	RssFeed struct {
-		MaxItemCount uint                       `json:"max_item_count"`
-		NaverCafes   []*NaverCafeCrawlingConfig `json:"naver_cafes"`
+		MaxItemCount uint                      `json:"max_item_count"`
+		Providers    []*ProviderCrawlingConfig `json:"providers"`
 	} `json:"rss_feed"`
 	WS struct {
 		TLSServer    bool   `json:"tls_server"`
@@ -33,9 +34,9 @@ type AppConfig struct {
 	} `json:"notify_api"`
 }
 
-type NaverCafeCrawlingConfig struct {
+type ProviderCrawlingConfig struct {
+	Type        string `json:"type"`
 	ID          string `json:"id"`
-	ClubID      string `json:"club_id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Boards      []*struct {
@@ -43,13 +44,14 @@ type NaverCafeCrawlingConfig struct {
 		Name     string `json:"name"`
 		Category string `json:"category"`
 	} `json:"boards"`
-	ArticleArchiveDate uint `json:"article_archive_date"`
-	Scheduler          struct {
+	PostsArchiveDate uint `json:"posts_archive_date"`
+	Scheduler        struct {
 		TimeSpec string `json:"time_spec"`
 	} `json:"scheduler"`
+	Data map[string]interface{} `json:"data"`
 }
 
-func (c *NaverCafeCrawlingConfig) ContainsBoard(boardID string) bool {
+func (c *ProviderCrawlingConfig) ContainsBoard(boardID string) bool {
 	for _, board := range c.Boards {
 		if board.ID == boardID {
 			return true
@@ -71,17 +73,18 @@ func InitAppConfig() *AppConfig {
 	// 파일 내용에 대해 유효성 검사를 한다.
 	//
 	var naverCafeIDs []string
-	var naverCafeClubIDs []string
-	for _, c := range config.RssFeed.NaverCafes {
+	//var naverCafeClubIDs []string
+	for _, c := range config.RssFeed.Providers {
 		if utils.Contains(naverCafeIDs, c.ID) == true {
 			log.Panicf("%s 파일의 내용이 유효하지 않습니다. 네이버 카페 ID(%s)가 중복되었습니다.", AppConfigFileName, c.ID)
 		}
 		naverCafeIDs = append(naverCafeIDs, c.ID)
 
-		if utils.Contains(naverCafeClubIDs, c.ClubID) == true {
-			log.Panicf("%s 파일의 내용이 유효하지 않습니다. 네이버 카페 ClubID(%s)가 중복되었습니다.", AppConfigFileName, c.ClubID)
-		}
-		naverCafeClubIDs = append(naverCafeClubIDs, c.ClubID)
+		//@@@@@
+		//if utils.Contains(naverCafeClubIDs, c.ClubID) == true {
+		//	log.Panicf("%s 파일의 내용이 유효하지 않습니다. 네이버 카페 ClubID(%s)가 중복되었습니다.", AppConfigFileName, c.ClubID)
+		//}
+		//naverCafeClubIDs = append(naverCafeClubIDs, c.ClubID)
 
 		if c.Name == "" {
 			log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 Name이 입력되지 않았습니다.", AppConfigFileName, c.ID)

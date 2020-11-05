@@ -1,6 +1,7 @@
 package crawling
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
@@ -22,6 +23,7 @@ import (
 	"time"
 )
 
+// @@@@@
 const (
 	// 크롤링 할 최대 페이지 수
 	crawlingMaxPageCount = 10
@@ -33,17 +35,42 @@ const (
 	crawlingDelayTimeMinutes = 40
 )
 
+type naverCafeData struct {
+	ClubID string `json:"club_id"`
+}
+
+func (d *naverCafeData) fillFromMap(m map[string]interface{}) error {
+	data, err := json.Marshal(m)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(data, d); err != nil {
+		return err
+	}
+	return nil
+}
+
 type naverCafeCrawling struct {
-	config *g.NaverCafeCrawlingConfig
+	config *g.ProviderCrawlingConfig
+
+	clubID string
 
 	model *model.NaverCafe
 }
 
-func newNaverCafeCrawling(config *g.NaverCafeCrawlingConfig, model *model.NaverCafe) *naverCafeCrawling {
+func newNaverCafeCrawling(config *g.ProviderCrawlingConfig, model *model.RssProvider) *naverCafeCrawling {
+	// @@@@@
+	cafeData := naverCafeData{}
+	if err := cafeData.fillFromMap(config.Data); err != nil {
+		// return nil, errors.New(fmt.Sprintf("작업 데이터가 유효하지 않습니다.(error:%s)", err))
+	}
+
 	return &naverCafeCrawling{
 		config: config,
 
-		model: model,
+		clubID: cafeData.ClubID,
+
+		//model: model,
 	}
 }
 
@@ -116,7 +143,7 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, int
 	//
 	euckrDecoder := korean.EUCKR.NewDecoder()
 	for pageNo := 1; pageNo <= crawlingMaxPageCount; pageNo++ {
-		ncPageUrl := fmt.Sprintf("%s/ArticleList.nhn?search.clubid=%s&userDisplay=50&search.boardtype=L&search.totalCount=501&search.page=%d", model.NaverCafeUrl(c.config.ID), c.config.ClubID, pageNo)
+		ncPageUrl := fmt.Sprintf("%s/ArticleList.nhn?search.clubid=%s&userDisplay=50&search.boardtype=L&search.totalCount=501&search.page=%d", model.NaverCafeUrl(c.config.ID), c.clubID, pageNo)
 
 		res, err := http.Get(ncPageUrl)
 		if err != nil {
@@ -282,7 +309,7 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.NaverCafeArticle, int
 				ArticleID: articleID,
 				Title:     title,
 				Content:   "",
-				Link:      fmt.Sprintf("%s/ArticleRead.nhn?articleid=%d&clubid=%s", model.NaverCafeUrl(c.config.ID), articleID, c.config.ClubID),
+				Link:      fmt.Sprintf("%s/ArticleRead.nhn?articleid=%d&clubid=%s", model.NaverCafeUrl(c.config.ID), articleID, c.clubID),
 				Author:    author,
 				CreatedAt: createdAt,
 			})

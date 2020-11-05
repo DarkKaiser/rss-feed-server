@@ -23,7 +23,7 @@ type WebServiceHandlers struct {
 
 	db *sql.DB
 
-	naverCafe *model.NaverCafe
+	rssProvider *model.RssProvider
 
 	rssFeedMaxItemCount uint
 }
@@ -43,7 +43,7 @@ func NewWebServiceHandlers(config *g.AppConfig) *WebServiceHandlers {
 
 		db: db,
 
-		naverCafe: model.NewNaverCafe(config, db),
+		rssProvider: model.NewRssProvider(config, db),
 
 		rssFeedMaxItemCount: config.RssFeed.MaxItemCount,
 	}
@@ -64,14 +64,15 @@ func (h *WebServiceHandlers) Close() {
 
 func (h *WebServiceHandlers) Find(modelType model.ModelType) interface{} {
 	switch modelType {
-	case model.NaverCafeModel:
-		return h.naverCafe
+	case model.RssProviderModel:
+		return h.rssProvider
 	}
 
 	return nil
 }
 
-func (h *WebServiceHandlers) GetRssFeedViewHandler(c echo.Context) error {
+func (h *WebServiceHandlers) GetRssFeedSummaryViewHandler(c echo.Context) error {
+	// @@@@@
 	var html = `
 		<!DOCTYPE html>
 		<html>
@@ -114,7 +115,7 @@ func (h *WebServiceHandlers) GetRssFeedViewHandler(c echo.Context) error {
 		  </tr>
 	`
 
-	for _, nc := range h.config.RssFeed.NaverCafes {
+	for _, nc := range h.config.RssFeed.Providers {
 		url := fmt.Sprintf("%s://%s/naver/cafe/%s.xml", c.Scheme(), c.Request().Host, nc.ID)
 
 		boardNames := ""
@@ -131,7 +132,7 @@ func (h *WebServiceHandlers) GetRssFeedViewHandler(c echo.Context) error {
 		    <td>%s</td>
 		    <td>%d일</td>
 		  </tr>
- 		`, nc.ID, nc.Name, url, url, boardNames, nc.Scheduler.TimeSpec, nc.ArticleArchiveDate)
+ 		`, nc.ID, nc.Name, url, url, boardNames, nc.Scheduler.TimeSpec, nc.PostsArchiveDate)
 	}
 
 	html += `
@@ -143,7 +144,8 @@ func (h *WebServiceHandlers) GetRssFeedViewHandler(c echo.Context) error {
 	return c.HTML(200, html)
 }
 
-func (h *WebServiceHandlers) GetNaverCafeRssFeedHandler(c echo.Context) error {
+func (h *WebServiceHandlers) GetRssFeedHandler(c echo.Context) error {
+	// @@@@@ type을 넣어야 하지 않나??
 	// 입력된 네이버 카페의 ID를 구한다.
 	cafeID := c.Param("cafeid")
 	if strings.HasSuffix(strings.ToLower(cafeID), ".xml") == true {
@@ -152,7 +154,7 @@ func (h *WebServiceHandlers) GetNaverCafeRssFeedHandler(c echo.Context) error {
 
 	rssFeed := &feeds.RssFeed{}
 
-	for _, c := range h.config.RssFeed.NaverCafes {
+	for _, c := range h.config.RssFeed.Providers {
 		if c.ID == cafeID {
 			//
 			// 게시글을 검색한다.
@@ -162,7 +164,7 @@ func (h *WebServiceHandlers) GetNaverCafeRssFeedHandler(c echo.Context) error {
 				boardIDs = append(boardIDs, b.ID)
 			}
 
-			articles, err := h.naverCafe.Articles(cafeID, boardIDs, h.rssFeedMaxItemCount)
+			articles, err := h.rssProvider.Articles(cafeID, boardIDs, h.rssFeedMaxItemCount)
 			if err != nil {
 				m := fmt.Sprintf("네이버 카페('%s')의 게시글을 DB에서 읽어오는 중에 오류가 발생하였습니다.", cafeID)
 

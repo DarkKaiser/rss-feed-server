@@ -2,10 +2,10 @@
 	"debug": false,
 	"rss_feed": {
 		"max_item_count": 150,
-		"naver_cafes": [
+		"providers": [
 			{
+				"type": "naver_cafe",
 				"id": "ludypang",
-				"club_id": "12303558",
 				"name": "여순광 돈되는 부동산 정보(여수,순천,광양)",
 				"description": "여수 순천 광양 돈되는 부동산 정보 리얼 재테크 커뮤니티",
 				"boards": [
@@ -95,14 +95,17 @@
 						"category": "여순광 생활 정보"
 					}
 				],
-				"article_archive_date": 90,
+				"posts_archive_date": 90,
 				"scheduler": {
 					"time_spec": "15,35,55 * * * *"
+				},
+				"data": {
+					"club_id": "12303558"
 				}
 			},
 			{
+				"type": "naver_cafe",
 				"id": "yeosumam",
-				"club_id": "19246017",
 				"name": "여수맘들 모여라",
 				"description": "여수맘들의 자유로운 공간~ 수다, 중고 장터, 직거래, 여수맛집, 여수여행, 육아정보 공유",
 				"boards": [
@@ -172,9 +175,12 @@
 						"category": "협력기관 / 정보안내"
 					}
 				],
-				"article_archive_date": 90,
+				"posts_archive_date": 90,
 				"scheduler": {
 					"time_spec": "16,36,56 * * * *"
+				},
+				"data": {
+					"club_id": "19246017"
 				}
 			}
 		]

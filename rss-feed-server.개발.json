@@ -1,11 +1,11 @@
 {
 	"debug": true,
 	"rss_feed": {
-		"max_item_count": 100,
-		"naver_cafes": [
+		"max_item_count": 150,
+		"providers": [
 			{
+				"type": "naver_cafe",
 				"id": "ludypang",
-				"club_id": "12303558",
 				"name": "여순광 돈되는 부동산 정보(여수,순천,광양)",
 				"description": "여수 순천 광양 돈되는 부동산 정보 리얼 재테크 커뮤니티",
 				"boards": [
@@ -15,9 +15,12 @@
 						"category": "여순광 부동산 정보"
 					}
 				],
-				"article_archive_date": 90,
+				"posts_archive_date": 90,
 				"scheduler": {
 					"time_spec": "0 * * * *"
+				},
+				"data": {
+					"club_id": "12303558"
 				}
 			}
 		]

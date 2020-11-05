@@ -11,8 +11,11 @@ import (
 	"time"
 )
 
+// @@@@@
 const (
-	NaverCafeModel ModelType = "naver_cafe_model"
+	RssProviderModel ModelType = "rss_provider_model"
+
+	RssProviderSupportedTypeNaverCafe = "naver_cafe"
 
 	NaverCafeHomeUrl = "https://cafe.naver.com"
 )
@@ -21,6 +24,7 @@ func NaverCafeUrl(cafeID string) string {
 	return fmt.Sprintf("%s/%s", NaverCafeHomeUrl, cafeID)
 }
 
+// @@@@@ RssProviderPosts
 type NaverCafeArticle struct {
 	BoardID   string
 	BoardName string
@@ -36,11 +40,15 @@ func (a NaverCafeArticle) String() string {
 	return fmt.Sprintf("[%s, %s, %d, %s, %s, %s, %s, %s]", a.BoardID, a.BoardName, a.ArticleID, a.Title, a.Content, a.Link, a.Author, a.CreatedAt.Format("2006-10-02 15:04:05"))
 }
 
+type RssProvider struct {
+}
+
+// @@@@@ RssProvider
 type NaverCafe struct {
 	db *sql.DB
 }
 
-func NewNaverCafe(config *g.AppConfig, db *sql.DB) *NaverCafe {
+func NewRssProvider(config *g.AppConfig, db *sql.DB) *RssProvider {
 	nc := &NaverCafe{
 		db: db,
 	}
@@ -61,9 +69,9 @@ func (nc *NaverCafe) init(config *g.AppConfig) error {
 		return err
 	}
 
-	for _, c := range config.RssFeed.NaverCafes {
+	for _, c := range config.RssFeed.Providers {
 		// 기초 데이터를 추가한다.
-		if err := nc.insertNaverCafeInfo(c.ID, c.ClubID, c.Name, c.Description, NaverCafeUrl(c.ID)); err != nil {
+		if err := nc.insertNaverCafeInfo(c.ID, c.Name, c.Description, NaverCafeUrl(c.ID)); err != nil {
 			return err
 		}
 
@@ -74,7 +82,7 @@ func (nc *NaverCafe) init(config *g.AppConfig) error {
 		}
 
 		// 일정 시간이 지난 게시글 자료를 모두 삭제한다.
-		if err := nc.deleteOutOfDateArticles(c.ID, c.ArticleArchiveDate); err != nil {
+		if err := nc.deleteOutOfDatePosts(c.ID, c.PostsArchiveDate); err != nil {
 			return err
 		}
 	}
@@ -187,7 +195,7 @@ func (nc *NaverCafe) createTables() error {
 }
 
 //noinspection GoUnhandledErrorResult
-func (nc *NaverCafe) insertNaverCafeInfo(cafeID, clubID, name, description, url string) error {
+func (nc *NaverCafe) insertNaverCafeInfo(cafeID, name, description, url string) error {
 	stmt, err := nc.db.Prepare(`
 		INSERT OR REPLACE
 		  INTO naver_cafe_info (cafeId, clubId, name, description, url, crawledLatestArticleId) 
@@ -199,7 +207,7 @@ func (nc *NaverCafe) insertNaverCafeInfo(cafeID, clubID, name, description, url 
 		return err
 	}
 	defer stmt.Close()
-	if _, err = stmt.Exec(cafeID, clubID, name, description, url, cafeID); err != nil {
+	if _, err = stmt.Exec(cafeID, "@@@@@제거", name, description, url, cafeID); err != nil {
 		return err
 	}
 
@@ -341,13 +349,13 @@ func (nc *NaverCafe) Articles(cafeID string, boardIDs []string, maxArticleCount 
 }
 
 //noinspection GoUnhandledErrorResult
-func (nc *NaverCafe) deleteOutOfDateArticles(cafeID string, articleArchiveDate uint) error {
+func (nc *NaverCafe) deleteOutOfDatePosts(cafeID string, postsArchiveDate uint) error {
 	stmt, err := nc.db.Prepare(fmt.Sprintf(`
 		DELETE 
 		  FROM naver_cafe_article
 		 WHERE cafeId = ?
 		   AND createdAt < date(datetime('now', 'utc'), '-%d days')
-	`, articleArchiveDate))
+	`, postsArchiveDate))
 	if err != nil {
 		return err
 	}
