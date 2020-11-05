@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 )
 
-// @@@@@
 const (
 	AppName    string = "rss-feed-server"
 	AppVersion string = "0.2.0"
@@ -18,8 +17,15 @@ const (
 type AppConfig struct {
 	Debug   bool `json:"debug"`
 	RssFeed struct {
-		MaxItemCount uint              `json:"max_item_count"`
-		Providers    []*ProviderConfig `json:"providers"`
+		MaxItemCount uint `json:"max_item_count"`
+		Providers    []*struct {
+			ID                string          `json:"id"`
+			Site              string          `json:"site"`
+			Config            *ProviderConfig `json:"config"`
+			CrawlingScheduler struct {
+				TimeSpec string `json:"time_spec"`
+			} `json:"crawling_scheduler"`
+		} `json:"providers"`
 	} `json:"rss_feed"`
 	WS struct {
 		TLSServer    bool   `json:"tls_server"`
@@ -35,7 +41,6 @@ type AppConfig struct {
 }
 
 type ProviderConfig struct {
-	Type        string `json:"type"`
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
@@ -45,11 +50,8 @@ type ProviderConfig struct {
 		Name     string `json:"name"`
 		Category string `json:"category"`
 	} `json:"boards"`
-	ArticleArchiveDate uint `json:"article_archive_date"`
-	Scheduler          struct {
-		TimeSpec string `json:"time_spec"`
-	} `json:"scheduler"`
-	Data map[string]interface{} `json:"data"`
+	ArticleArchiveDate uint                   `json:"article_archive_date"`
+	Data               map[string]interface{} `json:"data"`
 }
 
 func (c *ProviderConfig) ContainsBoard(boardID string) bool {
@@ -70,6 +72,8 @@ func InitAppConfig() *AppConfig {
 	err = json.Unmarshal(data, &config)
 	utils.CheckErr(err)
 
+	// @@@@@ url 마지막에 / 있는지 체크
+	//////////////////////////
 	//
 	// 파일 내용에 대해 유효성 검사를 한다.
 	//
@@ -87,22 +91,23 @@ func InitAppConfig() *AppConfig {
 		//}
 		//naverCafeClubIDs = append(naverCafeClubIDs, c.ClubID)
 
-		if c.Name == "" {
-			log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 Name이 입력되지 않았습니다.", AppConfigFileName, c.ID)
-		}
-
-		var boardIDs []string
-		for _, b := range c.Boards {
-			if utils.Contains(boardIDs, b.ID) == true {
-				log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 게시판 ID(%s)가 중복되었습니다.", AppConfigFileName, c.Name, b.ID)
-			}
-			boardIDs = append(boardIDs, b.ID)
-
-			if b.Name == "" {
-				log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 게시판 Name이 입력되지 않았습니다.", AppConfigFileName, c.Name)
-			}
-		}
+		//if c.Name == "" {
+		//	log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 Name이 입력되지 않았습니다.", AppConfigFileName, c.ID)
+		//}
+		//
+		//var boardIDs []string
+		//for _, b := range c.Boards {
+		//	if utils.Contains(boardIDs, b.ID) == true {
+		//		log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 게시판 ID(%s)가 중복되었습니다.", AppConfigFileName, c.Name, b.ID)
+		//	}
+		//	boardIDs = append(boardIDs, b.ID)
+		//
+		//	if b.Name == "" {
+		//		log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 게시판 Name이 입력되지 않았습니다.", AppConfigFileName, c.Name)
+		//	}
+		//}
 	}
+	//////////////////////////
 
 	if config.WS.TLSServer == true {
 		if config.WS.CertFilePath == "" {

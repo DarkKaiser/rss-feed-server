@@ -4,185 +4,191 @@
 		"max_item_count": 150,
 		"providers": [
 			{
-				"type": "naver_cafe",
 				"id": "ludypang",
-				"name": "여순광 돈되는 부동산 정보(여수,순천,광양)",
-				"description": "여수 순천 광양 돈되는 부동산 정보 리얼 재테크 커뮤니티",
-				"url": "https://cafe.naver.com/ludypang",
-				"boards": [
-					{
-						"id": "222",
-						"name": "부동산 소식",
-						"category": "여순광 부동산 정보"
-					},
-					{
-						"id": "17",
-						"name": "여수 Q&A",
-						"category": "여순광 부동산 Q&A"
-					},
-					{
-						"id": "164",
-						"name": "순천 Q&A",
-						"category": "여순광 부동산 Q&A"
-					},
-					{
-						"id": "58",
-						"name": "광양 Q&A",
-						"category": "여순광 부동산 Q&A"
-					},
-					{
-						"id": "167",
-						"name": "기타 Q&A",
-						"category": "여순광 부동산 Q&A"
-					},
-					{
-						"id": "72",
-						"name": "여수 자유발언",
-						"category": "여순광 부동산 이야기"
-					},
-					{
-						"id": "246",
-						"name": "순천 자유발언",
-						"category": "여순광 부동산 이야기"
-					},
-					{
-						"id": "247",
-						"name": "광양 자유발언",
-						"category": "여순광 부동산 이야기"
-					},
-					{
-						"id": "248",
-						"name": "기타 자유발언",
-						"category": "여순광 부동산 이야기"
-					},
-					{
-						"id": "249",
-						"name": "여순광 지역 소식",
-						"category": "여순광 생활 정보"
-					},
-					{
-						"id": "5",
-						"name": "여순광 문화 행사",
-						"category": "여순광 생활 정보"
-					},
-					{
-						"id": "403",
-						"name": "여순광 여행 정보",
-						"category": "여순광 생활 정보"
-					},
-					{
-						"id": "225",
-						"name": "여순광 맛집",
-						"category": "여순광 생활 정보"
-					},
-					{
-						"id": "363",
-						"name": "여순광 생할 정보",
-						"category": "여순광 생활 정보"
-					},
-					{
-						"id": "401",
-						"name": "여순광 자동차 정보",
-						"category": "여순광 생활 정보"
-					},
-					{
-						"id": "288",
-						"name": "여순광 교육 정보",
-						"category": "여순광 생활 정보"
-					},
-					{
-						"id": "307",
-						"name": "여순광 의료 정보",
-						"category": "여순광 생활 정보"
+				"site": "NaverCafe",
+				"config": {
+					"id": "ludypang",
+					"name": "여순광 돈되는 부동산 정보(여수,순천,광양)",
+					"description": "여수 순천 광양 돈되는 부동산 정보 리얼 재테크 커뮤니티",
+					"url": "https://cafe.naver.com/ludypang",
+					"boards": [
+						{
+							"id": "222",
+							"name": "부동산 소식",
+							"category": "여순광 부동산 정보"
+						},
+						{
+							"id": "17",
+							"name": "여수 Q&A",
+							"category": "여순광 부동산 Q&A"
+						},
+						{
+							"id": "164",
+							"name": "순천 Q&A",
+							"category": "여순광 부동산 Q&A"
+						},
+						{
+							"id": "58",
+							"name": "광양 Q&A",
+							"category": "여순광 부동산 Q&A"
+						},
+						{
+							"id": "167",
+							"name": "기타 Q&A",
+							"category": "여순광 부동산 Q&A"
+						},
+						{
+							"id": "72",
+							"name": "여수 자유발언",
+							"category": "여순광 부동산 이야기"
+						},
+						{
+							"id": "246",
+							"name": "순천 자유발언",
+							"category": "여순광 부동산 이야기"
+						},
+						{
+							"id": "247",
+							"name": "광양 자유발언",
+							"category": "여순광 부동산 이야기"
+						},
+						{
+							"id": "248",
+							"name": "기타 자유발언",
+							"category": "여순광 부동산 이야기"
+						},
+						{
+							"id": "249",
+							"name": "여순광 지역 소식",
+							"category": "여순광 생활 정보"
+						},
+						{
+							"id": "5",
+							"name": "여순광 문화 행사",
+							"category": "여순광 생활 정보"
+						},
+						{
+							"id": "403",
+							"name": "여순광 여행 정보",
+							"category": "여순광 생활 정보"
+						},
+						{
+							"id": "225",
+							"name": "여순광 맛집",
+							"category": "여순광 생활 정보"
+						},
+						{
+							"id": "363",
+							"name": "여순광 생할 정보",
+							"category": "여순광 생활 정보"
+						},
+						{
+							"id": "401",
+							"name": "여순광 자동차 정보",
+							"category": "여순광 생활 정보"
+						},
+						{
+							"id": "288",
+							"name": "여순광 교육 정보",
+							"category": "여순광 생활 정보"
+						},
+						{
+							"id": "307",
+							"name": "여순광 의료 정보",
+							"category": "여순광 생활 정보"
+						}
+					],
+					"article_archive_date": 90,
+					"data": {
+						"club_id": "12303558"
 					}
-				],
-				"article_archive_date": 90,
-				"scheduler": {
-					"time_spec": "15,35,55 * * * *"
 				},
-				"data": {
-					"club_id": "12303558"
+				"crawling_scheduler": {
+					"time_spec": "15,35,55 * * * *"
 				}
 			},
 			{
-				"type": "naver_cafe",
 				"id": "yeosumam",
-				"name": "여수맘들 모여라",
-				"description": "여수맘들의 자유로운 공간~ 수다, 중고 장터, 직거래, 여수맛집, 여수여행, 육아정보 공유",
-				"url": "https://cafe.naver.com/yeosumam",
-				"boards": [
-					{
-						"id": "1",
-						"name": "공지/행사 게시판",
-						"category": "규칙/공지"
-					},
-					{
-						"id": "86",
-						"name": "카페 이벤트 공지",
-						"category": "카페 이벤트/혜택"
-					},
-					{
-						"id": "124",
-						"name": "* 산모교실 *",
-						"category": "카페 이벤트/혜택"
-					},
-					{
-						"id": "122",
-						"name": "여수맘 문화 및 공연 제휴/공구",
-						"category": "카페 이벤트/혜택"
-					},
-					{
-						"id": "69",
-						"name": "여수 늬우스☆ (여수시에서 알려드립니다.)",
-						"category": "협력기관 / 정보안내"
-					},
-					{
-						"id": "142",
-						"name": "여수경찰서에서 알려드립니다.",
-						"category": "협력기관 / 정보안내"
-					},
-					{
-						"id": "223",
-						"name": "문화파출소 여수",
-						"category": "협력기관 / 정보안내"
-					},
-					{
-						"id": "237",
-						"name": "굿네이버스 좋은마음센터",
-						"category": "협력기관 / 정보안내"
-					},
-					{
-						"id": "260",
-						"name": "전남대학교",
-						"category": "협력기관 / 정보안내"
-					},
-					{
-						"id": "296",
-						"name": "여수시 건강가정 통합지원센터",
-						"category": "협력기관 / 정보안내"
-					},
-					{
-						"id": "318",
-						"name": "여수시청소년수련관",
-						"category": "협력기관 / 정보안내"
-					},
-					{
-						"id": "320",
-						"name": "여성인력개발센터",
-						"category": "협력기관 / 정보안내"
-					},
-					{
-						"id": "123",
-						"name": "정책정보 안내",
-						"category": "협력기관 / 정보안내"
+				"site": "NaverCafe",
+				"config": {
+					"id": "yeosumam",
+					"name": "여수맘들 모여라",
+					"description": "여수맘들의 자유로운 공간~ 수다, 중고 장터, 직거래, 여수맛집, 여수여행, 육아정보 공유",
+					"url": "https://cafe.naver.com/yeosumam",
+					"boards": [
+						{
+							"id": "1",
+							"name": "공지/행사 게시판",
+							"category": "규칙/공지"
+						},
+						{
+							"id": "86",
+							"name": "카페 이벤트 공지",
+							"category": "카페 이벤트/혜택"
+						},
+						{
+							"id": "124",
+							"name": "* 산모교실 *",
+							"category": "카페 이벤트/혜택"
+						},
+						{
+							"id": "122",
+							"name": "여수맘 문화 및 공연 제휴/공구",
+							"category": "카페 이벤트/혜택"
+						},
+						{
+							"id": "69",
+							"name": "여수 늬우스☆ (여수시에서 알려드립니다.)",
+							"category": "협력기관 / 정보안내"
+						},
+						{
+							"id": "142",
+							"name": "여수경찰서에서 알려드립니다.",
+							"category": "협력기관 / 정보안내"
+						},
+						{
+							"id": "223",
+							"name": "문화파출소 여수",
+							"category": "협력기관 / 정보안내"
+						},
+						{
+							"id": "237",
+							"name": "굿네이버스 좋은마음센터",
+							"category": "협력기관 / 정보안내"
+						},
+						{
+							"id": "260",
+							"name": "전남대학교",
+							"category": "협력기관 / 정보안내"
+						},
+						{
+							"id": "296",
+							"name": "여수시 건강가정 통합지원센터",
+							"category": "협력기관 / 정보안내"
+						},
+						{
+							"id": "318",
+							"name": "여수시청소년수련관",
+							"category": "협력기관 / 정보안내"
+						},
+						{
+							"id": "320",
+							"name": "여성인력개발센터",
+							"category": "협력기관 / 정보안내"
+						},
+						{
+							"id": "123",
+							"name": "정책정보 안내",
+							"category": "협력기관 / 정보안내"
+						}
+					],
+					"article_archive_date": 90,
+					"data": {
+						"club_id": "19246017"
 					}
-				],
-				"article_archive_date": 90,
-				"scheduler": {
-					"time_spec": "16,36,56 * * * *"
 				},
-				"data": {
-					"club_id": "19246017"
+				"crawling_scheduler": {
+					"time_spec": "16,36,56 * * * *"
 				}
 			}
 		]

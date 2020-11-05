@@ -53,12 +53,12 @@ func (s *CrawlingService) Run(serviceStopCtx context.Context, serviceStopWaiter 
 	}
 
 	// 크롤링 스케쥴러를 시작한다.
-	if pm, ok := s.modelFinder.Find(model.RssProviderModel).(*model.RssProvider); ok == true {
-		for _, provider := range s.config.RssFeed.Providers {
-			switch provider.Type {
-			case model.RssProviderSupportedTypeNaverCafe:
-				if _, err := s.cron.AddJob(provider.Scheduler.TimeSpec, newNaverCafeCrawling(provider, pm)); err != nil {
-					m := fmt.Sprintf("네이버 카페(%s) 크롤링 작업의 스케쥴러 등록이 실패하였습니다. (error:%s)", provider.ID, err)
+	if rssProviderModel, ok := s.modelFinder.Find(model.RssProviderModel).(*model.RssProvider); ok == true {
+		for _, p := range s.config.RssFeed.Providers {
+			switch p.Site {
+			case model.RssProviderSupportedSiteNaverCafe:
+				if _, err := s.cron.AddJob(p.CrawlingScheduler.TimeSpec, newNaverCafeCrawling(p.Config, p.ID, rssProviderModel)); err != nil {
+					m := fmt.Sprintf("네이버 카페(%s) 크롤링 작업의 스케쥴러 등록이 실패하였습니다. (error:%s)", p.Config.ID, err)
 
 					notifyapi.SendNotifyMessage(m, true)
 
@@ -66,7 +66,7 @@ func (s *CrawlingService) Run(serviceStopCtx context.Context, serviceStopWaiter 
 				}
 
 			default:
-				m := fmt.Sprintf("RSS Feed Provider 모델에서 지원되지 않는 타입('%s')입니다.", provider.Type)
+				m := fmt.Sprintf("RSS Feed Provider 모델에서 지원되지 않는 사이트('%s')입니다.", p.Site)
 
 				notifyapi.SendNotifyMessage(m, true)
 

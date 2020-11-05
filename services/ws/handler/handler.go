@@ -23,7 +23,7 @@ type WebServiceHandlers struct {
 
 	db *sql.DB
 
-	rssProvider *model.RssProvider
+	rssProviderModel *model.RssProvider
 
 	rssFeedMaxItemCount uint
 }
@@ -43,7 +43,7 @@ func NewWebServiceHandlers(config *g.AppConfig) *WebServiceHandlers {
 
 		db: db,
 
-		rssProvider: model.NewRssProvider(config, db),
+		rssProviderModel: model.NewRssProvider(config, db),
 
 		rssFeedMaxItemCount: config.RssFeed.MaxItemCount,
 	}
@@ -65,7 +65,7 @@ func (h *WebServiceHandlers) Close() {
 func (h *WebServiceHandlers) Find(modelType model.ModelType) interface{} {
 	switch modelType {
 	case model.RssProviderModel:
-		return h.rssProvider
+		return h.rssProviderModel
 	}
 
 	return nil
@@ -164,7 +164,7 @@ func (h *WebServiceHandlers) GetRssFeedHandler(c echo.Context) error {
 				boardIDs = append(boardIDs, b.ID)
 			}
 
-			articles, err := h.rssProvider.Articles(cafeID, boardIDs, h.rssFeedMaxItemCount)
+			articles, err := h.rssProviderModel.Articles(cafeID, boardIDs, h.rssFeedMaxItemCount)
 			if err != nil {
 				m := fmt.Sprintf("네이버 카페('%s')의 게시글을 DB에서 읽어오는 중에 오류가 발생하였습니다.", cafeID)
 
@@ -185,7 +185,7 @@ func (h *WebServiceHandlers) GetRssFeedHandler(c echo.Context) error {
 				lastBuildDate = articles[0].CreatedAt
 			}
 
-			rssFeed = feeds.NewRssFeed(c.Name, model.NaverCafeUrl(c.ID), c.Description, "ko", g.AppName, time.Now(), lastBuildDate)
+			rssFeed = feeds.NewRssFeed(c.Name, c.Url, c.Description, "ko", g.AppName, time.Now(), lastBuildDate)
 
 			for _, article := range articles {
 				rssFeed.Items = append(rssFeed.Items,

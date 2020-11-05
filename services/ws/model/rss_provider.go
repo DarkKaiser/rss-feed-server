@@ -15,7 +15,7 @@ import (
 const (
 	RssProviderModel ModelType = "rss_provider_model"
 
-	RssProviderSupportedTypeNaverCafe = "naver_cafe"
+	RssProviderSupportedSiteNaverCafe = "NaverCafe"
 )
 
 // @@@@@
@@ -63,23 +63,23 @@ func (nc *RssProvider) init(config *g.AppConfig) error {
 		return err
 	}
 
-	for _, c := range config.RssFeed.Providers {
-		// 기초 데이터를 추가한다.
-		if err := nc.insertNaverCafeInfo(c.ID, c.Name, c.Description, c.Url); err != nil {
-			return err
-		}
-
-		for _, b := range c.Boards {
-			if err := nc.insertNaverCafeBoardInfo(c.ID, b.ID, b.Name); err != nil {
-				return err
-			}
-		}
-
-		// 일정 시간이 지난 게시글 자료를 모두 삭제한다.
-		if err := nc.deleteOutOfDateArticle(c.ID, c.ArticleArchiveDate); err != nil {
-			return err
-		}
-	}
+	//for _, c := range config.RssFeed.Providers {
+	//	// 기초 데이터를 추가한다.
+	//	if err := nc.insertNaverCafeInfo(c.ID, c.Name, c.Description, c.Url); err != nil {
+	//		return err
+	//	}
+	//
+	//	for _, b := range c.Boards {
+	//		if err := nc.insertNaverCafeBoardInfo(c.ID, b.ID, b.Name); err != nil {
+	//			return err
+	//		}
+	//	}
+	//
+	//	// 일정 시간이 지난 게시글 자료를 모두 삭제한다.
+	//	if err := nc.deleteOutOfDateArticle(c.ID, c.ArticleArchiveDate); err != nil {
+	//		return err
+	//	}
+	//}
 
 	return nil
 }
