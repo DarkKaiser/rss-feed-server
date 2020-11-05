@@ -80,12 +80,13 @@ func (s *CrawlingService) Run(serviceStopCtx context.Context, serviceStopWaiter 
 			}
 		}
 	} else {
-		m := fmt.Sprintf("RSS Feed 모델 객체를 찾을 수 없습니다.")
+		m := fmt.Sprintf("RSS Feed Provider를 찾을 수 없습니다.")
 
 		notifyapi.SendNotifyMessage(m, true)
 
 		log.Panic(m)
 	}
+
 	s.cron.Start()
 
 	go s.run0(serviceStopCtx, serviceStopWaiter)

@@ -132,9 +132,10 @@ func (c *naverCafeCrawling) Run() {
 	}
 }
 
-// @@@@@
 //noinspection GoErrorStringFormat,GoUnhandledErrorResult
 func (c *naverCafeCrawling) runArticleCrawling() ([]*model.RssProviderArticle, int64, string, error) {
+	// @@@@@
+	/////////////////////////////////////
 	crawledLatestArticleID, err := c.rssProviderModel.CrawledLatestArticleID(c.config.ID)
 	if err != nil {
 		return nil, 0, fmt.Sprintf("네이버 카페('%s')에 마지막으로 추가된 게시글 ID를 찾는 중에 오류가 발생하였습니다.", c.config.ID), err
@@ -331,6 +332,7 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.RssProviderArticle, i
 			break
 		}
 	}
+	// @@@@@ 여기까지 /////////////////////////////////////////////////
 
 	//
 	// 게시글 내용 크롤링 : 내용은 크롤링이 실패해도 에러를 발생하지 않고 무시한다.
