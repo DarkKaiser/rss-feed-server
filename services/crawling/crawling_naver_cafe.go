@@ -23,17 +23,6 @@ import (
 	"time"
 )
 
-const (
-	// 크롤링 할 최대 페이지 수
-	crawlingMaxPageCount = 10
-
-	// 크롤링 지연 시간(분)
-	// 네이버 검색을 이용하여 카페 게시글을 검색한 후 게시글 내용을 크롤링하는 방법을 이용하는 경우
-	// 게시글이 등록되고 나서 일정 시간(그때그때 검색 시스템의 상황에 따라 차이가 존재함)이 경과한 후에
-	// 검색이 가능하므로 크롤링 지연 시간을 둔다.
-	crawlingDelayTimeMinutes = 40
-)
-
 type naverCafeCrawlingConfigData struct {
 	ClubID string `json:"club_id"`
 }
@@ -60,6 +49,15 @@ type naverCafeCrawling struct {
 	ncName        string
 	ncDescription string
 	ncUrl         string
+
+	// 크롤링 할 최대 페이지 수
+	crawlingMaxPageCount int
+
+	// 크롤링 지연 시간(분)
+	// 네이버 검색을 이용하여 카페 게시글을 검색한 후 게시글 내용을 크롤링하는 방법을 이용하는 경우
+	// 게시글이 등록되고 나서 일정 시간(그때그때 검색 시스템의 상황에 따라 차이가 존재함)이 경과한 후에
+	// 검색이 가능하므로 크롤링 지연 시간을 둔다.
+	crawlingDelayTimeMinutes int
 }
 
 func newNaverCafeCrawling(config *g.ProviderConfig, rssProviderID string, rssProviderModel *model.RssProvider) *naverCafeCrawling {
@@ -83,6 +81,9 @@ func newNaverCafeCrawling(config *g.ProviderConfig, rssProviderID string, rssPro
 		ncName:        config.Name,
 		ncDescription: config.Description,
 		ncUrl:         config.Url,
+
+		crawlingMaxPageCount:     10,
+		crawlingDelayTimeMinutes: 40,
 	}
 }
 
@@ -147,13 +148,13 @@ func (c *naverCafeCrawling) runArticleCrawling() ([]*model.RssProviderArticle, i
 
 	articles := make([]*model.RssProviderArticle, 0)
 	newCrawledLatestArticleID := crawledLatestArticleID
-	crawlingDelayStartTime := time.Now().Add(time.Duration(-1*crawlingDelayTimeMinutes) * time.Minute)
+	crawlingDelayStartTime := time.Now().Add(time.Duration(-1*c.crawlingDelayTimeMinutes) * time.Minute)
 
 	//
 	// 게시글 크롤링
 	//
 	euckrDecoder := korean.EUCKR.NewDecoder()
-	for pageNo := 1; pageNo <= crawlingMaxPageCount; pageNo++ {
+	for pageNo := 1; pageNo <= c.crawlingMaxPageCount; pageNo++ {
 		ncPageUrl := fmt.Sprintf("%s/ArticleList.nhn?search.clubid=%s&userDisplay=50&search.boardtype=L&search.totalCount=501&search.page=%d", c.ncUrl, c.ncClubID, pageNo)
 
 		res, err := http.Get(ncPageUrl)
