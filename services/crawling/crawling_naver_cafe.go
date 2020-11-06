@@ -87,7 +87,7 @@ func newNaverCafeCrawling(config *g.ProviderConfig, rssProviderID string, rssPro
 }
 
 func (c *naverCafeCrawling) Run() {
-	log.Debugf("네이버 카페('%s') 크롤링 작업을 시작합니다.", c.ncID)
+	log.Debugf("네이버 카페('%s')의 크롤링 작업을 시작합니다.", c.ncID)
 
 	articles, newCrawledLatestArticleID, errOccurred, err := c.runArticleCrawling()
 	if errOccurred != "" {
@@ -99,11 +99,11 @@ func (c *naverCafeCrawling) Run() {
 	}
 
 	if len(articles) > 0 {
-		log.Debugf("네이버 카페('%s') 크롤링 작업 결과로 %d건의 새로운 게시글이 추출되었습니다. 새로운 게시글을 DB에 추가합니다.", c.ncID, len(articles))
+		log.Debugf("네이버 카페('%s')의 크롤링 작업 결과로 %d건의 새로운 게시글이 추출되었습니다. 새로운 게시글을 DB에 추가합니다.", c.ncID, len(articles))
 
 		insertedCnt, err := c.rssProviderModel.InsertArticles(c.rssProviderID, articles)
 		if err != nil {
-			m := fmt.Sprintf("새로운 게시글을 DB에 추가하는 중에 오류가 발생하여 네이버 카페('%s') 크롤링 작업이 실패하였습니다.", c.ncID)
+			m := fmt.Sprintf("새로운 게시글을 DB에 추가하는 중에 오류가 발생하여 네이버 카페('%s')의 크롤링 작업이 실패하였습니다.", c.ncID)
 
 			log.Errorf("%s (error:%s)", m, err)
 
@@ -112,38 +112,35 @@ func (c *naverCafeCrawling) Run() {
 			return
 		}
 
-		// @@@@@
-		println(newCrawledLatestArticleID)
-		//if err = c.rssProviderModel.UpdateCrawledLatestArticleID(c.ncID, newCrawledLatestArticleID); err != nil {
-		//	m := fmt.Sprintf("네이버 카페('%s') 크롤링 된 최근 게시글 ID의 DB 반영이 실패하였습니다.", c.ncID)
-		//
-		//	log.Errorf("%s (error:%s)", m, err)
-		//
-		//	notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
-		//}
+		if err = c.rssProviderModel.NaverCafe_UpdateCrawledLatestArticleID(c.rssProviderID, newCrawledLatestArticleID); err != nil {
+			m := fmt.Sprintf("네이버 카페('%s')의 크롤링 된 최근 게시글 ID의 DB 반영이 실패하였습니다.", c.ncID)
+
+			log.Errorf("%s (error:%s)", m, err)
+
+			notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+		}
 
 		if len(articles) != insertedCnt {
-			log.Debugf("네이버 카페('%s') 크롤링 작업을 종료합니다. 전체 %d건 중에서 %d건의 새로운 게시글이 DB에 추가되었습니다.", c.ncID, len(articles), insertedCnt)
+			log.Debugf("네이버 카페('%s')의 크롤링 작업을 종료합니다. 전체 %d건 중에서 %d건의 새로운 게시글이 DB에 추가되었습니다.", c.ncID, len(articles), insertedCnt)
 		} else {
-			log.Debugf("네이버 카페('%s') 크롤링 작업을 종료합니다. %d건의 새로운 게시글이 DB에 추가되었습니다.", c.ncID, len(articles))
+			log.Debugf("네이버 카페('%s')의 크롤링 작업을 종료합니다. %d건의 새로운 게시글이 DB에 추가되었습니다.", c.ncID, len(articles))
 		}
 	} else {
-		// @@@@@
-		//if err = c.rssProviderModel.UpdateCrawledLatestArticleID(c.ncID, newCrawledLatestArticleID); err != nil {
-		//	m := fmt.Sprintf("네이버 카페('%s') 크롤링 된 최근 게시글 ID의 DB 반영이 실패하였습니다.", c.ncID)
-		//
-		//	log.Errorf("%s (error:%s)", m, err)
-		//
-		//	notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
-		//}
+		if err = c.rssProviderModel.NaverCafe_UpdateCrawledLatestArticleID(c.rssProviderID, newCrawledLatestArticleID); err != nil {
+			m := fmt.Sprintf("네이버 카페('%s')의 크롤링 된 최근 게시글 ID의 DB 반영이 실패하였습니다.", c.ncID)
 
-		log.Debugf("네이버 카페('%s') 크롤링 작업을 종료합니다. 새로운 게시글이 존재하지 않습니다.", c.ncID)
+			log.Errorf("%s (error:%s)", m, err)
+
+			notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+		}
+
+		log.Debugf("네이버 카페('%s')의 크롤링 작업을 종료합니다. 새로운 게시글이 존재하지 않습니다.", c.ncID)
 	}
 }
 
 //noinspection GoErrorStringFormat,GoUnhandledErrorResult
 func (c *naverCafeCrawling) runArticleCrawling() ([]*model.RssProviderArticle, int64, string, error) {
-	crawledLatestArticleID, err := c.rssProviderModel.CrawledLatestArticleID(c.rssProviderID) //@@@@@ 함수명 변경
+	crawledLatestArticleID, err := c.rssProviderModel.NaverCafe_CrawledLatestArticleID(c.rssProviderID)
 	if err != nil {
 		return nil, 0, fmt.Sprintf("네이버 카페('%s')에 마지막으로 추가된 게시글 ID를 찾는 중에 오류가 발생하였습니다.", c.ncID), err
 	}

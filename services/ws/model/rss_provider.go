@@ -184,6 +184,24 @@ func (p *RssProvider) createTables() error {
 		return err
 	}
 
+	//
+	// rss_provider_site_naver_cafe 테이블
+	//
+	stmt7, err := p.db.Prepare(`
+		CREATE TABLE IF NOT EXISTS rss_provider_site_naver_cafe (
+			p_id 						VARCHAR( 50) PRIMARY KEY NOT NULL UNIQUE,
+			crawled_latest_article_id	INTEGER DEFAULT 0,
+			FOREIGN KEY (p_id) REFERENCES rss_provider(id)
+		)
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt7.Close()
+	if _, err = stmt7.Exec(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -213,44 +231,6 @@ func (p *RssProvider) insertRssProviderBoard(pID, id, name string) error {
 	}
 	defer stmt.Close()
 	if _, err = stmt.Exec(pID, id, name); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// @@@@@
-//noinspection GoUnhandledErrorResult
-func (p *RssProvider) CrawledLatestArticleID(pID string) (int64, error) {
-	var crawledLatestArticleID int64
-	//err := p.db.QueryRow(`
-	//	SELECT MAX(articleId)
-	//	  FROM (    SELECT IFNULL(crawledLatestArticleId, 0) articleId
-	//	              FROM naver_cafe_info
-	//	             WHERE cafeId = ?
-	//             UNION ALL
-	//                SELECT IFNULL(MAX(articleId), 0) articleId
-	//	              FROM naver_cafe_article
-	//	             WHERE cafeId = ?
-	//	       )
-	//`, cafeID, cafeID).Scan(&crawledLatestArticleID)
-	//
-	//if err != nil {
-	//	return 0, err
-	//}
-
-	return crawledLatestArticleID, nil
-}
-
-// @@@@@
-//noinspection GoUnhandledErrorResult
-func (p *RssProvider) UpdateCrawledLatestArticleID(cafeID string, articleID int64) error {
-	stmt, err := p.db.Prepare("UPDATE naver_cafe_info SET crawledLatestArticleId = ? WHERE cafeId = ?")
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-	if _, err = stmt.Exec(articleID, cafeID); err != nil {
 		return err
 	}
 
@@ -354,6 +334,36 @@ func (p *RssProvider) deleteOutOfDateArticle(pID string, articleArchiveDate uint
 	}
 	defer stmt.Close()
 	if _, err = stmt.Exec(pID); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+//noinspection GoUnhandledErrorResult,GoSnakeCaseUsage
+func (p *RssProvider) NaverCafe_CrawledLatestArticleID(pID string) (int64, error) {
+	var crawledLatestArticleID int64 = 0
+	err := p.db.QueryRow(`
+		 SELECT IFNULL(crawled_latest_article_id, 0) id
+		   FROM rss_provider_site_naver_cafe
+		  WHERE p_id = ?
+	`, pID).Scan(&crawledLatestArticleID)
+
+	if err != nil && err != sql.ErrNoRows {
+		return 0, err
+	}
+
+	return crawledLatestArticleID, nil
+}
+
+//noinspection GoUnhandledErrorResult,GoSnakeCaseUsage
+func (p *RssProvider) NaverCafe_UpdateCrawledLatestArticleID(pID string, crawledLatestArticleID int64) error {
+	stmt, err := p.db.Prepare("INSERT OR REPLACE INTO rss_provider_site_naver_cafe (p_id, crawled_latest_article_id) VALUES (?, ?)")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	if _, err = stmt.Exec(pID, crawledLatestArticleID); err != nil {
 		return err
 	}
 
