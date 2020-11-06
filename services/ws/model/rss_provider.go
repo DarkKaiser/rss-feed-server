@@ -273,7 +273,7 @@ func (p *RssProvider) InsertArticles(pID string, articles []*RssProviderArticle)
 	var sentNotifyMessage = false
 	for _, article := range articles {
 		if _, err := stmt.Exec(pID, article.BoardID, article.ArticleID, article.Title, article.Content, article.Link, article.Author, article.CreatedDate.UTC().Format("2006-01-02 15:04:05")); err != nil {
-			m := fmt.Sprintf("게시글 등록이 실패하였습니다. (p_id:%s)", pID)
+			m := fmt.Sprintf("RSS Feed DB에 게시글 등록이 실패하였습니다. (p_id:%s)", pID)
 
 			log.Errorf("%s (게시글정보:%s) (error:%s)", m, article, err)
 
@@ -289,23 +289,23 @@ func (p *RssProvider) InsertArticles(pID string, articles []*RssProviderArticle)
 	return insertedCnt, nil
 }
 
-// @@@@@ 검토, order 컬럼 추가 필요(createAt으로는 안되나?? 안될거같긴함)
 //noinspection GoUnhandledErrorResult
 func (p *RssProvider) Articles(pID string, boardIDs []string, maxArticleCount uint) ([]*RssProviderArticle, error) {
 	stmt, err := p.db.Prepare(fmt.Sprintf(`
 		SELECT a.b_id
-             , b.name boardName
+             , b.name b_name
 		     , a.id
 		     , a.title
 		     , IFNULL(a.content, "") content
 		     , a.link
 		     , IFNULL(a.author, "") author
-		     , a.createdAt
-		  FROM naver_cafe_article a
+		     , a.created_date
+		  FROM rss_provider_article a
                INNER JOIN rss_provider_board b ON ( a.p_id = b.p_id AND a.b_id = b.id )
 		 WHERE a.p_id = ?
-		   AND a.boardId IN (%s)
-      ORDER BY a.id DESC
+		   AND a.b_id IN (%s)
+      ORDER BY a.created_date DESC
+             , a.rowid desc
          LIMIT ?
 	`, fmt.Sprintf("'%s'", strings.Join(boardIDs, "', '"))))
 	if err != nil {
@@ -324,12 +324,12 @@ func (p *RssProvider) Articles(pID string, boardIDs []string, maxArticleCount ui
 	for rows.Next() {
 		var article RssProviderArticle
 
-		var createdAt sql.NullTime
-		if err = rows.Scan(&article.BoardID, &article.BoardName, &article.ArticleID, &article.Title, &article.Content, &article.Link, &article.Author, &createdAt); err != nil {
+		var createdDate sql.NullTime
+		if err = rows.Scan(&article.BoardID, &article.BoardName, &article.ArticleID, &article.Title, &article.Content, &article.Link, &article.Author, &createdDate); err != nil {
 			return nil, err
 		}
-		if createdAt.Valid == true {
-			article.CreatedDate = createdAt.Time.Local()
+		if createdDate.Valid == true {
+			article.CreatedDate = createdDate.Time.Local()
 		}
 
 		articles = append(articles, &article)
