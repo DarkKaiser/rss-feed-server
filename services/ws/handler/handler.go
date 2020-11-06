@@ -168,21 +168,21 @@ func (h *WebServiceHandlers) GetRssFeedHandler(c echo.Context) error {
 
 			// @@@@@
 			////////////////////////////
-			//		articles, err := h.rssProviderModel.Articles(cafeID, boardIDs, h.rssFeedMaxItemCount)
-			//		if err != nil {
-			//			m := fmt.Sprintf("네이버 카페('%s')의 게시글을 DB에서 읽어오는 중에 오류가 발생하였습니다.", cafeID)
+			//articles, err := h.rssProviderModel.Articles(id, boardIDs, h.rssFeedMaxItemCount)
+			//if err != nil {
+			//	m := fmt.Sprintf("네이버 카페('%s')의 게시글을 DB에서 읽어오는 중에 오류가 발생하였습니다.", cafeID)
 			//
-			//			log.Errorf("%s (error:%s)", m, err)
+			//	log.Errorf("%s (error:%s)", m, err)
 			//
-			//			notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+			//	notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 			//
-			//			return echo.NewHTTPError(http.StatusInternalServerError, err)
-			//		}
+			//	return echo.NewHTTPError(http.StatusInternalServerError, err)
+			//}
+
 			//
-			//		//
-			//		// 검색된 게시글을 RSS Feed로 변환한다.
-			//		//
+			// 검색된 게시글을 RSS Feed로 변환한다.
 			//
+
 			//		// 가장 최근에 작성된 게시글의 작성시간을 구한다.
 			//		var lastBuildDate time.Time
 			//		if len(articles) > 0 {

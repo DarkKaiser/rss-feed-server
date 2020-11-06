@@ -34,7 +34,7 @@ func (a RssProviderArticle) String() string {
 type RssProvider struct {
 	db *sql.DB
 
-	// RssProvider 모델에서 RSS Feed로 지원 가능한 사이트
+	// RssProvider 모델에서 RSS Feed 서비스 지원이 가능한 사이트 목록
 	rssFeedSupportedSites []string
 }
 
@@ -61,44 +61,42 @@ func (p *RssProvider) init(config *g.AppConfig) error {
 		return err
 	}
 
-	// @@@@@
+	// @@@@@ 검토
 	////////////////////////
-	//for _, c := range config.RssFeed.Providers {
-	//	// 기초 데이터를 추가한다.
-	//	if err := p.insertNaverCafeInfo(c.ID, c.Name, c.Description, c.Url); err != nil {
-	//		return err
-	//	}
-	//
-	//	for _, b := range c.Boards {
-	//		if err := p.insertNaverCafeBoardInfo(c.ID, b.ID, b.Name); err != nil {
-	//			return err
-	//		}
-	//	}
-	//
-	//	// 일정 시간이 지난 게시글 자료를 모두 삭제한다.
-	//	if err := p.deleteOutOfDateArticle(c.ID, c.ArticleArchiveDate); err != nil {
-	//		return err
-	//	}
-	//}
+	for _, c := range config.RssFeed.Providers {
+		// 기초 데이터를 추가한다.
+		if err := p.insertRssProvider(c.ID, c.Config.ID, c.Config.Name, c.Config.Description, c.Config.Url); err != nil {
+			return err
+		}
+
+		for _, b := range c.Config.Boards {
+			if err := p.insertRssProviderBoard(c.ID, b.ID, b.Name); err != nil {
+				return err
+			}
+		}
+
+		// 일정 시간이 지난 게시글 자료를 모두 삭제한다.
+		if err := p.deleteOutOfDateArticle(c.ID, c.Config.ArticleArchiveDate); err != nil {
+			return err
+		}
+	}
 	////////////////////////
 
 	return nil
 }
 
-// @@@@@
 //noinspection GoUnhandledErrorResult
 func (p *RssProvider) createTables() error {
 	//
-	// naver_cafe_info 테이블
+	// rss_provider 테이블
 	//
 	stmt1, err := p.db.Prepare(`
-		CREATE TABLE IF NOT EXISTS naver_cafe_info (
-			cafeId 					VARCHAR( 30) PRIMARY KEY NOT NULL UNIQUE,
-			clubId 					VARCHAR( 30) NOT NULL,
-			name 					VARCHAR(130) NOT NULL,
-			description 			VARCHAR(200),
-			url 					VARCHAR( 50) NOT NULL,
-			crawledLatestArticleId	INTEGER DEFAULT 0
+		CREATE TABLE IF NOT EXISTS rss_provider (
+			id 					VARCHAR( 50) PRIMARY KEY NOT NULL UNIQUE,
+			s_id 				VARCHAR( 50) NOT NULL,
+			s_name 				VARCHAR(130) NOT NULL,
+			s_description 		VARCHAR(200),
+			s_url 				VARCHAR(100) NOT NULL
 		)
 	`)
 	if err != nil {
@@ -110,7 +108,7 @@ func (p *RssProvider) createTables() error {
 	}
 
 	stmt2, err := p.db.Prepare(`
-		CREATE INDEX IF NOT EXISTS naver_cafe_info_index01 ON naver_cafe_info(clubId)
+		CREATE INDEX IF NOT EXISTS rss_provider_index01 ON rss_provider(s_id)
 	`)
 	if err != nil {
 		return err
@@ -121,14 +119,15 @@ func (p *RssProvider) createTables() error {
 	}
 
 	//
-	// naver_cafe_board_info 테이블
+	// rss_provider_board 테이블
 	//
 	stmt3, err := p.db.Prepare(`
-		CREATE TABLE IF NOT EXISTS naver_cafe_board_info (
-			cafeId 		VARCHAR( 30) NOT NULL,
-			boardId		VARCHAR(  5) PRIMARY KEY NOT NULL UNIQUE,
+		CREATE TABLE IF NOT EXISTS rss_provider_board (
+			p_id 		VARCHAR( 50) NOT NULL,
+			id			VARCHAR( 50) NOT NULL,
 			name 		VARCHAR(130) NOT NULL,
-			FOREIGN KEY (cafeId) REFERENCES naver_cafe_info(cafeId)
+			PRIMARY KEY (p_id, id)
+			FOREIGN KEY (p_id) REFERENCES rss_provider(id)
 		)
 	`)
 	if err != nil {
@@ -140,7 +139,7 @@ func (p *RssProvider) createTables() error {
 	}
 
 	stmt4, err := p.db.Prepare(`
-		CREATE INDEX IF NOT EXISTS naver_cafe_board_info_index01 ON naver_cafe_board_info(cafeId)
+		CREATE INDEX IF NOT EXISTS rss_provider_board_index01 ON rss_provider_board(p_id)
 	`)
 	if err != nil {
 		return err
@@ -151,21 +150,21 @@ func (p *RssProvider) createTables() error {
 	}
 
 	//
-	// naver_cafe_article 테이블
+	// rss_provider_article 테이블
 	//
 	stmt5, err := p.db.Prepare(`
-		CREATE TABLE IF NOT EXISTS naver_cafe_article (
-			cafeId 		VARCHAR( 30) NOT NULL,
-			boardId 	VARCHAR(  5) NOT NULL,
-			articleId 	INTEGER NOT NULL,
-			title 		VARCHAR(400) NOT NULL,
-			content		TEXT,
-			link 		VARCHAR(1000) NOT NULL,
-			author 		VARCHAR(50),
-			createdAt	DATETIME,
-			PRIMARY KEY (cafeId, boardId, articleId)
-			FOREIGN KEY (cafeId) REFERENCES naver_cafe_info(cafeId)
-			FOREIGN KEY (boardId) REFERENCES naver_cafe_board_info(boardId)
+		CREATE TABLE IF NOT EXISTS rss_provider_article (
+			p_id 			VARCHAR( 50) NOT NULL,
+			b_id 			VARCHAR( 50) NOT NULL,
+			id 				VARCHAR( 50) NOT NULL,
+			title 			VARCHAR(400) NOT NULL,
+			content			TEXT,
+			link 			VARCHAR(1000) NOT NULL,
+			author 			VARCHAR(50),
+			created_date	DATETIME,
+			PRIMARY KEY (p_id, b_id, id)
+			FOREIGN KEY (p_id) REFERENCES rss_provider(id)
+			FOREIGN KEY (b_id) REFERENCES rss_provider_board(id)
 		)
 	`)
 	if err != nil {
@@ -177,7 +176,7 @@ func (p *RssProvider) createTables() error {
 	}
 
 	stmt6, err := p.db.Prepare(`
-		CREATE INDEX IF NOT EXISTS naver_cafe_article_index01 ON naver_cafe_article(createdAt)
+		CREATE INDEX IF NOT EXISTS rss_provider_article_index01 ON rss_provider_article(created_date)
 	`)
 	if err != nil {
 		return err
@@ -190,36 +189,34 @@ func (p *RssProvider) createTables() error {
 	return nil
 }
 
-// @@@@@
+// @@@@@ 검토
 //noinspection GoUnhandledErrorResult
-func (p *RssProvider) insertNaverCafeInfo(cafeID, name, description, url string) error {
+func (p *RssProvider) insertRssProvider(id, siteId, siteName, siteDescription, siteUrl string) error {
 	stmt, err := p.db.Prepare(`
 		INSERT OR REPLACE
-		  INTO naver_cafe_info (cafeId, clubId, name, description, url, crawledLatestArticleId) 
-	    VALUES (?, ?, ?, ?, ?, ( SELECT crawledLatestArticleId
-	                               FROM naver_cafe_info
-	                              WHERE cafeId = ? ) )
+		  INTO rss_provider (id, s_id, s_name, s_description, s_url) 
+	    VALUES (?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
-	if _, err = stmt.Exec(cafeID, "@@@@@제거", name, description, url, cafeID); err != nil {
+	if _, err = stmt.Exec(id, siteId, siteName, siteDescription, siteUrl); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// @@@@@
+// @@@@@ 검토
 //noinspection GoUnhandledErrorResult
-func (p *RssProvider) insertNaverCafeBoardInfo(cafeID, boardID, name string) error {
-	stmt, err := p.db.Prepare("INSERT OR REPLACE INTO naver_cafe_board_info (cafeId, boardId, name) VALUES (?, ?, ?)")
+func (p *RssProvider) insertRssProviderBoard(providerID, id, name string) error {
+	stmt, err := p.db.Prepare("INSERT OR REPLACE INTO rss_provider_board (p_id, id, name) VALUES (?, ?, ?)")
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
-	if _, err = stmt.Exec(cafeID, boardID, name); err != nil {
+	if _, err = stmt.Exec(providerID, id, name); err != nil {
 		return err
 	}
 
@@ -298,23 +295,23 @@ func (p *RssProvider) InsertArticles(cafeID string, articles []*RssProviderArtic
 	return insertedCnt, nil
 }
 
-// @@@@@
+// @@@@@ 검토, order 컬럼 추가 필요(createAt으로는 안되나?? 안될거같긴함)
 //noinspection GoUnhandledErrorResult
-func (p *RssProvider) Articles(cafeID string, boardIDs []string, maxArticleCount uint) ([]*RssProviderArticle, error) {
+func (p *RssProvider) Articles(pID string, boardIDs []string, maxArticleCount uint) ([]*RssProviderArticle, error) {
 	stmt, err := p.db.Prepare(fmt.Sprintf(`
-		SELECT a.boardId
+		SELECT a.b_id
              , b.name boardName
-		     , a.articleId
+		     , a.id
 		     , a.title
 		     , IFNULL(a.content, "") content
 		     , a.link
 		     , IFNULL(a.author, "") author
 		     , a.createdAt
 		  FROM naver_cafe_article a
-               INNER JOIN naver_cafe_board_info b ON ( a.cafeId = b.cafeId AND a.boardId = b.boardId )
-		 WHERE a.cafeId = ?
+               INNER JOIN rss_provider_board b ON ( a.p_id = b.p_id AND a.b_id = b.id )
+		 WHERE a.p_id = ?
 		   AND a.boardId IN (%s)
-      ORDER BY a.articleId DESC
+      ORDER BY a.id DESC
          LIMIT ?
 	`, fmt.Sprintf("'%s'", strings.Join(boardIDs, "', '"))))
 	if err != nil {
@@ -322,7 +319,7 @@ func (p *RssProvider) Articles(cafeID string, boardIDs []string, maxArticleCount
 	}
 	defer stmt.Close()
 
-	rows, err := stmt.Query(cafeID, maxArticleCount)
+	rows, err := stmt.Query(pID, maxArticleCount)
 	if err != nil {
 		return nil, err
 	}
@@ -350,20 +347,20 @@ func (p *RssProvider) Articles(cafeID string, boardIDs []string, maxArticleCount
 	return articles, nil
 }
 
-// @@@@@
+// @@@@@ 검토
 //noinspection GoUnhandledErrorResult
-func (p *RssProvider) deleteOutOfDateArticle(cafeID string, articleArchiveDate uint) error {
+func (p *RssProvider) deleteOutOfDateArticle(id string, articleArchiveDate uint) error {
 	stmt, err := p.db.Prepare(fmt.Sprintf(`
 		DELETE 
-		  FROM naver_cafe_article
-		 WHERE cafeId = ?
+		  FROM rss_provider_article
+		 WHERE p_id = ?
 		   AND createdAt < date(datetime('now', 'utc'), '-%d days')
 	`, articleArchiveDate))
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
-	if _, err = stmt.Exec(cafeID); err != nil {
+	if _, err = stmt.Exec(id); err != nil {
 		return err
 	}
 

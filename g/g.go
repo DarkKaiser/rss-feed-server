@@ -14,7 +14,7 @@ const (
 
 	AppConfigFileName = AppName + ".json"
 
-	// RSS Feed로 지원 가능한 전체 사이트 목록, 각각의 모델별로 지원 가능하지 않을 수 있다.
+	// 프로그램에서 RSS Feed 서비스 지원이 가능한 사이트 전체 목록
 	RssFeedSupportedSiteNaverCafe string = "NaverCafe"
 )
 
@@ -80,6 +80,7 @@ func InitAppConfig() *AppConfig {
 	// 파일 내용에 대해 유효성 검사를 한다.
 	//
 	var rssProviderIDs, naverCafeIDs, naverCafeClubIDs []string
+
 	for _, p := range config.RssFeed.Providers {
 		if utils.Contains(rssProviderIDs, p.ID) == true {
 			log.Panicf("%s 파일의 내용이 유효하지 않습니다. RSS Feed Provider의 ID('%s')가 중복되었습니다.", AppConfigFileName, p.ID)
