@@ -61,11 +61,9 @@ func (p *RssProvider) init(config *g.AppConfig) error {
 		return err
 	}
 
-	// @@@@@ 검토
-	////////////////////////
 	for _, c := range config.RssFeed.Providers {
 		// 기초 데이터를 추가한다.
-		if err := p.insertRssProvider(c.ID, c.Config.ID, c.Config.Name, c.Config.Description, c.Config.Url); err != nil {
+		if err := p.insertRssProvider(c.ID, c.Site, c.Config.ID, c.Config.Name, c.Config.Description, c.Config.Url); err != nil {
 			return err
 		}
 
@@ -80,7 +78,6 @@ func (p *RssProvider) init(config *g.AppConfig) error {
 			return err
 		}
 	}
-	////////////////////////
 
 	return nil
 }
@@ -93,6 +90,7 @@ func (p *RssProvider) createTables() error {
 	stmt1, err := p.db.Prepare(`
 		CREATE TABLE IF NOT EXISTS rss_provider (
 			id 					VARCHAR( 50) PRIMARY KEY NOT NULL UNIQUE,
+			site 				VARCHAR( 50) NOT NULL,
 			s_id 				VARCHAR( 50) NOT NULL,
 			s_name 				VARCHAR(130) NOT NULL,
 			s_description 		VARCHAR(200),
@@ -189,34 +187,32 @@ func (p *RssProvider) createTables() error {
 	return nil
 }
 
-// @@@@@ 검토
 //noinspection GoUnhandledErrorResult
-func (p *RssProvider) insertRssProvider(id, siteId, siteName, siteDescription, siteUrl string) error {
+func (p *RssProvider) insertRssProvider(id, site, sId, sName, sDescription, sUrl string) error {
 	stmt, err := p.db.Prepare(`
 		INSERT OR REPLACE
-		  INTO rss_provider (id, s_id, s_name, s_description, s_url) 
-	    VALUES (?, ?, ?, ?, ?)
+		  INTO rss_provider (id, site, s_id, s_name, s_description, s_url) 
+	    VALUES (?, ?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
-	if _, err = stmt.Exec(id, siteId, siteName, siteDescription, siteUrl); err != nil {
+	if _, err = stmt.Exec(id, site, sId, sName, sDescription, sUrl); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// @@@@@ 검토
 //noinspection GoUnhandledErrorResult
-func (p *RssProvider) insertRssProviderBoard(providerID, id, name string) error {
+func (p *RssProvider) insertRssProviderBoard(pID, id, name string) error {
 	stmt, err := p.db.Prepare("INSERT OR REPLACE INTO rss_provider_board (p_id, id, name) VALUES (?, ?, ?)")
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
-	if _, err = stmt.Exec(providerID, id, name); err != nil {
+	if _, err = stmt.Exec(pID, id, name); err != nil {
 		return err
 	}
 
@@ -347,20 +343,19 @@ func (p *RssProvider) Articles(pID string, boardIDs []string, maxArticleCount ui
 	return articles, nil
 }
 
-// @@@@@ 검토
 //noinspection GoUnhandledErrorResult
-func (p *RssProvider) deleteOutOfDateArticle(id string, articleArchiveDate uint) error {
+func (p *RssProvider) deleteOutOfDateArticle(pID string, articleArchiveDate uint) error {
 	stmt, err := p.db.Prepare(fmt.Sprintf(`
 		DELETE 
 		  FROM rss_provider_article
 		 WHERE p_id = ?
-		   AND createdAt < date(datetime('now', 'utc'), '-%d days')
+		   AND created_date < date(datetime('now', 'utc'), '-%d days')
 	`, articleArchiveDate))
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
-	if _, err = stmt.Exec(id); err != nil {
+	if _, err = stmt.Exec(pID); err != nil {
 		return err
 	}
 
