@@ -27,7 +27,7 @@ func Init(config *g.AppConfig) {
 }
 
 //noinspection GoUnhandledErrorResult
-func SendNotifyMessage(message string, errorOccured bool) {
+func SendNotifyMessage(message string, errorOccured bool) bool {
 	notifyMessage := notifyMessage{
 		Message:       message,
 		ErrorOccured:  errorOccured,
@@ -37,14 +37,14 @@ func SendNotifyMessage(message string, errorOccured bool) {
 	jsonBytes, err := json.Marshal(notifyMessage)
 	if err != nil {
 		log.Errorf("NotifyAPI 서비스 호출이 실패하였습니다. (error:%s)", err)
-		return
+		return false
 	}
 	reqBody := bytes.NewBuffer(jsonBytes)
 
 	req, err := http.NewRequest("POST", url, reqBody)
 	if err != nil {
 		log.Errorf("NotifyAPI 서비스 호출이 실패하였습니다. (error:%s)", err)
-		return
+		return false
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -55,11 +55,13 @@ func SendNotifyMessage(message string, errorOccured bool) {
 	res, err := client.Do(req)
 	if err != nil {
 		log.Errorf("NotifyAPI 서비스 호출이 실패하였습니다. (error:%s)", err)
-		return
+		return false
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
 		log.Errorf("NotifyAPI 서비스 호출이 실패하였습니다. (HTTP 상태코드:%d)", res.StatusCode)
 	}
+
+	return true
 }

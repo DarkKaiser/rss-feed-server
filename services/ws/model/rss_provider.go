@@ -257,12 +257,11 @@ func (p *RssProvider) UpdateCrawledLatestArticleID(cafeID string, articleID int6
 	return nil
 }
 
-// @@@@@
 //noinspection GoUnhandledErrorResult
-func (p *RssProvider) InsertArticles(cafeID string, articles []*RssProviderArticle) (int, error) {
+func (p *RssProvider) InsertArticles(pID string, articles []*RssProviderArticle) (int, error) {
 	stmt, err := p.db.Prepare(`
 		INSERT OR REPLACE
-		  INTO naver_cafe_article (cafeId, boardId, articleId, title, content, link, author, createdAt)
+		  INTO rss_provider_article (p_id, b_id, id, title, content, link, author, created_date)
 	    VALUES (?, ?, ?, ?, ?, ?, ?, datetime(?))
 	`)
 	if err != nil {
@@ -273,15 +272,14 @@ func (p *RssProvider) InsertArticles(cafeID string, articles []*RssProviderArtic
 	var insertedCnt int
 	var sentNotifyMessage = false
 	for _, article := range articles {
-		if _, err := stmt.Exec(cafeID, article.BoardID, article.ArticleID, article.Title, article.Content, article.Link, article.Author, article.CreatedDate.UTC().Format("2006-01-02 15:04:05")); err != nil {
-			m := fmt.Sprintf("네이버 카페('%s > %s')의 게시글 등록이 실패하였습니다.", cafeID, article.BoardName)
+		if _, err := stmt.Exec(pID, article.BoardID, article.ArticleID, article.Title, article.Content, article.Link, article.Author, article.CreatedDate.UTC().Format("2006-01-02 15:04:05")); err != nil {
+			m := fmt.Sprintf("게시글 등록이 실패하였습니다. (p_id:%s)", pID)
 
 			log.Errorf("%s (게시글정보:%s) (error:%s)", m, article, err)
 
 			// 너무 많은 알림 메시지가 발송될 수 있으므로, 동시에 입력되는 게시글 중 최초 오류건에 대해서만 알림 메시지를 보낸다.
 			if sentNotifyMessage == false {
-				sentNotifyMessage = true
-				notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+				sentNotifyMessage = notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 			}
 		} else {
 			insertedCnt += 1
