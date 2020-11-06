@@ -17,18 +17,18 @@ const (
 )
 
 type RssProviderArticle struct {
-	BoardID   string
-	BoardName string
-	ArticleID string
-	Title     string
-	Content   string
-	Link      string
-	Author    string
-	CreatedAt time.Time
+	BoardID     string
+	BoardName   string
+	ArticleID   string
+	Title       string
+	Content     string
+	Link        string
+	Author      string
+	CreatedDate time.Time
 }
 
 func (a RssProviderArticle) String() string {
-	return fmt.Sprintf("[%s, %s, %s, %s, %s, %s, %s, %s]", a.BoardID, a.BoardName, a.ArticleID, a.Title, a.Content, a.Link, a.Author, a.CreatedAt.Format("2006-10-02 15:04:05"))
+	return fmt.Sprintf("[%s, %s, %s, %s, %s, %s, %s, %s]", a.BoardID, a.BoardName, a.ArticleID, a.Title, a.Content, a.Link, a.Author, a.CreatedDate.Format("2006-10-02 15:04:05"))
 }
 
 type RssProvider struct {
@@ -221,23 +221,23 @@ func (p *RssProvider) insertRssProviderBoard(pID, id, name string) error {
 
 // @@@@@
 //noinspection GoUnhandledErrorResult
-func (p *RssProvider) CrawledLatestArticleID(cafeID string) (int64, error) {
+func (p *RssProvider) CrawledLatestArticleID(pID string) (int64, error) {
 	var crawledLatestArticleID int64
-	err := p.db.QueryRow(`
-		SELECT MAX(articleId) 
-		  FROM (    SELECT IFNULL(crawledLatestArticleId, 0) articleId
-		              FROM naver_cafe_info
-		             WHERE cafeId = ?
-                 UNION ALL
-                    SELECT IFNULL(MAX(articleId), 0) articleId
-		              FROM naver_cafe_article
-		             WHERE cafeId = ?
-		       )
-	`, cafeID, cafeID).Scan(&crawledLatestArticleID)
-
-	if err != nil {
-		return 0, err
-	}
+	//err := p.db.QueryRow(`
+	//	SELECT MAX(articleId)
+	//	  FROM (    SELECT IFNULL(crawledLatestArticleId, 0) articleId
+	//	              FROM naver_cafe_info
+	//	             WHERE cafeId = ?
+	//             UNION ALL
+	//                SELECT IFNULL(MAX(articleId), 0) articleId
+	//	              FROM naver_cafe_article
+	//	             WHERE cafeId = ?
+	//	       )
+	//`, cafeID, cafeID).Scan(&crawledLatestArticleID)
+	//
+	//if err != nil {
+	//	return 0, err
+	//}
 
 	return crawledLatestArticleID, nil
 }
@@ -273,7 +273,7 @@ func (p *RssProvider) InsertArticles(cafeID string, articles []*RssProviderArtic
 	var insertedCnt int
 	var sentNotifyMessage = false
 	for _, article := range articles {
-		if _, err := stmt.Exec(cafeID, article.BoardID, article.ArticleID, article.Title, article.Content, article.Link, article.Author, article.CreatedAt.UTC().Format("2006-01-02 15:04:05")); err != nil {
+		if _, err := stmt.Exec(cafeID, article.BoardID, article.ArticleID, article.Title, article.Content, article.Link, article.Author, article.CreatedDate.UTC().Format("2006-01-02 15:04:05")); err != nil {
 			m := fmt.Sprintf("네이버 카페('%s > %s')의 게시글 등록이 실패하였습니다.", cafeID, article.BoardName)
 
 			log.Errorf("%s (게시글정보:%s) (error:%s)", m, article, err)
@@ -331,7 +331,7 @@ func (p *RssProvider) Articles(pID string, boardIDs []string, maxArticleCount ui
 			return nil, err
 		}
 		if createdAt.Valid == true {
-			article.CreatedAt = createdAt.Time.Local()
+			article.CreatedDate = createdAt.Time.Local()
 		}
 
 		articles = append(articles, &article)
