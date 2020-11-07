@@ -53,12 +53,12 @@ func (p *RssFeedProviders) init(config *g.AppConfig) error {
 
 	for _, c := range config.RssFeed.Providers {
 		// 기초 데이터를 추가한다.
-		if err := p.insertRssProvider(c.ID, c.Site, c.Config.ID, c.Config.Name, c.Config.Description, c.Config.Url); err != nil {
+		if err := p.insertRssFeedProvider(c.ID, c.Site, c.Config.ID, c.Config.Name, c.Config.Description, c.Config.Url); err != nil {
 			return err
 		}
 
 		for _, b := range c.Config.Boards {
-			if err := p.insertRssProviderBoard(c.ID, b.ID, b.Name); err != nil {
+			if err := p.insertRssFeedProviderBoard(c.ID, b.ID, b.Name); err != nil {
 				return err
 			}
 		}
@@ -196,7 +196,7 @@ func (p *RssFeedProviders) createTables() error {
 }
 
 //noinspection GoUnhandledErrorResult
-func (p *RssFeedProviders) insertRssProvider(id, site, sId, sName, sDescription, sUrl string) error {
+func (p *RssFeedProviders) insertRssFeedProvider(id, site, sId, sName, sDescription, sUrl string) error {
 	stmt, err := p.db.Prepare(`
 		INSERT OR REPLACE
 		  INTO rss_provider (id, site, s_id, s_name, s_description, s_url) 
@@ -214,7 +214,7 @@ func (p *RssFeedProviders) insertRssProvider(id, site, sId, sName, sDescription,
 }
 
 //noinspection GoUnhandledErrorResult
-func (p *RssFeedProviders) insertRssProviderBoard(providerID, id, name string) error {
+func (p *RssFeedProviders) insertRssFeedProviderBoard(providerID, id, name string) error {
 	stmt, err := p.db.Prepare("INSERT OR REPLACE INTO rss_provider_board (p_id, id, name) VALUES (?, ?, ?)")
 	if err != nil {
 		return err
