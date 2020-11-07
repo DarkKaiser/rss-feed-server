@@ -5,18 +5,14 @@ import (
 	"fmt"
 	"github.com/darkkaiser/rss-feed-server/g"
 	"github.com/darkkaiser/rss-feed-server/notifyapi"
-	"github.com/darkkaiser/rss-feed-server/utils"
 	_ "github.com/mattn/go-sqlite3"
 	log "github.com/sirupsen/logrus"
 	"strings"
 	"time"
 )
 
-const (
-	RssProviderModel ModelType = "rss_provider_model"
-)
-
-type RssProviderArticle struct {
+// @@@@@ pID=>providerID
+type RssFeedProviderArticle struct {
 	BoardID     string
 	BoardName   string
 	ArticleID   string
@@ -27,22 +23,17 @@ type RssProviderArticle struct {
 	CreatedDate time.Time
 }
 
-func (a RssProviderArticle) String() string {
+func (a RssFeedProviderArticle) String() string {
 	return fmt.Sprintf("[%s, %s, %s, %s, %s, %s, %s, %s]", a.BoardID, a.BoardName, a.ArticleID, a.Title, a.Content, a.Link, a.Author, a.CreatedDate.Format("2006-10-02 15:04:05"))
 }
 
-type RssProvider struct {
+type RssFeedProviders struct {
 	db *sql.DB
-
-	// RssProvider 모델에서 RSS Feed 서비스 지원이 가능한 사이트 목록
-	rssFeedSupportedSites []string
 }
 
-func NewRssProvider(config *g.AppConfig, db *sql.DB) *RssProvider {
-	p := &RssProvider{
+func NewRssFeedProviders(config *g.AppConfig, db *sql.DB) *RssFeedProviders {
+	p := &RssFeedProviders{
 		db: db,
-
-		rssFeedSupportedSites: []string{g.RssFeedSupportedSiteNaverCafe},
 	}
 
 	if err := p.init(config); err != nil {
@@ -56,7 +47,7 @@ func NewRssProvider(config *g.AppConfig, db *sql.DB) *RssProvider {
 	return p
 }
 
-func (p *RssProvider) init(config *g.AppConfig) error {
+func (p *RssFeedProviders) init(config *g.AppConfig) error {
 	if err := p.createTables(); err != nil {
 		return err
 	}
@@ -83,7 +74,7 @@ func (p *RssProvider) init(config *g.AppConfig) error {
 }
 
 //noinspection GoUnhandledErrorResult
-func (p *RssProvider) createTables() error {
+func (p *RssFeedProviders) createTables() error {
 	//
 	// rss_provider 테이블
 	//
@@ -206,7 +197,7 @@ func (p *RssProvider) createTables() error {
 }
 
 //noinspection GoUnhandledErrorResult
-func (p *RssProvider) insertRssProvider(id, site, sId, sName, sDescription, sUrl string) error {
+func (p *RssFeedProviders) insertRssProvider(id, site, sId, sName, sDescription, sUrl string) error {
 	stmt, err := p.db.Prepare(`
 		INSERT OR REPLACE
 		  INTO rss_provider (id, site, s_id, s_name, s_description, s_url) 
@@ -224,7 +215,7 @@ func (p *RssProvider) insertRssProvider(id, site, sId, sName, sDescription, sUrl
 }
 
 //noinspection GoUnhandledErrorResult
-func (p *RssProvider) insertRssProviderBoard(pID, id, name string) error {
+func (p *RssFeedProviders) insertRssProviderBoard(pID, id, name string) error {
 	stmt, err := p.db.Prepare("INSERT OR REPLACE INTO rss_provider_board (p_id, id, name) VALUES (?, ?, ?)")
 	if err != nil {
 		return err
@@ -238,7 +229,7 @@ func (p *RssProvider) insertRssProviderBoard(pID, id, name string) error {
 }
 
 //noinspection GoUnhandledErrorResult
-func (p *RssProvider) InsertArticles(pID string, articles []*RssProviderArticle) (int, error) {
+func (p *RssFeedProviders) InsertArticles(pID string, articles []*RssFeedProviderArticle) (int, error) {
 	stmt, err := p.db.Prepare(`
 		INSERT OR REPLACE
 		  INTO rss_provider_article (p_id, b_id, id, title, content, link, author, created_date)
@@ -270,7 +261,7 @@ func (p *RssProvider) InsertArticles(pID string, articles []*RssProviderArticle)
 }
 
 //noinspection GoUnhandledErrorResult
-func (p *RssProvider) Articles(pID string, boardIDs []string, maxArticleCount uint) ([]*RssProviderArticle, error) {
+func (p *RssFeedProviders) Articles(pID string, boardIDs []string, maxArticleCount uint) ([]*RssFeedProviderArticle, error) {
 	stmt, err := p.db.Prepare(fmt.Sprintf(`
 		SELECT a.b_id
              , b.name b_name
@@ -299,10 +290,10 @@ func (p *RssProvider) Articles(pID string, boardIDs []string, maxArticleCount ui
 	}
 	defer rows.Close()
 
-	articles := make([]*RssProviderArticle, 0)
+	articles := make([]*RssFeedProviderArticle, 0)
 
 	for rows.Next() {
-		var article RssProviderArticle
+		var article RssFeedProviderArticle
 
 		var createdDate sql.NullTime
 		if err = rows.Scan(&article.BoardID, &article.BoardName, &article.ArticleID, &article.Title, &article.Content, &article.Link, &article.Author, &createdDate); err != nil {
@@ -322,7 +313,7 @@ func (p *RssProvider) Articles(pID string, boardIDs []string, maxArticleCount ui
 }
 
 //noinspection GoUnhandledErrorResult
-func (p *RssProvider) deleteOutOfDateArticle(pID string, articleArchiveDate uint) error {
+func (p *RssFeedProviders) deleteOutOfDateArticle(pID string, articleArchiveDate uint) error {
 	stmt, err := p.db.Prepare(fmt.Sprintf(`
 		DELETE 
 		  FROM rss_provider_article
@@ -341,7 +332,7 @@ func (p *RssProvider) deleteOutOfDateArticle(pID string, articleArchiveDate uint
 }
 
 //noinspection GoUnhandledErrorResult,GoSnakeCaseUsage
-func (p *RssProvider) NaverCafe_CrawledLatestArticleID(pID string) (int64, error) {
+func (p *RssFeedProviders) NaverCafe_CrawledLatestArticleID(pID string) (int64, error) {
 	var crawledLatestArticleID int64 = 0
 	err := p.db.QueryRow(`
 		 SELECT IFNULL(crawled_latest_article_id, 0) id
@@ -357,7 +348,7 @@ func (p *RssProvider) NaverCafe_CrawledLatestArticleID(pID string) (int64, error
 }
 
 //noinspection GoUnhandledErrorResult,GoSnakeCaseUsage
-func (p *RssProvider) NaverCafe_UpdateCrawledLatestArticleID(pID string, crawledLatestArticleID int64) error {
+func (p *RssFeedProviders) NaverCafe_UpdateCrawledLatestArticleID(pID string, crawledLatestArticleID int64) error {
 	stmt, err := p.db.Prepare("INSERT OR REPLACE INTO rss_provider_site_naver_cafe (p_id, crawled_latest_article_id) VALUES (?, ?)")
 	if err != nil {
 		return err
@@ -368,8 +359,4 @@ func (p *RssProvider) NaverCafe_UpdateCrawledLatestArticleID(pID string, crawled
 	}
 
 	return nil
-}
-
-func (p *RssProvider) RssFeedSupportedSite(site string) bool {
-	return utils.Contains(p.rssFeedSupportedSites, site)
 }

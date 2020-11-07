@@ -46,6 +46,7 @@ type crawler struct {
 
 	rssFeedProviderID string
 
+	site            string
 	siteID          string
 	siteName        string
 	siteDescription string
