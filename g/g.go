@@ -2,6 +2,7 @@ package g
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/darkkaiser/rss-feed-server/utils"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
@@ -13,10 +14,20 @@ const (
 	AppVersion string = "0.2.0"
 
 	AppConfigFileName = AppName + ".json"
-
-	// 프로그램에서 RSS Feed 서비스 지원이 가능한 사이트 전체 목록
-	RssFeedSupportedSiteNaverCafe string = "NaverCafe"
 )
+
+type RssFeedSupportedSite string
+
+const (
+	// RSS Feed 서비스가 지원 가능한 사이트
+	RssFeedSupportedSiteNaverCafe RssFeedSupportedSite = "NaverCafe"
+	RssFeedSupportedSiteYeosuCity RssFeedSupportedSite = "YeosuCity"
+)
+
+var RssFeedSupportedSites = []RssFeedSupportedSite{
+	RssFeedSupportedSiteNaverCafe,
+	RssFeedSupportedSiteYeosuCity,
+}
 
 type AppConfig struct {
 	Debug   bool `json:"debug"`
@@ -79,81 +90,76 @@ func InitAppConfig() *AppConfig {
 	//
 	// 파일 내용에 대해 유효성 검사를 한다.
 	//
-	var rssProviderIDs, naverCafeIDs, naverCafeClubIDs []string
+	var rssFeedProviderIDs = make([]string, 0)
+	var siteYeosuCityIDs = make([]string, 0)
+	var siteNaverCafeIDs = make([]string, 0)
+	var siteNaverCafeClubIDs = make([]string, 0)
 
 	for _, p := range config.RssFeed.Providers {
-		if utils.Contains(rssProviderIDs, p.ID) == true {
-			log.Panicf("%s 파일의 내용이 유효하지 않습니다. RSS Feed Provider의 ID('%s')가 중복되었습니다.", AppConfigFileName, p.ID)
-		}
-		rssProviderIDs = append(rssProviderIDs, p.ID)
+		panicIfContains(rssFeedProviderIDs, p.ID, fmt.Sprintf("RSS Feed Provider의 ID('%s')가 중복되었습니다.", p.ID))
+		rssFeedProviderIDs = append(rssFeedProviderIDs, p.ID)
 
-		if p.Site == "" {
-			log.Panicf("%s 파일의 내용이 유효하지 않습니다. RSS Feed Provider의 Site가 입력되지 않았습니다.", AppConfigFileName, p.Site)
-		}
+		panicIfEmpty(p.Site, "RSS Feed Provider의 Site가 입력되지 않았습니다.")
 
-		switch p.Site {
+		switch RssFeedSupportedSite(p.Site) {
 		case RssFeedSupportedSiteNaverCafe:
-			if utils.Contains(naverCafeIDs, p.Config.ID) == true {
-				log.Panicf("%s 파일의 내용이 유효하지 않습니다. 네이버 카페의 ID('%s')가 중복되었습니다.", AppConfigFileName, p.Config.ID)
-			}
-			naverCafeIDs = append(naverCafeIDs, p.Config.ID)
-
-			if p.Config.Name == "" {
-				log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 Name이 입력되지 않았습니다.", AppConfigFileName, p.Config.ID)
-			}
-
-			if p.Config.Url == "" {
-				log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 URL이 입력되지 않았습니다.", AppConfigFileName, p.Config.ID)
-			}
-
-			if strings.HasSuffix(p.Config.Url, "/") == true {
-				p.Config.Url = p.Config.Url[:len(p.Config.Url)-1]
-			}
-
-			var boardIDs []string
-			for _, b := range p.Config.Boards {
-				if utils.Contains(boardIDs, b.ID) == true {
-					log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 게시판 ID('%s')가 중복되었습니다.", AppConfigFileName, p.Config.ID, b.ID)
-				}
-				boardIDs = append(boardIDs, b.ID)
-
-				if b.Name == "" {
-					log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 게시판 Name이 입력되지 않았습니다.", AppConfigFileName, p.Config.ID)
-				}
-			}
+			validationCheckRssFeedSupportedSiteConfig("네이버 카페", p.Config, &siteNaverCafeIDs)
 
 			clubID, ok := p.Config.Data["club_id"].(string)
 			if ok == false {
-				log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 ClubID가 입력되지 않았거나 타입이 일치하지 않습니다.", AppConfigFileName, p.Config.ID)
+				log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 ClubID가 입력되지 않았거나 타입이 유효하지 않습니다.", AppConfigFileName, p.Config.ID)
 			}
-			if utils.Contains(naverCafeClubIDs, clubID) == true {
-				log.Panicf("%s 파일의 내용이 유효하지 않습니다. 네이버 카페의 ClubID('%s')가 중복되었습니다.", AppConfigFileName, clubID)
-			}
-			naverCafeClubIDs = append(naverCafeClubIDs, clubID)
+			panicIfContains(siteNaverCafeClubIDs, clubID, fmt.Sprintf("네이버 카페의 ClubID('%s')가 중복되었습니다.", clubID))
+			siteNaverCafeClubIDs = append(siteNaverCafeClubIDs, clubID)
+
+		case RssFeedSupportedSiteYeosuCity:
+			validationCheckRssFeedSupportedSiteConfig("여수시청", p.Config, &siteYeosuCityIDs)
 
 		default:
-			log.Panicf("%s 파일의 내용이 유효하지 않습니다. RSS Feed Provider에서 지원되지 않는 Site('%s')입니다.", AppConfigFileName, p.Site)
+			log.Panicf("%s 파일의 내용이 유효하지 않습니다. 지원되지 않는 RSS Feed Provider의 Site('%s')입니다.", AppConfigFileName, p.Site)
 		}
 	}
 
 	if config.WS.TLSServer == true {
-		if config.WS.CertFilePath == "" {
-			log.Panicf("%s 파일의 내용이 유효하지 않습니다. 웹서버의 Cert 파일 경로가 입력되지 않았습니다.", AppConfigFileName)
-		}
-		if config.WS.KeyFilePath == "" {
-			log.Panicf("%s 파일의 내용이 유효하지 않습니다. 웹서버의 Key 파일 경로가 입력되지 않았습니다.", AppConfigFileName)
-		}
+		panicIfEmpty(config.WS.CertFilePath, "웹서버의 Cert 파일 경로가 입력되지 않았습니다.")
+		panicIfEmpty(config.WS.KeyFilePath, "웹서버의 Key 파일 경로가 입력되지 않았습니다.")
 	}
 
-	if config.NotifyAPI.Url == "" {
-		log.Panicf("%s 파일의 내용이 유효하지 않습니다. NotifyAPI의 Url이 입력되지 않았습니다.", AppConfigFileName)
-	}
-	if config.NotifyAPI.APIKey == "" {
-		log.Panicf("%s 파일의 내용이 유효하지 않습니다. NotifyAPI의 APIKey가 입력되지 않았습니다.", AppConfigFileName)
-	}
-	if config.NotifyAPI.ApplicationID == "" {
-		log.Panicf("%s 파일의 내용이 유효하지 않습니다. NotifyAPI의 ApplicationID가 입력되지 않았습니다.", AppConfigFileName)
-	}
+	panicIfEmpty(config.NotifyAPI.Url, "NotifyAPI의 Url이 입력되지 않았습니다.")
+	panicIfEmpty(config.NotifyAPI.APIKey, "NotifyAPI의 APIKey가 입력되지 않았습니다.")
+	panicIfEmpty(config.NotifyAPI.ApplicationID, "NotifyAPI의 ApplicationID가 입력되지 않았습니다.")
 
 	return &config
+}
+
+func validationCheckRssFeedSupportedSiteConfig(siteName string, siteConfig *ProviderConfig, siteIDs *[]string) {
+	panicIfContains(*siteIDs, siteConfig.ID, fmt.Sprintf("%s의 ID('%s')가 중복되었습니다.", siteName, siteConfig.ID))
+	*siteIDs = append(*siteIDs, siteConfig.ID)
+
+	panicIfEmpty(siteConfig.Name, fmt.Sprintf("%s(ID:%s)의 Name이 입력되지 않았습니다.", siteName, siteConfig.ID))
+	panicIfEmpty(siteConfig.Url, fmt.Sprintf("%s(ID:%s)의 URL이 입력되지 않았습니다.", siteName, siteConfig.ID))
+
+	if strings.HasSuffix(siteConfig.Url, "/") == true {
+		siteConfig.Url = siteConfig.Url[:len(siteConfig.Url)-1]
+	}
+
+	var boardIDs []string
+	for _, b := range siteConfig.Boards {
+		panicIfContains(boardIDs, b.ID, fmt.Sprintf("%s(ID:%s)의 게시판 ID('%s')가 중복되었습니다.", siteName, siteConfig.ID, b.ID))
+		boardIDs = append(boardIDs, b.ID)
+
+		panicIfEmpty(b.Name, fmt.Sprintf("%s(ID:%s)의 게시판 Name이 입력되지 않았습니다.", siteName, siteConfig.ID))
+	}
+}
+
+func panicIfEmpty(value, message string) {
+	if value == "" {
+		log.Panicf("%s 파일의 내용이 유효하지 않습니다. %s", AppConfigFileName, message)
+	}
+}
+
+func panicIfContains(s []string, e, message string) {
+	if utils.Contains(s, e) == true {
+		log.Panicf("%s 파일의 내용이 유효하지 않습니다. %s", AppConfigFileName, message)
+	}
 }
