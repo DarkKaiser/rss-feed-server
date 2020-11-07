@@ -26,28 +26,6 @@ type RssFeedXml struct {
 	Channel *RssFeed
 }
 
-type RssContent struct {
-	XMLName xml.Name `xml:"content:encoded"`
-	Content string   `xml:",cdata"`
-}
-
-type RssImage struct {
-	XMLName xml.Name `xml:"image"`
-	Url     string   `xml:"url"`
-	Title   string   `xml:"title"`
-	Link    string   `xml:"link"`
-	Width   int      `xml:"width,omitempty"`
-	Height  int      `xml:"height,omitempty"`
-}
-
-type RssTextInput struct {
-	XMLName     xml.Name `xml:"textInput"`
-	Title       string   `xml:"title"`
-	Description string   `xml:"description"`
-	Name        string   `xml:"name"`
-	Link        string   `xml:"link"`
-}
-
 type RssFeed struct {
 	XMLName        xml.Name `xml:"channel"`
 	Title          CDATA    `xml:"title"`       // required
@@ -72,6 +50,14 @@ type RssFeed struct {
 	Items          []*RssItem `xml:"item"`
 }
 
+// FeedXml returns an XML-ready object for an RssFeed object
+func (r *RssFeed) FeedXml() interface{} {
+	return &RssFeedXml{
+		Version: "2.0",
+		Channel: r,
+	}
+}
+
 type RssItem struct {
 	XMLName     xml.Name `xml:"item"`
 	Title       CDATA    `xml:"title"`       // required
@@ -87,20 +73,34 @@ type RssItem struct {
 	Source      string `xml:"source,omitempty"`
 }
 
+type RssContent struct {
+	XMLName xml.Name `xml:"content:encoded"`
+	Content string   `xml:",cdata"`
+}
+
+type RssImage struct {
+	XMLName xml.Name `xml:"image"`
+	Url     string   `xml:"url"`
+	Title   string   `xml:"title"`
+	Link    string   `xml:"link"`
+	Width   int      `xml:"width,omitempty"`
+	Height  int      `xml:"height,omitempty"`
+}
+
+type RssTextInput struct {
+	XMLName     xml.Name `xml:"textInput"`
+	Title       string   `xml:"title"`
+	Description string   `xml:"description"`
+	Name        string   `xml:"name"`
+	Link        string   `xml:"link"`
+}
+
 type RssEnclosure struct {
 	//RSS 2.0 <enclosure url="http://example.com/file.mp3" length="123456789" type="audio/mpeg" />
 	XMLName xml.Name `xml:"enclosure"`
 	Url     string   `xml:"url,attr"`
 	Length  string   `xml:"length,attr"`
 	Type    string   `xml:"type,attr"`
-}
-
-// FeedXml returns an XML-ready object for an RssFeed object
-func (r *RssFeed) FeedXml() interface{} {
-	return &RssFeedXml{
-		Version: "2.0",
-		Channel: r,
-	}
 }
 
 // returns the first non-zero time formatted as a string or ""

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/darkkaiser/rss-feed-server/g"
 	"github.com/darkkaiser/rss-feed-server/notifyapi"
+	"github.com/darkkaiser/rss-feed-server/services"
 	"github.com/darkkaiser/rss-feed-server/services/ws/handler"
-	"github.com/darkkaiser/rss-feed-server/services/ws/model"
 	"github.com/darkkaiser/rss-feed-server/services/ws/router"
 	"github.com/labstack/echo"
 	log "github.com/sirupsen/logrus"
@@ -16,9 +16,9 @@ import (
 )
 
 //
-// WebService
+// webService
 //
-type WebService struct {
+type webService struct {
 	config *g.AppConfig
 
 	handlers *handler.WebServiceHandlers
@@ -27,8 +27,8 @@ type WebService struct {
 	runningMu sync.Mutex
 }
 
-func NewService(config *g.AppConfig) *WebService {
-	return &WebService{
+func NewService(config *g.AppConfig) services.Service {
+	return &webService{
 		config: config,
 
 		running:   false,
@@ -36,7 +36,7 @@ func NewService(config *g.AppConfig) *WebService {
 	}
 }
 
-func (s *WebService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync.WaitGroup) {
+func (s *webService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync.WaitGroup) {
 	s.runningMu.Lock()
 	defer s.runningMu.Unlock()
 
@@ -113,6 +113,6 @@ func (s *WebService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 	log.Debug("웹 서비스 시작됨")
 }
 
-func (s *WebService) Find(modelType model.ModelType) interface{} {
-	return s.handlers.Find(modelType)
+func (s *webService) GetModel() interface{} {
+	return s.handlers.GetModel()
 }

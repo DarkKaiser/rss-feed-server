@@ -9,6 +9,7 @@ import (
 	"github.com/darkkaiser/rss-feed-server/services"
 	"github.com/darkkaiser/rss-feed-server/services/crawling"
 	"github.com/darkkaiser/rss-feed-server/services/ws"
+	"github.com/darkkaiser/rss-feed-server/services/ws/model"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
@@ -46,7 +47,7 @@ func main() {
 
 	// 서비스를 생성하고 초기화한다.
 	webService := ws.NewService(config)
-	crawlingService := crawling.NewService(config, webService)
+	crawlingService := crawling.NewService(config, webService.(model.ModelGetter))
 
 	// Set up cancellation context and waitgroup
 	serviceStopCtx, cancel := context.WithCancel(context.Background())
