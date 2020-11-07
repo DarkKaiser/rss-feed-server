@@ -7,7 +7,6 @@ import (
 	"github.com/darkkaiser/rss-feed-server/notifyapi"
 	"github.com/darkkaiser/rss-feed-server/services"
 	"github.com/darkkaiser/rss-feed-server/services/ws/handler"
-	"github.com/darkkaiser/rss-feed-server/services/ws/model"
 	"github.com/darkkaiser/rss-feed-server/services/ws/router"
 	"github.com/labstack/echo"
 	log "github.com/sirupsen/logrus"
@@ -114,6 +113,6 @@ func (s *webService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 	log.Debug("웹 서비스 시작됨")
 }
 
-func (s *webService) Find(modelType model.ModelType) interface{} {
-	return s.handlers.Find(modelType)
+func (s *webService) GetModel() interface{} {
+	return s.handlers.GetModel()
 }

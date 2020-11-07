@@ -23,7 +23,7 @@ type WebServiceHandlers struct {
 
 	db *sql.DB
 
-	rssProviderModel *model.RssProvider
+	rssFeedProviderModel *model.RssProvider
 
 	rssFeedMaxItemCount uint
 }
@@ -38,17 +38,15 @@ func NewWebServiceHandlers(config *g.AppConfig) *WebServiceHandlers {
 		log.Panicf("%s (error:%s)", m, err)
 	}
 
-	handlers := &WebServiceHandlers{
+	return &WebServiceHandlers{
 		config: config,
 
 		db: db,
 
-		rssProviderModel: model.NewRssProvider(config, db),
+		rssFeedProviderModel: model.NewRssFeedProvider(config, db),
 
 		rssFeedMaxItemCount: config.RssFeed.MaxItemCount,
 	}
-
-	return handlers
 }
 
 func (h *WebServiceHandlers) Close() {
@@ -62,13 +60,8 @@ func (h *WebServiceHandlers) Close() {
 	}
 }
 
-func (h *WebServiceHandlers) Find(modelType model.ModelType) interface{} {
-	switch modelType {
-	case model.RssProviderModel:
-		return h.rssProviderModel
-	}
-
-	return nil
+func (h *WebServiceHandlers) GetModel() interface{} {
+	return h.rssFeedProviderModel
 }
 
 func (h *WebServiceHandlers) GetRssFeedSummaryViewHandler(c echo.Context) error {
@@ -167,7 +160,7 @@ func (h *WebServiceHandlers) GetRssFeedHandler(c echo.Context) error {
 				boardIDs = append(boardIDs, b.ID)
 			}
 
-			articles, err := h.rssProviderModel.Articles(p.ID, boardIDs, h.rssFeedMaxItemCount)
+			articles, err := h.rssFeedProviderModel.Articles(p.ID, boardIDs, h.rssFeedMaxItemCount)
 			if err != nil {
 				m := fmt.Sprintf("RSS Feed DB에서 게시글을 읽어오는 중에 오류가 발생하였습니다. (p_id:%s)", p.ID)
 
