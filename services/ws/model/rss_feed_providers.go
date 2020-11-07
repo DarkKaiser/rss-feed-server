@@ -11,7 +11,6 @@ import (
 	"time"
 )
 
-// @@@@@ pID=>providerID
 type RssFeedProviderArticle struct {
 	BoardID     string
 	BoardName   string
@@ -215,13 +214,13 @@ func (p *RssFeedProviders) insertRssProvider(id, site, sId, sName, sDescription,
 }
 
 //noinspection GoUnhandledErrorResult
-func (p *RssFeedProviders) insertRssProviderBoard(pID, id, name string) error {
+func (p *RssFeedProviders) insertRssProviderBoard(providerID, id, name string) error {
 	stmt, err := p.db.Prepare("INSERT OR REPLACE INTO rss_provider_board (p_id, id, name) VALUES (?, ?, ?)")
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
-	if _, err = stmt.Exec(pID, id, name); err != nil {
+	if _, err = stmt.Exec(providerID, id, name); err != nil {
 		return err
 	}
 
@@ -229,7 +228,7 @@ func (p *RssFeedProviders) insertRssProviderBoard(pID, id, name string) error {
 }
 
 //noinspection GoUnhandledErrorResult
-func (p *RssFeedProviders) InsertArticles(pID string, articles []*RssFeedProviderArticle) (int, error) {
+func (p *RssFeedProviders) InsertArticles(providerID string, articles []*RssFeedProviderArticle) (int, error) {
 	stmt, err := p.db.Prepare(`
 		INSERT OR REPLACE
 		  INTO rss_provider_article (p_id, b_id, id, title, content, link, author, created_date)
@@ -243,8 +242,8 @@ func (p *RssFeedProviders) InsertArticles(pID string, articles []*RssFeedProvide
 	var insertedCnt int
 	var sentNotifyMessage = false
 	for _, article := range articles {
-		if _, err := stmt.Exec(pID, article.BoardID, article.ArticleID, article.Title, article.Content, article.Link, article.Author, article.CreatedDate.UTC().Format("2006-01-02 15:04:05")); err != nil {
-			m := fmt.Sprintf("RSS Feed DB에 게시글 등록이 실패하였습니다. (p_id:%s)", pID)
+		if _, err := stmt.Exec(providerID, article.BoardID, article.ArticleID, article.Title, article.Content, article.Link, article.Author, article.CreatedDate.UTC().Format("2006-01-02 15:04:05")); err != nil {
+			m := fmt.Sprintf("RSS Feed DB에 게시글 등록이 실패하였습니다. (p_id:%s)", providerID)
 
 			log.Errorf("%s (게시글정보:%s) (error:%s)", m, article, err)
 
@@ -261,7 +260,7 @@ func (p *RssFeedProviders) InsertArticles(pID string, articles []*RssFeedProvide
 }
 
 //noinspection GoUnhandledErrorResult
-func (p *RssFeedProviders) Articles(pID string, boardIDs []string, maxArticleCount uint) ([]*RssFeedProviderArticle, error) {
+func (p *RssFeedProviders) Articles(providerID string, boardIDs []string, maxArticleCount uint) ([]*RssFeedProviderArticle, error) {
 	stmt, err := p.db.Prepare(fmt.Sprintf(`
 		SELECT a.b_id
              , b.name b_name
@@ -284,7 +283,7 @@ func (p *RssFeedProviders) Articles(pID string, boardIDs []string, maxArticleCou
 	}
 	defer stmt.Close()
 
-	rows, err := stmt.Query(pID, maxArticleCount)
+	rows, err := stmt.Query(providerID, maxArticleCount)
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +312,7 @@ func (p *RssFeedProviders) Articles(pID string, boardIDs []string, maxArticleCou
 }
 
 //noinspection GoUnhandledErrorResult
-func (p *RssFeedProviders) deleteOutOfDateArticle(pID string, articleArchiveDate uint) error {
+func (p *RssFeedProviders) deleteOutOfDateArticle(providerID string, articleArchiveDate uint) error {
 	stmt, err := p.db.Prepare(fmt.Sprintf(`
 		DELETE 
 		  FROM rss_provider_article
@@ -324,7 +323,7 @@ func (p *RssFeedProviders) deleteOutOfDateArticle(pID string, articleArchiveDate
 		return err
 	}
 	defer stmt.Close()
-	if _, err = stmt.Exec(pID); err != nil {
+	if _, err = stmt.Exec(providerID); err != nil {
 		return err
 	}
 
@@ -332,13 +331,13 @@ func (p *RssFeedProviders) deleteOutOfDateArticle(pID string, articleArchiveDate
 }
 
 //noinspection GoUnhandledErrorResult,GoSnakeCaseUsage
-func (p *RssFeedProviders) NaverCafe_CrawledLatestArticleID(pID string) (int64, error) {
+func (p *RssFeedProviders) NaverCafe_CrawledLatestArticleID(providerID string) (int64, error) {
 	var crawledLatestArticleID int64 = 0
 	err := p.db.QueryRow(`
 		 SELECT IFNULL(crawled_latest_article_id, 0) id
 		   FROM rss_provider_site_naver_cafe
 		  WHERE p_id = ?
-	`, pID).Scan(&crawledLatestArticleID)
+	`, providerID).Scan(&crawledLatestArticleID)
 
 	if err != nil && err != sql.ErrNoRows {
 		return 0, err
@@ -348,13 +347,13 @@ func (p *RssFeedProviders) NaverCafe_CrawledLatestArticleID(pID string) (int64, 
 }
 
 //noinspection GoUnhandledErrorResult,GoSnakeCaseUsage
-func (p *RssFeedProviders) NaverCafe_UpdateCrawledLatestArticleID(pID string, crawledLatestArticleID int64) error {
+func (p *RssFeedProviders) NaverCafe_UpdateCrawledLatestArticleID(providerID string, crawledLatestArticleID int64) error {
 	stmt, err := p.db.Prepare("INSERT OR REPLACE INTO rss_provider_site_naver_cafe (p_id, crawled_latest_article_id) VALUES (?, ?)")
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
-	if _, err = stmt.Exec(pID, crawledLatestArticleID); err != nil {
+	if _, err = stmt.Exec(providerID, crawledLatestArticleID); err != nil {
 		return err
 	}
 
