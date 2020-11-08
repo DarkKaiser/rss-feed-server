@@ -23,9 +23,11 @@ import (
 func init() {
 	supportedCrawlers[g.RssFeedSupportedSiteYeosuCity] = &supportedCrawlerConfig{
 		newCrawlerFn: func(rssFeedProviderID string, config *g.ProviderConfig, modelGetter model.ModelGetter) cron.Job {
-			rssFeedProvidersAccessor, ok := modelGetter.GetModel().(model.YeosuCity_RssFeedProvidersAccessor)
+			site := "여수시 홈페이지"
+
+			rssFeedProvidersAccessor, ok := modelGetter.GetModel().(model.RssFeedProvidersAccessor)
 			if ok == false {
-				m := "여수시 홈페이지 Crawler에서 사용할 RSS Feed Providers를 찾을 수 없습니다."
+				m := fmt.Sprintf("%s Crawler에서 사용할 RSS Feed Providers를 찾을 수 없습니다.", site)
 
 				notifyapi.SendNotifyMessage(m, true)
 
@@ -36,9 +38,10 @@ func init() {
 				crawler: crawler{
 					config: config,
 
-					rssFeedProviderID: rssFeedProviderID,
+					rssFeedProviderID:        rssFeedProviderID,
+					rssFeedProvidersAccessor: rssFeedProvidersAccessor,
 
-					site:            "여수시 홈페이지",
+					site:            site,
 					siteID:          config.ID,
 					siteName:        config.Name,
 					siteDescription: config.Description,
@@ -46,8 +49,6 @@ func init() {
 
 					crawlingMaxPageCount: 10,
 				},
-
-				rssFeedProvidersAccessor: rssFeedProvidersAccessor,
 			}
 		},
 	}
@@ -55,8 +56,6 @@ func init() {
 
 type yeosuCityCrawler struct {
 	crawler
-
-	rssFeedProvidersAccessor model.YeosuCity_RssFeedProvidersAccessor
 }
 
 // @@@@@
@@ -86,7 +85,7 @@ func (c *yeosuCityCrawler) Run() {
 			return
 		}
 
-		if err = c.rssFeedProvidersAccessor.NaverCafe_UpdateCrawledLatestArticleID(c.rssFeedProviderID, newCrawledLatestArticleID); err != nil {
+		if err = c.rssFeedProvidersAccessor.UpdateCrawledLatestArticleID(c.rssFeedProviderID, newCrawledLatestArticleID); err != nil {
 			m := fmt.Sprintf("%s('%s')의 크롤링 된 최근 게시글 ID의 DB 반영이 실패하였습니다.", c.site, c.siteID)
 
 			log.Errorf("%s (error:%s)", m, err)
@@ -100,7 +99,7 @@ func (c *yeosuCityCrawler) Run() {
 			log.Debugf("%s('%s')의 크롤링 작업을 종료합니다. %d건의 새로운 게시글이 DB에 추가되었습니다.", c.site, c.siteID, len(articles))
 		}
 	} else {
-		if err = c.rssFeedProvidersAccessor.NaverCafe_UpdateCrawledLatestArticleID(c.rssFeedProviderID, newCrawledLatestArticleID); err != nil {
+		if err = c.rssFeedProvidersAccessor.UpdateCrawledLatestArticleID(c.rssFeedProviderID, newCrawledLatestArticleID); err != nil {
 			m := fmt.Sprintf("%s('%s')의 크롤링 된 최근 게시글 ID의 DB 반영이 실패하였습니다.", c.site, c.siteID)
 
 			log.Errorf("%s (error:%s)", m, err)
@@ -115,7 +114,7 @@ func (c *yeosuCityCrawler) Run() {
 // @@@@@
 //noinspection GoErrorStringFormat,GoUnhandledErrorResult
 func (c *yeosuCityCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, int64, string, error) {
-	crawledLatestArticleID, err := c.rssFeedProvidersAccessor.NaverCafe_CrawledLatestArticleID(c.rssFeedProviderID)
+	crawledLatestArticleID, err := c.rssFeedProvidersAccessor.CrawledLatestArticleID(c.rssFeedProviderID)
 	if err != nil {
 		return nil, 0, fmt.Sprintf("%s('%s')에 마지막으로 추가된 게시글 ID를 찾는 중에 오류가 발생하였습니다.", c.site, c.siteID), err
 	}

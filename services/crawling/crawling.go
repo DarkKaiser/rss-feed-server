@@ -2,7 +2,6 @@ package crawling
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/darkkaiser/rss-feed-server/g"
 	"github.com/darkkaiser/rss-feed-server/notifyapi"
@@ -12,49 +11,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"sync"
 )
-
-var (
-	errNotSupportedCrawler = errors.New("지원하지 않는 Crawler입니다")
-)
-
-//
-// supportedCrawlers
-//
-type newCrawlerFunc func(string, *g.ProviderConfig, model.ModelGetter) cron.Job
-
-// 구현된 Crawler 목록
-var supportedCrawlers = make(map[g.RssFeedSupportedSite]*supportedCrawlerConfig)
-
-type supportedCrawlerConfig struct {
-	newCrawlerFn newCrawlerFunc
-}
-
-func findConfigFromSupportedCrawler(site g.RssFeedSupportedSite) (*supportedCrawlerConfig, error) {
-	crawlerConfig, exists := supportedCrawlers[site]
-	if exists == true {
-		return crawlerConfig, nil
-	}
-
-	return nil, errNotSupportedCrawler
-}
-
-//
-// crawler
-//
-type crawler struct {
-	config *g.ProviderConfig
-
-	rssFeedProviderID string
-
-	site            string
-	siteID          string
-	siteName        string
-	siteDescription string
-	siteUrl         string
-
-	// 크롤링 할 최대 페이지 수
-	crawlingMaxPageCount int
-}
 
 //
 // crawlingService

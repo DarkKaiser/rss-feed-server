@@ -292,9 +292,8 @@ func (p *RssFeedProviders) Articles(providerID string, boardIDs []string, maxArt
 	articles := make([]*RssFeedProviderArticle, 0)
 
 	for rows.Next() {
-		var article RssFeedProviderArticle
-
 		var createdDate sql.NullTime
+		var article RssFeedProviderArticle
 		if err = rows.Scan(&article.BoardID, &article.BoardName, &article.ArticleID, &article.Title, &article.Content, &article.Link, &article.Author, &createdDate); err != nil {
 			return nil, err
 		}
@@ -330,8 +329,9 @@ func (p *RssFeedProviders) deleteOutOfDateArticle(providerID string, articleArch
 	return nil
 }
 
+// @@@@@ string 타입으로 변경해서 다 쓰기, 조건에 보드ID가 들어가야 됨, 필요없는건 비워두기
 //noinspection GoUnhandledErrorResult,GoSnakeCaseUsage
-func (p *RssFeedProviders) NaverCafe_CrawledLatestArticleID(providerID string) (int64, error) {
+func (p *RssFeedProviders) CrawledLatestArticleID(providerID string) (int64, error) {
 	var crawledLatestArticleID int64 = 0
 	err := p.db.QueryRow(`
 		 SELECT IFNULL(crawled_latest_article_id, 0) id
@@ -346,8 +346,9 @@ func (p *RssFeedProviders) NaverCafe_CrawledLatestArticleID(providerID string) (
 	return crawledLatestArticleID, nil
 }
 
+// @@@@@
 //noinspection GoUnhandledErrorResult,GoSnakeCaseUsage
-func (p *RssFeedProviders) NaverCafe_UpdateCrawledLatestArticleID(providerID string, crawledLatestArticleID int64) error {
+func (p *RssFeedProviders) UpdateCrawledLatestArticleID(providerID string, crawledLatestArticleID int64) error {
 	stmt, err := p.db.Prepare("INSERT OR REPLACE INTO rss_provider_site_naver_cafe (p_id, crawled_latest_article_id) VALUES (?, ?)")
 	if err != nil {
 		return err
