@@ -24,11 +24,6 @@ const (
 	RssFeedSupportedSiteYeosuCity RssFeedSupportedSite = "YeosuCity"
 )
 
-var RssFeedSupportedSites = []RssFeedSupportedSite{
-	RssFeedSupportedSiteNaverCafe,
-	RssFeedSupportedSiteYeosuCity,
-}
-
 type AppConfig struct {
 	Debug   bool `json:"debug"`
 	RssFeed struct {
@@ -113,7 +108,7 @@ func InitAppConfig() *AppConfig {
 			siteNaverCafeClubIDs = append(siteNaverCafeClubIDs, clubID)
 
 		case RssFeedSupportedSiteYeosuCity:
-			validationCheckRssFeedSupportedSiteConfig("여수시청", p.Config, &siteYeosuCityIDs)
+			validationCheckRssFeedSupportedSiteConfig("여수시 홈페이지", p.Config, &siteYeosuCityIDs)
 
 		default:
 			log.Panicf("%s 파일의 내용이 유효하지 않습니다. 지원되지 않는 RSS Feed Provider의 Site('%s')입니다.", AppConfigFileName, p.Site)
@@ -132,12 +127,12 @@ func InitAppConfig() *AppConfig {
 	return &config
 }
 
-func validationCheckRssFeedSupportedSiteConfig(siteName string, siteConfig *ProviderConfig, siteIDs *[]string) {
-	panicIfContains(*siteIDs, siteConfig.ID, fmt.Sprintf("%s의 ID('%s')가 중복되었습니다.", siteName, siteConfig.ID))
+func validationCheckRssFeedSupportedSiteConfig(site string, siteConfig *ProviderConfig, siteIDs *[]string) {
+	panicIfContains(*siteIDs, siteConfig.ID, fmt.Sprintf("%s의 ID('%s')가 중복되었습니다.", site, siteConfig.ID))
 	*siteIDs = append(*siteIDs, siteConfig.ID)
 
-	panicIfEmpty(siteConfig.Name, fmt.Sprintf("%s(ID:%s)의 Name이 입력되지 않았습니다.", siteName, siteConfig.ID))
-	panicIfEmpty(siteConfig.Url, fmt.Sprintf("%s(ID:%s)의 URL이 입력되지 않았습니다.", siteName, siteConfig.ID))
+	panicIfEmpty(siteConfig.Name, fmt.Sprintf("%s(ID:%s)의 Name이 입력되지 않았습니다.", site, siteConfig.ID))
+	panicIfEmpty(siteConfig.Url, fmt.Sprintf("%s(ID:%s)의 URL이 입력되지 않았습니다.", site, siteConfig.ID))
 
 	if strings.HasSuffix(siteConfig.Url, "/") == true {
 		siteConfig.Url = siteConfig.Url[:len(siteConfig.Url)-1]
@@ -145,10 +140,10 @@ func validationCheckRssFeedSupportedSiteConfig(siteName string, siteConfig *Prov
 
 	var boardIDs []string
 	for _, b := range siteConfig.Boards {
-		panicIfContains(boardIDs, b.ID, fmt.Sprintf("%s(ID:%s)의 게시판 ID('%s')가 중복되었습니다.", siteName, siteConfig.ID, b.ID))
+		panicIfContains(boardIDs, b.ID, fmt.Sprintf("%s(ID:%s)의 게시판 ID('%s')가 중복되었습니다.", site, siteConfig.ID, b.ID))
 		boardIDs = append(boardIDs, b.ID)
 
-		panicIfEmpty(b.Name, fmt.Sprintf("%s(ID:%s)의 게시판 Name이 입력되지 않았습니다.", siteName, siteConfig.ID))
+		panicIfEmpty(b.Name, fmt.Sprintf("%s(ID:%s)의 게시판 Name이 입력되지 않았습니다.", site, siteConfig.ID))
 	}
 }
 

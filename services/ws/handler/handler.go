@@ -60,7 +60,7 @@ func (h *WebServiceHandlers) Close() {
 	}
 }
 
-func (h *WebServiceHandlers) GetModel() interface{} {
+func (h *WebServiceHandlers) GetModel() model.RssFeedProvidersAccessor {
 	return h.rssFeedProvidersModel
 }
 
@@ -80,7 +80,7 @@ func (h *WebServiceHandlers) GetRssFeedSummaryViewHandler(c echo.Context) error 
 		  border: 1px solid #ddd;
 		  padding: 8px;
 		}
-		
+
 		#providers tr:nth-child(even) { background-color: #f2f2f2; }
 		
 		#providers tr:hover { background-color: #ddd; }
@@ -88,7 +88,7 @@ func (h *WebServiceHandlers) GetRssFeedSummaryViewHandler(c echo.Context) error 
 		#providers th {
 		  padding-top: 12px;
 		  padding-bottom: 12px;
-		  text-align: left;
+		  text-align: center;
 		  background-color: #4CAF50;
 		  color: white;
 		}
@@ -99,14 +99,14 @@ func (h *WebServiceHandlers) GetRssFeedSummaryViewHandler(c echo.Context) error 
 		* RSS 피드 최대 갯수 : %d개
 		<table id="providers">
 		  <tr>
-		    <th>정보제공처</th>
+		    <th>정보제공</th>
 		    <th>RSS 주소</th>
-			<th>ID</th>
-		    <th>이름</th>
-		    <th>URL</th>
-		    <th>게시판목록</th>
-		    <th>스케쥴</th>
-		    <th>게시글 저장기간</th>
+			<th>사이트<br>ID</th>
+		    <th>사이트<br>이름</th>
+		    <th>사이트<br>URL</th>
+		    <th>사이트<br>게시판목록</th>
+		    <th>사이트<br>스케쥴</th>
+		    <th>사이트<br>게시글 저장기간</th>
 		  </tr>
 	`, h.config.RssFeed.MaxItemCount)
 
