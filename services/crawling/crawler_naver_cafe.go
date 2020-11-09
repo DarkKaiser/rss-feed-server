@@ -395,7 +395,7 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingLink(article *model.RssFee
 		return
 	}
 
-	article.Content = utils.CleanString(ncSelection.Text())
+	article.Content = utils.CleanStringByLine(ncSelection.Text())
 }
 
 //noinspection GoUnhandledErrorResult
@@ -410,6 +410,6 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingNaverSearch(article *model
 
 	ncSelection := doc.Find(fmt.Sprintf("a.total_dsc[href='%s/%s']", c.siteUrl, article.ArticleID))
 	if ncSelection.Length() == 1 {
-		article.Content = utils.CleanString(ncSelection.Text())
+		article.Content = utils.CleanStringByLine(ncSelection.Text())
 	}
 }

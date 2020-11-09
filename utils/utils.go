@@ -32,8 +32,16 @@ func Contains(list []string, item string) bool {
 	return false
 }
 
-func CleanString(str string) string {
-	return strings.Join(strings.Fields(strings.TrimSpace(str)), " ")
+func CleanString(s string) string {
+	return strings.Join(strings.Fields(strings.TrimSpace(s)), " ")
+}
+
+func CleanStringByLine(s string) string {
+	lines := strings.Split(strings.TrimSpace(s), "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimSpace(line)
+	}
+	return strings.Join(lines, "\r\n")
 }
 
 func FormatCommas(num int) string {
