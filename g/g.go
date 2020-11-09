@@ -58,6 +58,7 @@ type ProviderConfig struct {
 	Boards      []*struct {
 		ID       string `json:"id"`
 		Name     string `json:"name"`
+		Type     string `json:"type"`
 		Category string `json:"category"`
 	} `json:"boards"`
 	ArticleArchiveDate uint                   `json:"article_archive_date"`
