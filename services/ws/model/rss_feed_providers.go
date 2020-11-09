@@ -175,12 +175,14 @@ func (p *RssFeedProviders) createTables() error {
 	}
 
 	//
-	// rss_provider_site_naver_cafe 테이블
+	// rss_provider_site_crawled_data 테이블
 	//
 	stmt7, err := p.db.Prepare(`
-		CREATE TABLE IF NOT EXISTS rss_provider_site_naver_cafe (
-			p_id 						VARCHAR( 50) PRIMARY KEY NOT NULL UNIQUE,
-			crawled_latest_article_id	INTEGER DEFAULT 0,
+		CREATE TABLE IF NOT EXISTS rss_provider_site_crawled_data (
+			p_id 						VARCHAR( 50) NOT NULL,
+			b_id 						VARCHAR( 50) NOT NULL,
+			crawled_latest_article_id	VARCHAR( 50) NOT NULL,
+			PRIMARY KEY (p_id, b_id)
 			FOREIGN KEY (p_id) REFERENCES rss_provider(id)
 		)
 	`)
@@ -275,7 +277,7 @@ func (p *RssFeedProviders) Articles(providerID string, boardIDs []string, maxArt
 		 WHERE a.p_id = ?
 		   AND a.b_id IN (%s)
       ORDER BY a.created_date DESC
-             , a.rowid desc
+             , a.rowid DESC
          LIMIT ?
 	`, fmt.Sprintf("'%s'", strings.Join(boardIDs, "', '"))))
 	if err != nil {
@@ -329,32 +331,66 @@ func (p *RssFeedProviders) deleteOutOfDateArticle(providerID string, articleArch
 	return nil
 }
 
-// @@@@@ string 타입으로 변경해서 다 쓰기, 조건에 보드ID가 들어가야 됨, 필요없는건 비워두기
 //noinspection GoUnhandledErrorResult,GoSnakeCaseUsage
-func (p *RssFeedProviders) CrawledLatestArticleID(providerID string) (int64, error) {
-	var crawledLatestArticleID int64 = 0
-	err := p.db.QueryRow(`
-		 SELECT IFNULL(crawled_latest_article_id, 0) id
-		   FROM rss_provider_site_naver_cafe
-		  WHERE p_id = ?
-	`, providerID).Scan(&crawledLatestArticleID)
+func (p *RssFeedProviders) CrawledLatestArticleData(providerID, emptyOrBoardID string) (string, time.Time, error) {
+	var err error
+	var articleID sql.NullString
+	var createdDate sql.NullTime
 
-	if err != nil && err != sql.ErrNoRows {
-		return 0, err
+	if emptyOrBoardID == "" {
+		err = p.db.QueryRow(`
+			 SELECT ( SELECT crawled_latest_article_id
+						FROM rss_provider_site_crawled_data
+					   WHERE p_id = ?
+						 AND b_id = '' ),
+					( SELECT created_date 
+						FROM rss_provider_article
+					   WHERE p_id = ?
+					ORDER BY created_date DESC
+						   , rowid DESC
+					   LIMIT 1 )
+		`, providerID, providerID).Scan(&articleID, &createdDate)
+	} else {
+		err = p.db.QueryRow(`
+			 SELECT ( SELECT crawled_latest_article_id
+						FROM rss_provider_site_crawled_data
+					   WHERE p_id = ?
+						 AND b_id = ? ),
+					( SELECT created_date 
+						FROM rss_provider_article
+					   WHERE p_id = ?
+						 AND b_id = ?
+					ORDER BY created_date DESC
+						   , rowid DESC
+					   LIMIT 1 )
+		`, providerID, emptyOrBoardID, providerID, emptyOrBoardID).Scan(&articleID, &createdDate)
 	}
 
-	return crawledLatestArticleID, nil
+	var crawledLatestArticleID string
+	var crawledLatestCreatedDate time.Time
+
+	if err != nil && err != sql.ErrNoRows {
+		return "", crawledLatestCreatedDate, err
+	}
+
+	if articleID.Valid == true {
+		crawledLatestArticleID = articleID.String
+	}
+	if createdDate.Valid == true {
+		crawledLatestCreatedDate = createdDate.Time.Local()
+	}
+
+	return crawledLatestArticleID, crawledLatestCreatedDate, nil
 }
 
-// @@@@@
 //noinspection GoUnhandledErrorResult,GoSnakeCaseUsage
-func (p *RssFeedProviders) UpdateCrawledLatestArticleID(providerID string, crawledLatestArticleID int64) error {
-	stmt, err := p.db.Prepare("INSERT OR REPLACE INTO rss_provider_site_naver_cafe (p_id, crawled_latest_article_id) VALUES (?, ?)")
+func (p *RssFeedProviders) UpdateCrawledLatestArticleID(providerID, emptyOrBoardID, crawledLatestArticleID string) error {
+	stmt, err := p.db.Prepare("INSERT OR REPLACE INTO rss_provider_site_crawled_data (p_id, b_id, crawled_latest_article_id) VALUES (?, ?, ?)")
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
-	if _, err = stmt.Exec(providerID, crawledLatestArticleID); err != nil {
+	if _, err = stmt.Exec(providerID, emptyOrBoardID, crawledLatestArticleID); err != nil {
 		return err
 	}
 
