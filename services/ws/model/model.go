@@ -10,6 +10,6 @@ type ModelGetter interface {
 type RssFeedProvidersAccessor interface {
 	InsertArticles(providerID string, articles []*RssFeedProviderArticle) (int, error)
 
-	CrawledLatestArticleData(providerID, emptyOrBoardID string) (string, time.Time, error)
-	UpdateCrawledLatestArticleID(providerID, emptyOrBoardID, crawledLatestArticleID string) error
+	LatestCrawledArticleData(providerID, emptyOrBoardID string) (string, time.Time, error)
+	UpdateLatestCrawledArticleID(providerID, emptyOrBoardID, latestCrawledArticleID string) error
 }

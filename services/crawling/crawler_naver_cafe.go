@@ -98,7 +98,7 @@ type naverCafeCrawler struct {
 func (c *naverCafeCrawler) Run() {
 	log.Debugf("%s('%s')의 크롤링 작업을 시작합니다.", c.site, c.siteID)
 
-	articles, newCrawledLatestArticleID, errOccurred, err := c.crawlingArticles()
+	articles, newLatestCrawledArticleID, errOccurred, err := c.crawlingArticles()
 	if err != nil {
 		log.Errorf("%s (error:%s)", errOccurred, err)
 
@@ -121,7 +121,7 @@ func (c *naverCafeCrawler) Run() {
 			return
 		}
 
-		if err = c.rssFeedProvidersAccessor.UpdateCrawledLatestArticleID(c.rssFeedProviderID, "", newCrawledLatestArticleID); err != nil {
+		if err = c.rssFeedProvidersAccessor.UpdateLatestCrawledArticleID(c.rssFeedProviderID, "", newLatestCrawledArticleID); err != nil {
 			m := fmt.Sprintf("%s('%s')의 크롤링 된 최근 게시글 ID의 DB 반영이 실패하였습니다.", c.site, c.siteID)
 
 			log.Errorf("%s (error:%s)", m, err)
@@ -135,7 +135,7 @@ func (c *naverCafeCrawler) Run() {
 			log.Debugf("%s('%s')의 크롤링 작업을 종료합니다. %d건의 새로운 게시글이 DB에 추가되었습니다.", c.site, c.siteID, len(articles))
 		}
 	} else {
-		if err = c.rssFeedProvidersAccessor.UpdateCrawledLatestArticleID(c.rssFeedProviderID, "", newCrawledLatestArticleID); err != nil {
+		if err = c.rssFeedProvidersAccessor.UpdateLatestCrawledArticleID(c.rssFeedProviderID, "", newLatestCrawledArticleID); err != nil {
 			m := fmt.Sprintf("%s('%s')의 크롤링 된 최근 게시글 ID의 DB 반영이 실패하였습니다.", c.site, c.siteID)
 
 			log.Errorf("%s (error:%s)", m, err)
@@ -149,20 +149,20 @@ func (c *naverCafeCrawler) Run() {
 
 //noinspection GoErrorStringFormat,GoUnhandledErrorResult
 func (c *naverCafeCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, string, string, error) {
-	idString, crawledLatestCreatedDate, err := c.rssFeedProvidersAccessor.CrawledLatestArticleData(c.rssFeedProviderID, "")
+	idString, latestCrawledCreatedDate, err := c.rssFeedProvidersAccessor.LatestCrawledArticleData(c.rssFeedProviderID, "")
 	if err != nil {
 		return nil, "", fmt.Sprintf("%s('%s')에 마지막으로 추가된 게시글 자료를 찾는 중에 오류가 발생하였습니다.", c.site, c.siteID), err
 	}
-	var crawledLatestArticleID int64 = 0
+	var latestCrawledArticleID int64 = 0
 	if idString != "" {
-		crawledLatestArticleID, err = strconv.ParseInt(idString, 10, 64)
+		latestCrawledArticleID, err = strconv.ParseInt(idString, 10, 64)
 		if err != nil {
 			return nil, "", fmt.Sprintf("%s('%s')에 마지막으로 추가된 게시글 ID를 숫자로 변환하는 중에 오류가 발생하였습니다.", c.site, c.siteID), err
 		}
 	}
 
 	articles := make([]*model.RssFeedProviderArticle, 0)
-	newCrawledLatestArticleID := crawledLatestArticleID
+	newLatestCrawledArticleID := latestCrawledArticleID
 	crawlingDelayStartTime := time.Now().Add(time.Duration(-1*c.crawlingDelayTimeMinutes) * time.Minute)
 
 	//
@@ -287,8 +287,8 @@ func (c *naverCafeCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 			}
 
 			// 크롤링 된 게시글 목록 중에서 가장 최근의 게시글 ID를 구한다.
-			if newCrawledLatestArticleID < articleID {
-				newCrawledLatestArticleID = articleID
+			if newLatestCrawledArticleID < articleID {
+				newLatestCrawledArticleID = articleID
 			}
 
 			// 추출해야 할 게시판인지 확인한다.
@@ -297,11 +297,11 @@ func (c *naverCafeCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 			}
 
 			// 이미 크롤링 작업을 했었던 게시글인지 확인한다. 이후의 게시글 추출 작업은 취소된다.
-			if articleID <= crawledLatestArticleID {
+			if articleID <= latestCrawledArticleID {
 				foundArticleAlreadyCrawled = true
 				return false
 			}
-			if crawledLatestCreatedDate.IsZero() == false && createdDate.Before(crawledLatestCreatedDate) == true {
+			if latestCrawledCreatedDate.IsZero() == false && createdDate.Before(latestCrawledCreatedDate) == true {
 				foundArticleAlreadyCrawled = true
 				return false
 			}
@@ -368,7 +368,7 @@ func (c *naverCafeCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 		articles[i], articles[j] = articles[j], articles[i]
 	}
 
-	return articles, strconv.FormatInt(newCrawledLatestArticleID, 10), "", nil
+	return articles, strconv.FormatInt(newLatestCrawledArticleID, 10), "", nil
 }
 
 //noinspection GoUnhandledErrorResult

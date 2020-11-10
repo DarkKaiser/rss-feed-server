@@ -181,7 +181,7 @@ func (p *RssFeedProviders) createTables() error {
 		CREATE TABLE IF NOT EXISTS rss_provider_site_crawled_data (
 			p_id 						VARCHAR( 50) NOT NULL,
 			b_id 						VARCHAR( 50) NOT NULL,
-			crawled_latest_article_id	VARCHAR( 50) NOT NULL,
+			latest_crawled_article_id	VARCHAR( 50) NOT NULL,
 			PRIMARY KEY (p_id, b_id)
 			FOREIGN KEY (p_id) REFERENCES rss_provider(id)
 		)
@@ -332,14 +332,14 @@ func (p *RssFeedProviders) deleteOutOfDateArticle(providerID string, articleArch
 }
 
 //noinspection GoUnhandledErrorResult,GoSnakeCaseUsage
-func (p *RssFeedProviders) CrawledLatestArticleData(providerID, emptyOrBoardID string) (string, time.Time, error) {
+func (p *RssFeedProviders) LatestCrawledArticleData(providerID, emptyOrBoardID string) (string, time.Time, error) {
 	var err error
 	var articleID sql.NullString
 	var createdDate sql.NullTime
 
 	if emptyOrBoardID == "" {
 		err = p.db.QueryRow(`
-			 SELECT ( SELECT crawled_latest_article_id
+			 SELECT ( SELECT latest_crawled_article_id
 						FROM rss_provider_site_crawled_data
 					   WHERE p_id = ?
 						 AND b_id = '' ),
@@ -352,7 +352,7 @@ func (p *RssFeedProviders) CrawledLatestArticleData(providerID, emptyOrBoardID s
 		`, providerID, providerID).Scan(&articleID, &createdDate)
 	} else {
 		err = p.db.QueryRow(`
-			 SELECT ( SELECT crawled_latest_article_id
+			 SELECT ( SELECT latest_crawled_article_id
 						FROM rss_provider_site_crawled_data
 					   WHERE p_id = ?
 						 AND b_id = ? ),
@@ -366,31 +366,31 @@ func (p *RssFeedProviders) CrawledLatestArticleData(providerID, emptyOrBoardID s
 		`, providerID, emptyOrBoardID, providerID, emptyOrBoardID).Scan(&articleID, &createdDate)
 	}
 
-	var crawledLatestArticleID string
-	var crawledLatestCreatedDate time.Time
+	var latestCrawledArticleID string
+	var latestCrawledCreatedDate time.Time
 
 	if err != nil && err != sql.ErrNoRows {
-		return "", crawledLatestCreatedDate, err
+		return "", latestCrawledCreatedDate, err
 	}
 
 	if articleID.Valid == true {
-		crawledLatestArticleID = articleID.String
+		latestCrawledArticleID = articleID.String
 	}
 	if createdDate.Valid == true {
-		crawledLatestCreatedDate = createdDate.Time.Local()
+		latestCrawledCreatedDate = createdDate.Time.Local()
 	}
 
-	return crawledLatestArticleID, crawledLatestCreatedDate, nil
+	return latestCrawledArticleID, latestCrawledCreatedDate, nil
 }
 
 //noinspection GoUnhandledErrorResult,GoSnakeCaseUsage
-func (p *RssFeedProviders) UpdateCrawledLatestArticleID(providerID, emptyOrBoardID, crawledLatestArticleID string) error {
-	stmt, err := p.db.Prepare("INSERT OR REPLACE INTO rss_provider_site_crawled_data (p_id, b_id, crawled_latest_article_id) VALUES (?, ?, ?)")
+func (p *RssFeedProviders) UpdateLatestCrawledArticleID(providerID, emptyOrBoardID, latestCrawledArticleID string) error {
+	stmt, err := p.db.Prepare("INSERT OR REPLACE INTO rss_provider_site_crawled_data (p_id, b_id, latest_crawled_article_id) VALUES (?, ?, ?)")
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
-	if _, err = stmt.Exec(providerID, emptyOrBoardID, crawledLatestArticleID); err != nil {
+	if _, err = stmt.Exec(providerID, emptyOrBoardID, latestCrawledArticleID); err != nil {
 		return err
 	}
 
