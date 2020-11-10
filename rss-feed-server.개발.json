@@ -27,6 +27,42 @@
 				"crawling_scheduler": {
 					"time_spec": "0 * * * *"
 				}
+			},
+			{
+				"id": "yeosu",
+				"site": "YeosuCity",
+				"config": {
+					"id": "yeosu",
+					"name": "여수시 홈페이지",
+					"description": "",
+					"url": "http://www.yeosu.go.kr",
+					"boards": [
+						{
+							"id": "mn0101",
+							"name": "여수핫뉴스",
+							"type": "P",
+							"category": "행정정보"
+						},
+						{
+							"id": "mn0102",
+							"name": "공지사항",
+							"type": "L_1",
+							"category": "행정정보"
+						},
+						{
+							"id": "mn0103",
+							"name": "보도자료",
+							"type": "L_2",
+							"category": "행정정보"
+						}
+					],
+					"article_archive_date": 90,
+					"data": {
+					}
+				},
+				"crawling_scheduler": {
+					"time_spec": "*/1 * * * *"
+				}
 			}
 		]
 	},
