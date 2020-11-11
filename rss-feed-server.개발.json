@@ -15,6 +15,7 @@
 						{
 							"id": "222",
 							"name": "부동산 소식",
+							"type": "",
 							"category": "여순광 부동산 정보"
 						}
 					],
@@ -25,6 +26,48 @@
 				},
 				"crawling_scheduler": {
 					"time_spec": "0 * * * *"
+				}
+			},
+			{
+				"id": "yeosu",
+				"site": "YeosuCity",
+				"config": {
+					"id": "yeosu",
+					"name": "여수시 관련 소식",
+					"description": "여수시 관련 소식",
+					"url": "http://www.yeosu.go.kr",
+					"boards": [
+						{
+							"id": "mn0101",
+							"name": "여수핫뉴스",
+							"type": "P",
+							"category": "행정정보 > 여수소식"
+						},
+						{
+							"id": "mn0102",
+							"name": "공지사항",
+							"type": "L_1",
+							"category": "행정정보 > 여수소식"
+						},
+						{
+							"id": "mn0103",
+							"name": "보도자료",
+							"type": "L_2",
+							"category": "행정정보 > 여수소식"
+						},
+						{
+							"id": "mn0109",
+							"name": "타기관소식",
+							"type": "L_1",
+							"category": "행정정보 > 여수소식"
+						}
+					],
+					"article_archive_date": 90,
+					"data": {
+					}
+				},
+				"crawling_scheduler": {
+					"time_spec": "*/1 * * * *"
 				}
 			}
 		]
