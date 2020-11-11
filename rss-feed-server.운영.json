@@ -247,6 +247,12 @@
 							"name": "보도자료",
 							"type": "L_2",
 							"category": "행정정보 > 여수소식"
+						},
+						{
+							"id": "mn0109",
+							"name": "타기관소식",
+							"type": "L_1",
+							"category": "행정정보 > 여수소식"
 						}
 					],
 					"article_archive_date": 90,

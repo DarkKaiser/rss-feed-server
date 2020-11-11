@@ -17,11 +17,6 @@ import (
 	"time"
 )
 
-// @@@@@
-// 1. 날짜타입에 시간이 기본 있는 경우 데이터 없으면 23:59:59로, 날짜만 있는 게시물인경우 날짜만 입력하도록 디자인, 추가시 포못을 넘겨서 구현가능한지 확인, rss로 gmt 포맷대로 넘겨야 하는거 아닌가?
-// 1. 컨텐츠에 이미지 포함할것인가?
-// 1. 문화/행사 추가할것인가?
-
 const (
 	// 포토뉴스
 	yeosuCityCrawlerBoardTypePhotoNews string = "P"
@@ -327,19 +322,16 @@ func (c *yeosuCityCrawler) extractArticle(boardType string, s *goquery.Selection
 			return nil, errors.New("게시글에서 게시글 ID 추출이 실패하였습니다.")
 		}
 
-		if boardType == yeosuCityCrawlerBoardTypeList1 {
-			// 등록자
-			as = s.Find("td.list_department")
-			if as.Length() != 1 {
-				return nil, errors.New("게시글에서 등록자 정보를 찾을 수 없습니다.")
-			}
-			article.Author = strings.TrimSpace(as.Text())
-		} else {
-			// 담당부서
+		// 등록자
+		as = s.Find("td.list_department")
+		if as.Length() != 1 {
 			as = s.Find("td.list_member_name")
 			if as.Length() != 1 {
-				return nil, errors.New("게시글에서 담당부서 정보를 찾을 수 없습니다.")
+				return nil, errors.New("게시글에서 등록자/담당부서 정보를 찾을 수 없습니다.")
+			} else {
+				article.Author = strings.TrimSpace(as.Text())
 			}
+		} else {
 			article.Author = strings.TrimSpace(as.Text())
 		}
 
