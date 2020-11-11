@@ -14,6 +14,7 @@ import (
 type RssFeedProviderArticle struct {
 	BoardID     string
 	BoardName   string
+	BoardType   string
 	ArticleID   string
 	Title       string
 	Content     string

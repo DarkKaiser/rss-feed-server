@@ -37,14 +37,14 @@ func init() {
 
 			data := naverCafeCrawlerConfigData{}
 			if err := data.fillFromMap(config.Data); err != nil {
-				m := fmt.Sprintf("작업 데이터가 유효하지 않아 %s('%s') 크롤링 객체 생성이 실패하였습니다. (error:%s)", site, config.ID, err)
+				m := fmt.Sprintf("작업 데이터가 유효하지 않아 %s('%s') Crawler 생성이 실패하였습니다. (error:%s)", site, config.ID, err)
 
 				notifyapi.SendNotifyMessage(m, true)
 
 				log.Panic(m)
 			}
 
-			return &naverCafeCrawler{
+			crawler := &naverCafeCrawler{
 				crawler: crawler{
 					config: config,
 
@@ -64,6 +64,10 @@ func init() {
 
 				crawlingDelayTimeMinutes: 40,
 			}
+
+			crawler.crawlingArticlesFn = crawler.crawlingArticles
+
+			return crawler
 		},
 	}
 }
@@ -95,69 +99,17 @@ type naverCafeCrawler struct {
 	crawlingDelayTimeMinutes int
 }
 
-func (c *naverCafeCrawler) Run() {
-	log.Debugf("%s('%s')의 크롤링 작업을 시작합니다.", c.site, c.siteID)
-
-	articles, newLatestCrawledArticleID, errOccurred, err := c.crawlingArticles()
-	if err != nil {
-		log.Errorf("%s (error:%s)", errOccurred, err)
-
-		notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", errOccurred, err), true)
-
-		return
-	}
-
-	if len(articles) > 0 {
-		log.Debugf("%s('%s')의 크롤링 작업 결과로 %d건의 새로운 게시글이 추출되었습니다. 새로운 게시글을 DB에 추가합니다.", c.site, c.siteID, len(articles))
-
-		insertedCnt, err := c.rssFeedProvidersAccessor.InsertArticles(c.rssFeedProviderID, articles)
-		if err != nil {
-			m := fmt.Sprintf("새로운 게시글을 DB에 추가하는 중에 오류가 발생하여 %s('%s')의 크롤링 작업이 실패하였습니다.", c.site, c.siteID)
-
-			log.Errorf("%s (error:%s)", m, err)
-
-			notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
-
-			return
-		}
-
-		if err = c.rssFeedProvidersAccessor.UpdateLatestCrawledArticleID(c.rssFeedProviderID, "", newLatestCrawledArticleID); err != nil {
-			m := fmt.Sprintf("%s('%s')의 크롤링 된 최근 게시글 ID의 DB 반영이 실패하였습니다.", c.site, c.siteID)
-
-			log.Errorf("%s (error:%s)", m, err)
-
-			notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
-		}
-
-		if len(articles) != insertedCnt {
-			log.Debugf("%s('%s')의 크롤링 작업을 종료합니다. 전체 %d건 중에서 %d건의 새로운 게시글이 DB에 추가되었습니다.", c.site, c.siteID, len(articles), insertedCnt)
-		} else {
-			log.Debugf("%s('%s')의 크롤링 작업을 종료합니다. %d건의 새로운 게시글이 DB에 추가되었습니다.", c.site, c.siteID, len(articles))
-		}
-	} else {
-		if err = c.rssFeedProvidersAccessor.UpdateLatestCrawledArticleID(c.rssFeedProviderID, "", newLatestCrawledArticleID); err != nil {
-			m := fmt.Sprintf("%s('%s')의 크롤링 된 최근 게시글 ID의 DB 반영이 실패하였습니다.", c.site, c.siteID)
-
-			log.Errorf("%s (error:%s)", m, err)
-
-			notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
-		}
-
-		log.Debugf("%s('%s')의 크롤링 작업을 종료합니다. 새로운 게시글이 존재하지 않습니다.", c.site, c.siteID)
-	}
-}
-
 //noinspection GoErrorStringFormat,GoUnhandledErrorResult
-func (c *naverCafeCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, string, string, error) {
+func (c *naverCafeCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, map[string]string, string, error) {
 	idString, latestCrawledCreatedDate, err := c.rssFeedProvidersAccessor.LatestCrawledArticleData(c.rssFeedProviderID, "")
 	if err != nil {
-		return nil, "", fmt.Sprintf("%s('%s')에 마지막으로 추가된 게시글 자료를 찾는 중에 오류가 발생하였습니다.", c.site, c.siteID), err
+		return nil, nil, fmt.Sprintf("%s('%s')에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", c.site, c.siteID), err
 	}
 	var latestCrawledArticleID int64 = 0
 	if idString != "" {
 		latestCrawledArticleID, err = strconv.ParseInt(idString, 10, 64)
 		if err != nil {
-			return nil, "", fmt.Sprintf("%s('%s')에 마지막으로 추가된 게시글 ID를 숫자로 변환하는 중에 오류가 발생하였습니다.", c.site, c.siteID), err
+			return nil, nil, fmt.Sprintf("%s('%s')에 마지막으로 추가된 게시글 ID를 숫자로 변환하는 중에 오류가 발생하였습니다.", c.site, c.siteID), err
 		}
 	}
 
@@ -172,17 +124,17 @@ func (c *naverCafeCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 	for pageNo := 1; pageNo <= c.crawlingMaxPageCount; pageNo++ {
 		ncPageUrl := fmt.Sprintf("%s/ArticleList.nhn?search.clubid=%s&userDisplay=50&search.boardtype=L&search.totalCount=501&search.page=%d", c.siteUrl, c.siteClubID, pageNo)
 
-		doc, errOccurred, err := httpWebPageDocument(ncPageUrl, fmt.Sprintf("%s('%s') 페이지", c.site, c.siteID), euckrDecoder)
+		doc, errOccurred, err := c.getWebPageDocument(ncPageUrl, fmt.Sprintf("%s('%s') 페이지", c.site, c.siteID), euckrDecoder)
 		if err != nil {
-			return nil, "", errOccurred, err
+			return nil, nil, errOccurred, err
 		}
 
 		ncSelection := doc.Find("div.article-board > table > tbody > tr:not(.board-notice)")
 		if len(ncSelection.Nodes) == 0 { // 전체글보기의 게시글이 0건이라면 CSS 파싱이 실패한것으로 본다.
-			return nil, "", fmt.Sprintf("%s('%s')의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.site, c.siteID), err
+			return nil, nil, fmt.Sprintf("%s('%s')의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.site, c.siteID), err
 		}
 
-		var foundArticleAlreadyCrawled = false
+		var foundAlreadyCrawledArticle = false
 		ncSelection.EachWithBreak(func(i int, s *goquery.Selection) bool {
 			// 게시글의 답글을 표시하는 행인지 확인한다.
 			// 게시글 제목 오른쪽에 답글이라는 링크가 있으며 이 링크를 클릭하면 아래쪽에 등록된 답글이 나타난다.
@@ -298,11 +250,11 @@ func (c *naverCafeCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 
 			// 이미 크롤링 작업을 했었던 게시글인지 확인한다. 이후의 게시글 추출 작업은 취소된다.
 			if articleID <= latestCrawledArticleID {
-				foundArticleAlreadyCrawled = true
+				foundAlreadyCrawledArticle = true
 				return false
 			}
 			if latestCrawledCreatedDate.IsZero() == false && createdDate.Before(latestCrawledCreatedDate) == true {
-				foundArticleAlreadyCrawled = true
+				foundAlreadyCrawledArticle = true
 				return false
 			}
 
@@ -328,10 +280,10 @@ func (c *naverCafeCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 			return true
 		})
 		if err != nil {
-			return nil, "", fmt.Sprintf("%s('%s')의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.site, c.siteID), err
+			return nil, nil, fmt.Sprintf("%s('%s')의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.site, c.siteID), err
 		}
 
-		if foundArticleAlreadyCrawled == true {
+		if foundAlreadyCrawledArticle == true {
 			break
 		}
 	}
@@ -368,7 +320,11 @@ func (c *naverCafeCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 		articles[i], articles[j] = articles[j], articles[i]
 	}
 
-	return articles, strconv.FormatInt(newLatestCrawledArticleID, 10), "", nil
+	var newLatestCrawledArticleIDsByBoard = map[string]string{
+		emptyBoardIDKey: strconv.FormatInt(newLatestCrawledArticleID, 10),
+	}
+
+	return articles, newLatestCrawledArticleIDsByBoard, "", nil
 }
 
 //noinspection GoUnhandledErrorResult
@@ -383,7 +339,7 @@ func (c *naverCafeCrawler) crawlingArticleContent(article *model.RssFeedProvider
 
 //noinspection GoUnhandledErrorResult
 func (c *naverCafeCrawler) crawlingArticleContentUsingLink(article *model.RssFeedProviderArticle, euckrDecoder *encoding.Decoder) {
-	doc, errOccurred, err := httpWebPageDocument(article.Link, fmt.Sprintf("%s('%s > %s') 게시글('%s')의 상세페이지", c.site, c.siteID, article.BoardName, article.ArticleID), euckrDecoder)
+	doc, errOccurred, err := c.getWebPageDocument(article.Link, fmt.Sprintf("%s('%s > %s') 게시글('%s')의 상세페이지", c.site, c.siteID, article.BoardName, article.ArticleID), euckrDecoder)
 	if err != nil {
 		log.Warnf("%s (error:%s)", errOccurred, err)
 		return
@@ -402,7 +358,7 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingLink(article *model.RssFee
 func (c *naverCafeCrawler) crawlingArticleContentUsingNaverSearch(article *model.RssFeedProviderArticle) {
 	searchUrl := fmt.Sprintf("https://search.naver.com/search.naver?where=article&query=%s&ie=utf8&st=date&date_option=0&date_from=&date_to=&board=&srchby=title&dup_remove=0&cafe_url=%s&without_cafe_url=&sm=tab_opt&nso=so:dd,p:all,a:t&t=0&mson=0&prdtype=0", url.QueryEscape(article.Title), c.siteID)
 
-	doc, errOccurred, err := httpWebPageDocument(searchUrl, fmt.Sprintf("%s('%s > %s') 게시글('%s')의 네이버 검색페이지", c.site, c.siteID, article.BoardName, article.ArticleID), nil)
+	doc, errOccurred, err := c.getWebPageDocument(searchUrl, fmt.Sprintf("%s('%s > %s') 게시글('%s')의 네이버 검색페이지", c.site, c.siteID, article.BoardName, article.ArticleID), nil)
 	if err != nil {
 		log.Warnf("%s (error:%s)", errOccurred, err)
 		return

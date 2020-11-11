@@ -14,26 +14,29 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
+// @@@@@
+// 1. 날짜타입에 시간이 기본 있는 경우 데이터 없으면 23:59:59로, 날짜만 있는 게시물인경우 날짜만 입력하도록 디자인, 추가시 포못을 넘겨서 구현가능한지 확인, rss로 gmt 포맷대로 넘겨야 하는거 아닌가?
+// 1. 컨텐츠에 이미지 포함할것인가?
+// 1. 문화/행사 추가할것인가?
+
 const (
 	// 포토뉴스
-	yeosuCityBoardTypePhotoNews string = "P"
+	yeosuCityCrawlerBoardTypePhotoNews string = "P"
 
 	// 리스트 1(번호, 제목, 등록자, 등록일, 조회)
-	yeosuCityBoardTypeList1 string = "L_1"
+	yeosuCityCrawlerBoardTypeList1 string = "L_1"
 
 	// 리스트 2(번호, 분류, 제목, 담당부서, 등록일, 조회)
-	yeosuCityBoardTypeList2 string = "L_2"
+	yeosuCityCrawlerBoardTypeList2 string = "L_2"
 )
 
-var yeosuCityBoardTypes = make(map[string]*yeosuCityBoardTypeConfig)
+var yeosuCityCrawlerBoardTypes map[string]*yeosuCityCrawlerBoardTypeConfig
 
-type yeosuCityBoardTypeConfig struct {
-	urlPath string
-
+type yeosuCityCrawlerBoardTypeConfig struct {
+	urlPath         string
 	articleSelector string
 }
 
@@ -53,7 +56,7 @@ func init() {
 				log.Panic(m)
 			}
 
-			return &yeosuCityCrawler{
+			crawler := &yeosuCityCrawler{
 				crawler: crawler{
 					config: config,
 
@@ -66,89 +69,35 @@ func init() {
 					siteDescription: config.Description,
 					siteUrl:         config.Url,
 
-					crawlingMaxPageCount: 10,
+					crawlingMaxPageCount: 3,
 				},
 			}
+
+			crawler.crawlingArticlesFn = crawler.crawlingArticles
+
+			return crawler
 		},
 	}
 
 	// 게시판 유형별 설정정보를 초기화한다.
-	yeosuCityBoardTypes[yeosuCityBoardTypePhotoNews] = &yeosuCityBoardTypeConfig{
-		urlPath: fmt.Sprintf("/www/information/mn01/%s/yeosu.go", yeosuCityUrlPathReplaceStringWithBoardID),
-
-		articleSelector: "#content > dl.board_photonews",
-	}
-	yeosuCityBoardTypes[yeosuCityBoardTypeList1] = &yeosuCityBoardTypeConfig{
-		urlPath: fmt.Sprintf("/www/information/mn01/%s/yeosu.go", yeosuCityUrlPathReplaceStringWithBoardID),
-
-		articleSelector: "#board_list_table > tbody > tr",
-	}
-	yeosuCityBoardTypes[yeosuCityBoardTypeList2] = &yeosuCityBoardTypeConfig{
-		urlPath: fmt.Sprintf("/www/information/mn01/%s/yeosu.go", yeosuCityUrlPathReplaceStringWithBoardID),
-
-		articleSelector: "#board_list_table > tbody > tr",
+	yeosuCityCrawlerBoardTypes = map[string]*yeosuCityCrawlerBoardTypeConfig{
+		yeosuCityCrawlerBoardTypePhotoNews: {
+			urlPath:         fmt.Sprintf("/www/information/mn01/%s/yeosu.go", yeosuCityUrlPathReplaceStringWithBoardID),
+			articleSelector: "#content > dl.board_photonews",
+		},
+		yeosuCityCrawlerBoardTypeList1: {
+			urlPath:         fmt.Sprintf("/www/information/mn01/%s/yeosu.go", yeosuCityUrlPathReplaceStringWithBoardID),
+			articleSelector: "#board_list_table > tbody > tr",
+		},
+		yeosuCityCrawlerBoardTypeList2: {
+			urlPath:         fmt.Sprintf("/www/information/mn01/%s/yeosu.go", yeosuCityUrlPathReplaceStringWithBoardID),
+			articleSelector: "#board_list_table > tbody > tr",
+		},
 	}
 }
 
 type yeosuCityCrawler struct {
 	crawler
-}
-
-// @@@@@
-func (c *yeosuCityCrawler) Run() {
-	log.Debugf("%s('%s')의 크롤링 작업을 시작합니다.", c.site, c.siteID)
-
-	articles, newLatestCrawledArticleIDMap, errOccurred, err := c.crawlingArticles()
-	if err != nil {
-		log.Errorf("%s (error:%s)", errOccurred, err)
-
-		notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", errOccurred, err), true)
-
-		return
-	}
-
-	if len(articles) > 0 {
-		log.Debugf("%s('%s')의 크롤링 작업 결과로 %d건의 새로운 게시글이 추출되었습니다. 새로운 게시글을 DB에 추가합니다.", c.site, c.siteID, len(articles))
-
-		insertedCnt, err := c.rssFeedProvidersAccessor.InsertArticles(c.rssFeedProviderID, articles)
-		if err != nil {
-			m := fmt.Sprintf("새로운 게시글을 DB에 추가하는 중에 오류가 발생하여 %s('%s')의 크롤링 작업이 실패하였습니다.", c.site, c.siteID)
-
-			log.Errorf("%s (error:%s)", m, err)
-
-			notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
-
-			return
-		}
-
-		for boardID, articleID := range newLatestCrawledArticleIDMap {
-			if err = c.rssFeedProvidersAccessor.UpdateLatestCrawledArticleID(c.rssFeedProviderID, boardID, articleID); err != nil {
-				m := fmt.Sprintf("%s('%s')의 크롤링 된 최근 게시글 ID의 DB 반영이 실패하였습니다.", c.site, c.siteID)
-
-				log.Errorf("%s (error:%s)", m, err)
-
-				notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
-			}
-		}
-
-		if len(articles) != insertedCnt {
-			log.Debugf("%s('%s')의 크롤링 작업을 종료합니다. 전체 %d건 중에서 %d건의 새로운 게시글이 DB에 추가되었습니다.", c.site, c.siteID, len(articles), insertedCnt)
-		} else {
-			log.Debugf("%s('%s')의 크롤링 작업을 종료합니다. %d건의 새로운 게시글이 DB에 추가되었습니다.", c.site, c.siteID, len(articles))
-		}
-	} else {
-		for boardID, articleID := range newLatestCrawledArticleIDMap {
-			if err = c.rssFeedProvidersAccessor.UpdateLatestCrawledArticleID(c.rssFeedProviderID, boardID, articleID); err != nil {
-				m := fmt.Sprintf("%s('%s')의 크롤링 된 최근 게시글 ID의 DB 반영이 실패하였습니다.", c.site, c.siteID)
-
-				log.Errorf("%s (error:%s)", m, err)
-
-				notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
-			}
-		}
-
-		log.Debugf("%s('%s')의 크롤링 작업을 종료합니다. 새로운 게시글이 존재하지 않습니다.", c.site, c.siteID)
-	}
 }
 
 //noinspection GoErrorStringFormat,GoUnhandledErrorResult
@@ -157,14 +106,14 @@ func (c *yeosuCityCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 	var newLatestCrawledArticleIDsByBoard = make(map[string]string, 0)
 
 	for _, b := range c.config.Boards {
-		boardTypeConfig, exists := yeosuCityBoardTypes[b.Type]
+		boardTypeConfig, exists := yeosuCityCrawlerBoardTypes[b.Type]
 		if exists == false {
 			return nil, nil, fmt.Sprintf("%s('%s')의 게시판 Type별 정보를 구하는 중에 오류가 발생하였습니다.", c.site, c.siteID), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
 		}
 
 		latestCrawledArticleID, latestCrawledCreatedDate, err := c.rssFeedProvidersAccessor.LatestCrawledArticleData(c.rssFeedProviderID, b.ID)
 		if err != nil {
-			return nil, nil, fmt.Sprintf("%s('%s') %s 게시판에 마지막으로 추가된 게시글 자료를 찾는 중에 오류가 발생하였습니다.", c.site, c.siteID, b.Name), err
+			return nil, nil, fmt.Sprintf("%s('%s') %s 게시판에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", c.site, c.siteID, b.Name), err
 		}
 
 		var newLatestCrawledArticleID = ""
@@ -175,7 +124,7 @@ func (c *yeosuCityCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 		for pageNo := 1; pageNo <= c.crawlingMaxPageCount; pageNo++ {
 			ysPageUrl := strings.Replace(fmt.Sprintf("%s%s?page=%d", c.siteUrl, boardTypeConfig.urlPath, pageNo), yeosuCityUrlPathReplaceStringWithBoardID, b.ID, -1)
 
-			doc, errOccurred, err := httpWebPageDocument(ysPageUrl, fmt.Sprintf("%s('%s') %s 게시판", c.site, c.siteID, b.Name), nil)
+			doc, errOccurred, err := c.getWebPageDocument(ysPageUrl, fmt.Sprintf("%s('%s') %s 게시판", c.site, c.siteID, b.Name), nil)
 			if err != nil {
 				return nil, nil, errOccurred, err
 			}
@@ -185,7 +134,7 @@ func (c *yeosuCityCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 				return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.site, c.siteID, b.Name), err
 			}
 
-			var foundArticleAlreadyCrawled = false
+			var foundAlreadyCrawledArticle = false
 			ysSelection.EachWithBreak(func(i int, s *goquery.Selection) bool {
 				var article *model.RssFeedProviderArticle
 				if article, err = c.extractArticle(b.Type, s); err != nil {
@@ -193,6 +142,7 @@ func (c *yeosuCityCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 				}
 				article.BoardID = b.ID
 				article.BoardName = b.Name
+				article.BoardType = b.Type
 
 				// 크롤링 된 게시글 목록 중에서 가장 최근의 게시글 ID를 구한다.
 				if newLatestCrawledArticleID == "" {
@@ -201,11 +151,11 @@ func (c *yeosuCityCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 
 				// 이미 크롤링 작업을 했었던 게시글인지 확인한다. 이후의 게시글 추출 작업은 취소된다.
 				if article.ArticleID == latestCrawledArticleID {
-					foundArticleAlreadyCrawled = true
+					foundAlreadyCrawledArticle = true
 					return false
 				}
 				if latestCrawledCreatedDate.IsZero() == false && article.CreatedDate.Before(latestCrawledCreatedDate) == true {
-					foundArticleAlreadyCrawled = true
+					foundAlreadyCrawledArticle = true
 					return false
 				}
 
@@ -217,7 +167,7 @@ func (c *yeosuCityCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 				return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.site, c.siteID, b.Name), err
 			}
 
-			if foundArticleAlreadyCrawled == true {
+			if foundAlreadyCrawledArticle == true {
 				break
 			}
 		}
@@ -229,31 +179,17 @@ func (c *yeosuCityCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 
 	//
 	// 게시글 내용 크롤링 : 내용은 크롤링이 실패해도 에러를 발생하지 않고 무시한다.
+	// 동시에 여러개의 게시글을 읽는 경우 에러가 발생하는 경우가 생기므로 최대 1개씩 순차적으로 읽는다.
+	// 만약 에러가 발생하여 게시글 내용을 크롤링 하지 못한 경우가 생길 수 있으므로 2번 크롤링한다.
+	// ( ※ 여수시 홈페이지의 성능이 좋지 않은것 같음!!! )
 	//
-	crawlingWaiter := &sync.WaitGroup{}
-	crawlingRequestC := make(chan *model.RssFeedProviderArticle, len(articles))
-
-	for i := 1; i <= 5; i++ {
-		go func(crawlingRequestC <-chan *model.RssFeedProviderArticle, crawlingWaiter *sync.WaitGroup) {
-			for article := range crawlingRequestC {
-				c.crawlingArticleContent(article, crawlingWaiter)
+	for i := 0; i < 2; i++ {
+		for _, article := range articles {
+			if article.Content == "" {
+				c.crawlingArticleContent(article)
 			}
-		}(crawlingRequestC, crawlingWaiter)
-	}
-
-	for _, article := range articles {
-		if article.Content != "" {
-			crawlingWaiter.Add(1)
-
-			crawlingRequestC <- article
 		}
 	}
-
-	// 채널을 닫는다. 더이상 채널에 데이터를 추가하지는 못하지만 이미 추가한 데이터는 처리가 완료된다.
-	close(crawlingRequestC)
-
-	// 크롤링 작업이 모두 완료될 때 까지 대기한다.
-	crawlingWaiter.Wait()
 
 	// DB에 오래된 게시글부터 추가되도록 하기 위해 역순으로 재배열한다.
 	for i, j := 0, len(articles)-1; i < j; i, j = i+1, j-1 {
@@ -269,7 +205,7 @@ func (c *yeosuCityCrawler) extractArticle(boardType string, s *goquery.Selection
 	var article = &model.RssFeedProviderArticle{}
 
 	switch boardType {
-	case yeosuCityBoardTypePhotoNews:
+	case yeosuCityCrawlerBoardTypePhotoNews:
 		// 제목, 링크
 		as := s.Find("dd > a")
 		if as.Length() != 1 {
@@ -348,7 +284,7 @@ func (c *yeosuCityCrawler) extractArticle(boardType string, s *goquery.Selection
 
 		return article, nil
 
-	case yeosuCityBoardTypeList1, yeosuCityBoardTypeList2:
+	case yeosuCityCrawlerBoardTypeList1, yeosuCityCrawlerBoardTypeList2:
 		// 제목, 링크
 		as := s.Find("td.list_title > a")
 		if as.Length() != 1 {
@@ -361,7 +297,7 @@ func (c *yeosuCityCrawler) extractArticle(boardType string, s *goquery.Selection
 		}
 		article.Link = fmt.Sprintf("%s%s", c.siteUrl, article.Link)
 
-		if boardType == yeosuCityBoardTypeList2 {
+		if boardType == yeosuCityCrawlerBoardTypeList2 {
 			// 분류
 			as = s.Find("td.list_cate")
 			if as.Length() != 1 {
@@ -391,7 +327,7 @@ func (c *yeosuCityCrawler) extractArticle(boardType string, s *goquery.Selection
 			return nil, errors.New("게시글에서 게시글 ID 추출이 실패하였습니다.")
 		}
 
-		if boardType == yeosuCityBoardTypeList1 {
+		if boardType == yeosuCityCrawlerBoardTypeList1 {
 			// 등록자
 			as = s.Find("td.list_department")
 			if as.Length() != 1 {
@@ -432,20 +368,24 @@ func (c *yeosuCityCrawler) extractArticle(boardType string, s *goquery.Selection
 }
 
 //noinspection GoUnhandledErrorResult
-func (c *yeosuCityCrawler) crawlingArticleContent(article *model.RssFeedProviderArticle, crawlingWaiter *sync.WaitGroup) {
-	defer crawlingWaiter.Done()
+func (c *yeosuCityCrawler) crawlingArticleContent(article *model.RssFeedProviderArticle) {
+	switch article.BoardType {
+	case yeosuCityCrawlerBoardTypePhotoNews:
+		// 포토뉴스인 경우에는 게시글 목록을 읽어올 때 내용을 추출한다.
 
-	doc, errOccurred, err := httpWebPageDocument(article.Link, fmt.Sprintf("%s('%s') %s 게시판의 게시글('%s') 상세페이지", c.site, c.siteID, article.BoardName, article.ArticleID), nil)
-	if err != nil {
-		log.Warnf("%s (error:%s)", errOccurred, err)
-		return
+	case yeosuCityCrawlerBoardTypeList1, yeosuCityCrawlerBoardTypeList2:
+		doc, errOccurred, err := c.getWebPageDocument(article.Link, fmt.Sprintf("%s('%s') %s 게시판의 게시글('%s') 상세페이지", c.site, c.siteID, article.BoardName, article.ArticleID), nil)
+		if err != nil {
+			log.Warnf("%s (error:%s)", errOccurred, err)
+			return
+		}
+
+		ysSelection := doc.Find("div.con_detail")
+		if ysSelection.Length() == 0 {
+			// 로그인을 하지 않아 접근 권한이 없는 페이지인 경우 오류가 발생하므로 로그 처리를 하지 않는다.
+			return
+		}
+
+		article.Content = utils.CleanStringByLine(ysSelection.Text())
 	}
-
-	ncSelection := doc.Find("div.con_detail")
-	if ncSelection.Length() == 0 {
-		// 로그인을 하지 않아 접근 권한이 없는 페이지인 경우 오류가 발생하므로 로그 처리를 하지 않는다.
-		return
-	}
-
-	article.Content = utils.CleanStringByLine(ncSelection.Text())
 }
