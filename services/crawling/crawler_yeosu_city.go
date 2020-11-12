@@ -12,7 +12,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"net/url"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -251,31 +250,15 @@ func (c *yeosuCityCrawler) extractArticle(boardType string, s *goquery.Selection
 			// 앞/뒤 괄호를 제거한다.
 			complexString = complexString[1 : len(complexString)-1]
 
-			slashPos := strings.LastIndex(complexString, "/")
-			spacePos := strings.LastIndex(complexString, " ")
-
+			var slashPos = strings.LastIndex(complexString, "/")
 			article.Author = strings.TrimSpace(complexString[:slashPos])
-
-			dateSplitSlice := strings.Split(strings.TrimSpace(complexString[slashPos+1:spacePos]), "-")
-			year, _ := strconv.Atoi(dateSplitSlice[0])
-			month, _ := strconv.Atoi(dateSplitSlice[1])
-			day, _ := strconv.Atoi(dateSplitSlice[2])
-
-			timeSplitSlice := strings.Split(strings.TrimSpace(complexString[spacePos:]), ":")
-			hour, _ := strconv.Atoi(timeSplitSlice[0])
-			minute, _ := strconv.Atoi(timeSplitSlice[1])
-
-			article.CreatedDate = time.Date(year, time.Month(month), day, hour, minute, 0, 0, time.Local)
+			article.CreatedDate, err = time.ParseInLocation("2006-01-02 15:04", strings.TrimSpace(complexString[slashPos+1:]), time.Local)
+			if err != nil {
+				return nil, fmt.Errorf("게시글에서 등록자 및 등록일('%s') 파싱이 실패하였습니다. (error:%s)", complexString, err)
+			}
 		} else {
 			return nil, fmt.Errorf("게시글에서 등록자 및 등록일('%s') 파싱이 실패하였습니다.", complexString)
 		}
-
-		// 내용
-		as = s.Find("dd > span.memo")
-		if as.Length() != 1 {
-			return nil, errors.New("게시글에서 내용 정보를 찾을 수 없습니다.")
-		}
-		article.Content = utils.CleanStringByLine(as.Text())
 
 		return article, nil
 
@@ -342,12 +325,15 @@ func (c *yeosuCityCrawler) extractArticle(boardType string, s *goquery.Selection
 		}
 		var createdDateString = strings.TrimSpace(as.Text())
 		if matched, _ := regexp.MatchString("[0-9]{4}-[0-9]{2}-[0-9]{2}", createdDateString); matched == true {
-			dateSplitSlice := strings.Split(createdDateString, "-")
-			year, _ := strconv.Atoi(dateSplitSlice[0])
-			month, _ := strconv.Atoi(dateSplitSlice[1])
-			day, _ := strconv.Atoi(dateSplitSlice[2])
-
-			article.CreatedDate = time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.Local)
+			var now = time.Now()
+			if fmt.Sprintf("%04d-%02d-%02d", now.Year(), now.Month(), now.Day()) == createdDateString {
+				article.CreatedDate, err = time.ParseInLocation("2006-01-02 15:04:05", fmt.Sprintf("%s %02d:%02d:%02d", createdDateString, now.Hour(), now.Minute(), now.Second()), time.Local)
+			} else {
+				article.CreatedDate, err = time.ParseInLocation("2006-01-02 15:04:05", fmt.Sprintf("%s 23:59:59", createdDateString), time.Local)
+			}
+			if err != nil {
+				return nil, fmt.Errorf("게시글에서 등록일('%s') 파싱이 실패하였습니다. (error:%s)", createdDateString, err)
+			}
 		} else {
 			return nil, fmt.Errorf("게시글에서 등록일('%s') 파싱이 실패하였습니다.", createdDateString)
 		}
@@ -361,23 +347,27 @@ func (c *yeosuCityCrawler) extractArticle(boardType string, s *goquery.Selection
 
 //noinspection GoUnhandledErrorResult
 func (c *yeosuCityCrawler) crawlingArticleContent(article *model.RssFeedProviderArticle) {
-	switch article.BoardType {
-	case yeosuCityCrawlerBoardTypePhotoNews:
-		// 포토뉴스인 경우에는 게시글 목록을 읽어올 때 내용을 추출한다.
-
-	case yeosuCityCrawlerBoardTypeList1, yeosuCityCrawlerBoardTypeList2:
-		doc, errOccurred, err := c.getWebPageDocument(article.Link, fmt.Sprintf("%s('%s') %s 게시판의 게시글('%s') 상세페이지", c.site, c.siteID, article.BoardName, article.ArticleID), nil)
-		if err != nil {
-			log.Warnf("%s (error:%s)", errOccurred, err)
-			return
-		}
-
-		ysSelection := doc.Find("div.con_detail")
-		if ysSelection.Length() == 0 {
-			// 로그인을 하지 않아 접근 권한이 없는 페이지인 경우 오류가 발생하므로 로그 처리를 하지 않는다.
-			return
-		}
-
-		article.Content = utils.CleanStringByLine(ysSelection.Text())
+	doc, errOccurred, err := c.getWebPageDocument(article.Link, fmt.Sprintf("%s('%s') %s 게시판의 게시글('%s') 상세페이지", c.site, c.siteID, article.BoardName, article.ArticleID), nil)
+	if err != nil {
+		log.Warnf("%s (error:%s)", errOccurred, err)
+		return
 	}
+
+	ysSelection := doc.Find("div.con_detail")
+	if ysSelection.Length() == 0 {
+		log.Warnf("게시글('%s')에서 내용 정보를 찾을 수 없습니다.", article.ArticleID)
+		return
+	}
+
+	article.Content = utils.CleanStringByLine(ysSelection.Text())
+
+	// 내용에 이미지 태그가 포함되어 있다면 모두 추출한다.
+	ysSelection.Find("img").Each(func(i int, s *goquery.Selection) {
+		var src, _ = s.Attr("src")
+		if src != "" {
+			var alt, _ = s.Attr("alt")
+			var style, _ = s.Attr("style")
+			article.Content += fmt.Sprintf(`%s<img src="%s%s" alt="%s" style="%s">`, "\r\n", c.config.Url, src, alt, style)
+		}
+	})
 }

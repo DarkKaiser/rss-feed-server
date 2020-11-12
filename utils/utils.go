@@ -37,11 +37,23 @@ func CleanString(s string) string {
 }
 
 func CleanStringByLine(s string) string {
+	var ret []string
+	var appendedEmptyLine bool
+
 	lines := strings.Split(strings.TrimSpace(s), "\n")
-	for i, line := range lines {
-		lines[i] = strings.TrimSpace(line)
+	for _, line := range lines {
+		trimLine := strings.TrimSpace(line)
+		if trimLine != "" {
+			appendedEmptyLine = false
+			ret = append(ret, trimLine)
+		} else {
+			if appendedEmptyLine == false {
+				appendedEmptyLine = true
+				ret = append(ret, trimLine)
+			}
+		}
 	}
-	return strings.Join(lines, "\r\n")
+	return strings.Join(ret, "\r\n")
 }
 
 func FormatCommas(num int) string {

@@ -157,21 +157,16 @@ func (c *naverCafeCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 			var createdDate time.Time
 			var createdDateString = strings.TrimSpace(as.Text())
 			if matched, _ := regexp.MatchString("[0-9]{2}:[0-9]{2}", createdDateString); matched == true {
-				s := strings.Split(createdDateString, ":")
-				hour, _ := strconv.Atoi(s[0])
-				minute, _ := strconv.Atoi(s[1])
-
 				var now = time.Now()
-				createdDate = time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, time.Local)
+				createdDate, err = time.ParseInLocation("2006-01-02 15:04", fmt.Sprintf("%04d-%02d-%02d %s", now.Year(), now.Month(), now.Day(), createdDateString), time.Local)
 			} else if matched, _ := regexp.MatchString("[0-9]{4}.[0-9]{2}.[0-9]{2}.", createdDateString); matched == true {
-				s := strings.Split(createdDateString, ".")
-				year, _ := strconv.Atoi(s[0])
-				month, _ := strconv.Atoi(s[1])
-				day, _ := strconv.Atoi(s[2])
-
-				createdDate = time.Date(year, time.Month(month), day, 23, 59, 59, 0, time.Local)
+				createdDate, err = time.ParseInLocation("2006.01.02. 15:04:05", fmt.Sprintf("%s 23:59:59", createdDateString), time.Local)
 			} else {
 				err = fmt.Errorf("게시글에서 작성일('%s') 파싱이 실패하였습니다.", createdDateString)
+				return false
+			}
+			if err != nil {
+				err = fmt.Errorf("게시글에서 작성일('%s') 파싱이 실패하였습니다. (error:%s)", createdDateString, err)
 				return false
 			}
 			// 크롤링 대기 시간을 경과한 게시글인지 확인한다.
@@ -331,9 +326,9 @@ func (c *naverCafeCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 func (c *naverCafeCrawler) crawlingArticleContent(article *model.RssFeedProviderArticle, euckrDecoder *encoding.Decoder, crawlingWaiter *sync.WaitGroup) {
 	defer crawlingWaiter.Done()
 
-	c.crawlingArticleContentUsingNaverSearch(article)
+	c.crawlingArticleContentUsingLink(article, euckrDecoder)
 	if article.Content == "" {
-		c.crawlingArticleContentUsingLink(article, euckrDecoder)
+		c.crawlingArticleContentUsingNaverSearch(article)
 	}
 }
 
@@ -352,6 +347,16 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingLink(article *model.RssFee
 	}
 
 	article.Content = utils.CleanStringByLine(ncSelection.Text())
+
+	// 내용에 이미지 태그가 포함되어 있다면 모두 추출한다.
+	doc.Find("#tbody img").Each(func(i int, s *goquery.Selection) {
+		var src, _ = s.Attr("src")
+		if src != "" {
+			var alt, _ = s.Attr("alt")
+			var style, _ = s.Attr("style")
+			article.Content += fmt.Sprintf(`%s<img src="%s" alt="%s" style="%s">`, "\r\n", src, alt, style)
+		}
+	})
 }
 
 //noinspection GoUnhandledErrorResult
@@ -368,4 +373,14 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingNaverSearch(article *model
 	if ncSelection.Length() == 1 {
 		article.Content = utils.CleanStringByLine(ncSelection.Text())
 	}
+
+	// 내용에 이미지 태그가 포함되어 있다면 모두 추출한다.
+	doc.Find(fmt.Sprintf("a.thumb_single[href='%s/%s'] img", c.siteUrl, article.ArticleID)).Each(func(i int, s *goquery.Selection) {
+		var src, _ = s.Attr("src")
+		if src != "" {
+			var alt, _ = s.Attr("alt")
+			var style, _ = s.Attr("style")
+			article.Content += fmt.Sprintf(`%s<img src="%s" alt="%s" style="%s">`, "\r\n", src, alt, style)
+		}
+	})
 }
