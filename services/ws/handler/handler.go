@@ -184,7 +184,7 @@ func (h *WebServiceHandlers) GetRssFeedHandler(c echo.Context) error {
 			rssFeed = feeds.NewRssFeed(p.Config.Name, p.Config.Url, p.Config.Description, "ko", g.AppName, time.Now(), lastBuildDate)
 			for _, article := range articles {
 				rssFeed.Items = append(rssFeed.Items,
-					feeds.NewRssFeedItem(article.Title, article.Link, article.Content, article.Author, article.BoardName, article.CreatedDate),
+					feeds.NewRssFeedItem(article.Title, article.Link, strings.ReplaceAll(article.Content, "\r\n", "<br>"), article.Author, article.BoardName, article.CreatedDate),
 				)
 			}
 
