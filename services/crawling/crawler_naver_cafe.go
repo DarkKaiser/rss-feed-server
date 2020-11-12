@@ -326,9 +326,9 @@ func (c *naverCafeCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 func (c *naverCafeCrawler) crawlingArticleContent(article *model.RssFeedProviderArticle, euckrDecoder *encoding.Decoder, crawlingWaiter *sync.WaitGroup) {
 	defer crawlingWaiter.Done()
 
-	c.crawlingArticleContentUsingNaverSearch(article)
+	c.crawlingArticleContentUsingLink(article, euckrDecoder)
 	if article.Content == "" {
-		c.crawlingArticleContentUsingLink(article, euckrDecoder)
+		c.crawlingArticleContentUsingNaverSearch(article)
 	}
 }
 
