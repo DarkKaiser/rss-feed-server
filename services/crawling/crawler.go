@@ -7,7 +7,7 @@ import (
 	"github.com/darkkaiser/rss-feed-server/g"
 	"github.com/darkkaiser/rss-feed-server/notifyapi"
 	"github.com/darkkaiser/rss-feed-server/services/ws/model"
-	"github.com/robfig/cron"
+	"github.com/robfig/cron/v3"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/html"
 	"golang.org/x/text/encoding"

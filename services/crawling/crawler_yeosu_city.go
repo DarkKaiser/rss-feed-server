@@ -8,7 +8,7 @@ import (
 	"github.com/darkkaiser/rss-feed-server/notifyapi"
 	"github.com/darkkaiser/rss-feed-server/services/ws/model"
 	"github.com/darkkaiser/rss-feed-server/utils"
-	"github.com/robfig/cron"
+	"github.com/robfig/cron/v3"
 	log "github.com/sirupsen/logrus"
 	"net/url"
 	"regexp"
