@@ -141,12 +141,12 @@ func (c *crawler) getWebPageDocument(url, title string, decoder *encoding.Decode
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Sprintf("%s 접근이 실패하였습니다.", title), fmt.Errorf("HTTP Response StatusCode %d", res.StatusCode)
 	}
+	defer res.Body.Close()
 
 	bodyBytes, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return nil, fmt.Sprintf("%s의 내용을 읽을 수 없습니다.", title), err
 	}
-	defer res.Body.Close()
 
 	if decoder != nil {
 		bodyString, err := decoder.String(string(bodyBytes))
