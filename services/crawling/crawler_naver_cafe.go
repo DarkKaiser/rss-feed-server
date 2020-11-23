@@ -76,7 +76,23 @@ func init() {
 type naverCafeArticleAPIResult struct {
 	Result struct {
 		Article struct {
-			ContentHtml string `json:"contentHtml"`
+			WriteDate       int64  `json:"writeDate"`
+			ContentHtml     string `json:"contentHtml"`
+			ContentElements []struct {
+				Type string `json:"type"`
+				JSON struct {
+					Image struct {
+						URL      string `json:"url"`
+						Service  string `json:"service"`
+						Type     string `json:"type"`
+						Width    int    `json:"width"`
+						Height   int    `json:"height"`
+						FileName string `json:"fileName"`
+						FileSize int    `json:"fileSize"`
+					} `json:"image"`
+					From string `json:"from"`
+				} `json:"json"`
+			} `json:"contentElements"`
 		} `json:"article"`
 	} `json:"result"`
 }
@@ -370,7 +386,7 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.RssFeed
 	//
 	// 구한 art 쿼리 문자열을 이용하여 네이버 카페 게시글 API를 호출한다.
 	//
-	title = fmt.Sprintf("%s('%s > %s') 게시글('%s') API 페이지", c.site, c.siteID, article.BoardName, article.ArticleID)
+	title = fmt.Sprintf("%s('%s > %s') 게시글('%s')의 API 페이지", c.site, c.siteID, article.BoardName, article.ArticleID)
 
 	res2, err := http.Get(fmt.Sprintf("https://apis.naver.com/cafe-web/cafe-articleapi/v2/cafes/%s/articles/%s?art=%s&useCafeId=true&requestFrom=A", c.siteClubID, article.ArticleID, artValue))
 	if err != nil {
@@ -378,6 +394,9 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.RssFeed
 		return
 	}
 	if res2.StatusCode != http.StatusOK {
+		// 특정 게시글은 StatusBadRequest(401)가 반환되는 경우가 있음!!!
+		// 이 경우는 해당 게시글이 네이버 로그인을 하지 않으면 외부에서(네이버 검색 서비스) 접근이 되지 않도록
+		// 작성자가 설정하였기 때문에 그런 것 같음!!!
 		log.Warnf("%s 접근이 실패하였습니다. (HTTP 상태코드:%d)", title, res2.StatusCode)
 		return
 	}
@@ -389,33 +408,40 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.RssFeed
 		return
 	}
 
-	var v naverCafeArticleAPIResult
-	err = json.Unmarshal(bodyBytes, &v)
+	var apiResult naverCafeArticleAPIResult
+	err = json.Unmarshal(bodyBytes, &apiResult)
 	if err != nil {
-		log.Warnf("%s 응답 데이터의 JSON 변환이 실패하였습니다. (error:%s)", title, err)
+		m := fmt.Sprintf("%s 응답 데이터의 JSON 변환이 실패하였습니다.", title)
+
+		log.Warnf("%s (error:%s)", m, err)
+
+		notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), false)
+
 		return
 	}
 
-	article.Content = v.Result.Article.ContentHtml
+	article.Content = apiResult.Result.Article.ContentHtml
+	for i, element := range apiResult.Result.Article.ContentElements {
+		switch element.Type {
+		case "IMAGE":
+			article.Content = strings.ReplaceAll(article.Content, fmt.Sprintf("[[[CONTENT-ELEMENT-%d]]]", i), element.JSON.Image.URL)
 
-	// @@@@@
-	//doc, err := goquery.NewDocumentFromReader(strings.NewReader(v.Result.Article.ContentHtml))
-	//if err != nil {
-	//	log.Warnf("%s 응답 데이터의 파싱이 실패하였습니다. (error:%s)", title, err)
-	//}
-	//
-	//article.Content = utils.CleanStringByLine(doc.Text())
-	//
-	//// @@@@@
-	//// 내용에 이미지 태그가 포함되어 있다면 모두 추출한다.
-	//doc.Find("img").Each(func(i int, s *goquery.Selection) {
-	//	var src, _ = s.Attr("src")
-	//	if src != "" {
-	//		var alt, _ = s.Attr("alt")
-	//		var style, _ = s.Attr("style")
-	//		article.Content += fmt.Sprintf(`%s<img src="%s" alt="%s" style="%s">`, "\r\n", src, alt, style)
-	//	}
-	//})
+		default:
+			m := fmt.Sprintf("%s 응답 데이터에서 알 수 없는 ContentElement 타입('%s')이 입력되었습니다.", title, element.Type)
+
+			log.Warn(m)
+
+			notifyapi.SendNotifyMessage(m, false)
+		}
+	}
+
+	// 오늘 이전의 게시글이라서 작성일(시간) 추출을 못한 경우에 한해서 작성일(시간)을 다시 추출한다.
+	if article.CreatedDate.Format("15:04:05") == "23:59:59" {
+		writeDate := time.Unix(apiResult.Result.Article.WriteDate/1000, 0)
+		if writeDate.IsZero() == false {
+			article.CreatedDate = writeDate
+		}
+	}
 }
 
 //noinspection GoUnhandledErrorResult
