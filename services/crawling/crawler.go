@@ -76,55 +76,59 @@ func (c *crawler) Run() {
 		return
 	}
 
-	if len(articles) > 0 {
-		log.Debugf("%s('%s')의 크롤링 작업 결과로 %d건의 신규 게시글이 추출되었습니다. 신규 게시글을 DB에 추가합니다.", c.site, c.siteID, len(articles))
+	if articles != nil {
+		if len(articles) > 0 {
+			log.Debugf("%s('%s')의 크롤링 작업 결과로 %d건의 신규 게시글이 추출되었습니다. 신규 게시글을 DB에 추가합니다.", c.site, c.siteID, len(articles))
 
-		insertedCnt, err := c.rssFeedProvidersAccessor.InsertArticles(c.rssFeedProviderID, articles)
-		if err != nil {
-			m := fmt.Sprintf("%s('%s')의 신규 게시글을 DB에 추가하는 중에 오류가 발생하여 크롤링 작업이 실패하였습니다.", c.site, c.siteID)
-
-			log.Errorf("%s (error:%s)", m, err)
-
-			notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
-
-			return
-		}
-
-		for boardID, articleID := range latestCrawledArticleIDsByBoard {
-			if boardID == emptyBoardIDKey {
-				boardID = ""
-			}
-
-			if err = c.rssFeedProvidersAccessor.UpdateLatestCrawledArticleID(c.rssFeedProviderID, boardID, articleID); err != nil {
-				m := fmt.Sprintf("%s('%s')의 크롤링 된 최근 게시글 ID의 DB 갱신이 실패하였습니다.", c.site, c.siteID)
+			insertedCnt, err := c.rssFeedProvidersAccessor.InsertArticles(c.rssFeedProviderID, articles)
+			if err != nil {
+				m := fmt.Sprintf("%s('%s')의 신규 게시글을 DB에 추가하는 중에 오류가 발생하여 크롤링 작업이 실패하였습니다.", c.site, c.siteID)
 
 				log.Errorf("%s (error:%s)", m, err)
 
 				notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
-			}
-		}
 
-		if len(articles) != insertedCnt {
-			log.Warnf("%s('%s')의 크롤링 작업을 종료합니다. 전체 %d건 중에서 %d건의 신규 게시글이 DB에 추가되었습니다.", c.site, c.siteID, len(articles), insertedCnt)
+				return
+			}
+
+			for boardID, articleID := range latestCrawledArticleIDsByBoard {
+				if boardID == emptyBoardIDKey {
+					boardID = ""
+				}
+
+				if err = c.rssFeedProvidersAccessor.UpdateLatestCrawledArticleID(c.rssFeedProviderID, boardID, articleID); err != nil {
+					m := fmt.Sprintf("%s('%s')의 크롤링 된 최근 게시글 ID의 DB 갱신이 실패하였습니다.", c.site, c.siteID)
+
+					log.Errorf("%s (error:%s)", m, err)
+
+					notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+				}
+			}
+
+			if len(articles) != insertedCnt {
+				log.Warnf("%s('%s')의 크롤링 작업을 종료합니다. 전체 %d건 중에서 %d건의 신규 게시글이 DB에 추가되었습니다.", c.site, c.siteID, len(articles), insertedCnt)
+			} else {
+				log.Debugf("%s('%s')의 크롤링 작업을 종료합니다. %d건의 신규 게시글이 DB에 추가되었습니다.", c.site, c.siteID, len(articles))
+			}
 		} else {
-			log.Debugf("%s('%s')의 크롤링 작업을 종료합니다. %d건의 신규 게시글이 DB에 추가되었습니다.", c.site, c.siteID, len(articles))
+			for boardID, articleID := range latestCrawledArticleIDsByBoard {
+				if boardID == emptyBoardIDKey {
+					boardID = ""
+				}
+
+				if err = c.rssFeedProvidersAccessor.UpdateLatestCrawledArticleID(c.rssFeedProviderID, boardID, articleID); err != nil {
+					m := fmt.Sprintf("%s('%s')의 크롤링 된 최근 게시글 ID의 DB 갱신이 실패하였습니다.", c.site, c.siteID)
+
+					log.Errorf("%s (error:%s)", m, err)
+
+					notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+				}
+			}
+
+			log.Debugf("%s('%s')의 크롤링 작업을 종료합니다. 신규 게시글이 존재하지 않습니다.", c.site, c.siteID)
 		}
 	} else {
-		for boardID, articleID := range latestCrawledArticleIDsByBoard {
-			if boardID == emptyBoardIDKey {
-				boardID = ""
-			}
-
-			if err = c.rssFeedProvidersAccessor.UpdateLatestCrawledArticleID(c.rssFeedProviderID, boardID, articleID); err != nil {
-				m := fmt.Sprintf("%s('%s')의 크롤링 된 최근 게시글 ID의 DB 갱신이 실패하였습니다.", c.site, c.siteID)
-
-				log.Errorf("%s (error:%s)", m, err)
-
-				notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
-			}
-		}
-
-		log.Debugf("%s('%s')의 크롤링 작업을 종료합니다. 신규 게시글이 존재하지 않습니다.", c.site, c.siteID)
+		log.Warnf("%s('%s')의 크롤링 작업을 종료합니다. 서버의 일시적인 오류로 인하여 신규 게시글 추출이 실패하였습니다.", c.site, c.siteID)
 	}
 }
 
@@ -137,12 +141,12 @@ func (c *crawler) getWebPageDocument(url, title string, decoder *encoding.Decode
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Sprintf("%s 접근이 실패하였습니다.", title), fmt.Errorf("HTTP Response StatusCode %d", res.StatusCode)
 	}
+	defer res.Body.Close()
 
 	bodyBytes, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return nil, fmt.Sprintf("%s의 내용을 읽을 수 없습니다.", title), err
 	}
-	defer res.Body.Close()
 
 	if decoder != nil {
 		bodyString, err := decoder.String(string(bodyBytes))

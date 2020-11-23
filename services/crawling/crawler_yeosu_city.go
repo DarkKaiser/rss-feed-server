@@ -30,8 +30,9 @@ const (
 var yeosuCityCrawlerBoardTypes map[string]*yeosuCityCrawlerBoardTypeConfig
 
 type yeosuCityCrawlerBoardTypeConfig struct {
-	urlPath         string
-	articleSelector string
+	urlPath              string
+	articleSelector      string
+	articleGroupSelector string
 }
 
 const yeosuCityUrlPathReplaceStringWithBoardID = "#{board_id}"
@@ -76,16 +77,19 @@ func init() {
 	// 게시판 유형별 설정정보를 초기화한다.
 	yeosuCityCrawlerBoardTypes = map[string]*yeosuCityCrawlerBoardTypeConfig{
 		yeosuCityCrawlerBoardTypePhotoNews: {
-			urlPath:         fmt.Sprintf("/www/information/mn01/%s/yeosu.go", yeosuCityUrlPathReplaceStringWithBoardID),
-			articleSelector: "#content > dl.board_photonews",
+			urlPath:              fmt.Sprintf("/www/information/mn01/%s/yeosu.go", yeosuCityUrlPathReplaceStringWithBoardID),
+			articleSelector:      "#content > dl.board_photonews",
+			articleGroupSelector: "#content",
 		},
 		yeosuCityCrawlerBoardTypeList1: {
-			urlPath:         fmt.Sprintf("/www/information/mn01/%s/yeosu.go", yeosuCityUrlPathReplaceStringWithBoardID),
-			articleSelector: "#board_list_table > tbody > tr",
+			urlPath:              fmt.Sprintf("/www/information/mn01/%s/yeosu.go", yeosuCityUrlPathReplaceStringWithBoardID),
+			articleSelector:      "#board_list_table > tbody > tr",
+			articleGroupSelector: "#board_list_table",
 		},
 		yeosuCityCrawlerBoardTypeList2: {
-			urlPath:         fmt.Sprintf("/www/information/mn01/%s/yeosu.go", yeosuCityUrlPathReplaceStringWithBoardID),
-			articleSelector: "#board_list_table > tbody > tr",
+			urlPath:              fmt.Sprintf("/www/information/mn01/%s/yeosu.go", yeosuCityUrlPathReplaceStringWithBoardID),
+			articleSelector:      "#board_list_table > tbody > tr",
+			articleGroupSelector: "#board_list_table",
 		},
 	}
 }
@@ -124,8 +128,61 @@ func (c *yeosuCityCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 			}
 
 			ysSelection := doc.Find(boardTypeConfig.articleSelector)
-			if len(ysSelection.Nodes) == 0 { // 게시글이 0건이라면 CSS 파싱이 실패한것으로 본다.
-				return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.site, c.siteID, b.Name), err
+			if ysSelection.Length() == 0 {
+				// 여수시청 서버의 이상으로 가끔씩 게시글을 불러오지 못하는 현상이 발생함!!!
+				// 만약 1번째 페이지에 이 현상이 발생하였으면 아무 처리도 하지 않고 다음 게시판을 크롤링한다.
+				// 만약 2번째 이후의 페이지에 이 현상이 발생하였으면 모든 게시판의 크롤링 작업을 취소하고 빈 값을 바로 반환한다.
+				switch b.Type {
+				case yeosuCityCrawlerBoardTypePhotoNews:
+					// 서버의 이상으로 게시글을 불러오지 못한건지 확인한다.
+					ysSelection = doc.Find(boardTypeConfig.articleGroupSelector)
+					if ysSelection.Length() == 1 {
+						// 2번째 이후의 페이지라면 모든 게시판의 크롤링 작업을 취소하고 빈 값을 바로 반환한다.
+						if pageNo > 1 {
+							return nil, nil, "", nil
+						}
+
+						// 다음 게시판을 크롤링한다.
+						goto NEXTBOARD
+					}
+
+				case yeosuCityCrawlerBoardTypeList1, yeosuCityCrawlerBoardTypeList2:
+					// 리스트 타입의 경우 서버 이상이 발생한 경우에는 Selection 노드의 갯수가 1개이므로, 서버 이상 유무를 아래쪽 코드에서 처리한다.
+
+				default:
+					return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다.", c.site, c.siteID, b.Name), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
+				}
+
+				// 게시글이 0건이라면 CSS 파싱이 실패한것으로 본다.
+				return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.site, c.siteID, b.Name), errors.New("게시글 추출이 실패하였습니다.")
+			} else if ysSelection.Length() == 1 {
+				// 여수시청 서버의 이상으로 가끔씩 게시글을 불러오지 못하는 현상이 발생함!!!
+				// 만약 1번째 페이지에 이 현상이 발생하였으면 아무 처리도 하지 않고 다음 게시판을 크롤링한다.
+				// 만약 2번째 이후의 페이지에 이 현상이 발생하였으면 모든 게시판의 크롤링 작업을 취소하고 빈 값을 바로 반환한다.
+				switch b.Type {
+				case yeosuCityCrawlerBoardTypePhotoNews:
+					// 포토뉴스 타입의 경우 서버 이상이 발생한 경우에는 Selection 노드의 갯수가 0개이므로, 서버 이상 유무를 위쪽 코드에서 처리한다.
+
+				case yeosuCityCrawlerBoardTypeList1, yeosuCityCrawlerBoardTypeList2:
+					as := ysSelection.First().Find("td")
+					if as.Length() == 1 {
+						for _, attr := range as.Nodes[0].Attr {
+							// 서버의 이상으로 게시글을 불러오지 못한건지 확인한다.
+							if attr.Key == "class" && attr.Val == "list_empty" {
+								// 2번째 이후의 페이지라면 모든 게시판의 크롤링 작업을 취소하고 빈 값을 바로 반환한다.
+								if pageNo > 1 {
+									return nil, nil, "", nil
+								}
+
+								// 다음 게시판을 크롤링한다.
+								goto NEXTBOARD
+							}
+						}
+					}
+
+				default:
+					return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다.", c.site, c.siteID, b.Name), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
+				}
 			}
 
 			var foundAlreadyCrawledArticle = false
@@ -169,6 +226,8 @@ func (c *yeosuCityCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 		if newLatestCrawledArticleID != "" {
 			newLatestCrawledArticleIDsByBoard[b.ID] = newLatestCrawledArticleID
 		}
+
+	NEXTBOARD:
 	}
 
 	//

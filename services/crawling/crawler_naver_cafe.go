@@ -13,11 +13,12 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/korean"
+	"io/ioutil"
+	"net/http"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -70,6 +71,30 @@ func init() {
 			return crawler
 		},
 	}
+}
+
+type naverCafeArticleAPIResult struct {
+	Result struct {
+		Article struct {
+			WriteDate       int64  `json:"writeDate"`
+			ContentHtml     string `json:"contentHtml"`
+			ContentElements []struct {
+				Type string `json:"type"`
+				JSON struct {
+					Image struct {
+						URL      string `json:"url"`
+						Service  string `json:"service"`
+						Type     string `json:"type"`
+						Width    int    `json:"width"`
+						Height   int    `json:"height"`
+						FileName string `json:"fileName"`
+						FileSize int    `json:"fileSize"`
+					} `json:"image"`
+					From string `json:"from"`
+				} `json:"json"`
+			} `json:"contentElements"`
+		} `json:"article"`
+	} `json:"result"`
 }
 
 type naverCafeCrawlerConfigData struct {
@@ -286,29 +311,9 @@ func (c *naverCafeCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 	//
 	// 게시글 내용 크롤링 : 내용은 크롤링이 실패해도 에러를 발생하지 않고 무시한다.
 	//
-	crawlingWaiter := &sync.WaitGroup{}
-	crawlingRequestC := make(chan *model.RssFeedProviderArticle, len(articles))
-
-	for i := 1; i <= 5; i++ {
-		go func(crawlingRequestC <-chan *model.RssFeedProviderArticle, crawlingWaiter *sync.WaitGroup) {
-			euckrDecoder := korean.EUCKR.NewDecoder()
-
-			for article := range crawlingRequestC {
-				c.crawlingArticleContent(article, euckrDecoder, crawlingWaiter)
-			}
-		}(crawlingRequestC, crawlingWaiter)
-	}
-
-	crawlingWaiter.Add(len(articles))
 	for _, article := range articles {
-		crawlingRequestC <- article
+		c.crawlingArticleContent(article, euckrDecoder)
 	}
-
-	// 채널을 닫는다. 더이상 채널에 데이터를 추가하지는 못하지만 이미 추가한 데이터는 처리가 완료된다.
-	close(crawlingRequestC)
-
-	// 크롤링 작업이 모두 완료될 때 까지 대기한다.
-	crawlingWaiter.Wait()
 
 	// DB에 오래된 게시글부터 추가되도록 하기 위해 역순으로 재배열한다.
 	for i, j := 0, len(articles)-1; i < j; i, j = i+1, j-1 {
@@ -323,12 +328,119 @@ func (c *naverCafeCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 }
 
 //noinspection GoUnhandledErrorResult
-func (c *naverCafeCrawler) crawlingArticleContent(article *model.RssFeedProviderArticle, euckrDecoder *encoding.Decoder, crawlingWaiter *sync.WaitGroup) {
-	defer crawlingWaiter.Done()
-
-	c.crawlingArticleContentUsingLink(article, euckrDecoder)
+func (c *naverCafeCrawler) crawlingArticleContent(article *model.RssFeedProviderArticle, euckrDecoder *encoding.Decoder) {
+	c.crawlingArticleContentUsingAPI(article, euckrDecoder)
 	if article.Content == "" {
-		c.crawlingArticleContentUsingNaverSearch(article)
+		c.crawlingArticleContentUsingLink(article, euckrDecoder)
+		if article.Content == "" {
+			c.crawlingArticleContentUsingNaverSearch(article)
+		}
+	}
+}
+
+//noinspection GoUnhandledErrorResult
+func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.RssFeedProviderArticle, euckrDecoder *encoding.Decoder) {
+	//
+	// 네이버 카페 상세페이지를 로드하여 art 쿼리 문자열을 구한다.
+	//
+	title := fmt.Sprintf("%s('%s > %s') 게시글('%s')의 상세페이지", c.site, c.siteID, article.BoardName, article.ArticleID)
+
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s", c.siteUrl, article.ArticleID), nil)
+	if err != nil {
+		log.Warnf("%s 접근이 실패하였습니다. (error:%s)", title, err)
+		return
+	}
+	req.Header.Add("referer", "https://search.naver.com/")
+
+	client := &http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		log.Warnf("%s 접근이 실패하였습니다. (error:%s)", title, err)
+		return
+	}
+	if res.StatusCode != http.StatusOK {
+		log.Warnf("%s 접근이 실패하였습니다. (HTTP 상태코드:%d)", title, res.StatusCode)
+		return
+	}
+	defer res.Body.Close()
+
+	bodyBytes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Warnf("%s의 내용을 읽을 수 없습니다. (error:%s)", title, err)
+		return
+	}
+	bodyString, err := euckrDecoder.String(string(bodyBytes))
+	if err != nil {
+		log.Warnf("%s의 문자열 디코딩이 실패하였습니다. (error:%s)", title, err)
+		return
+	}
+
+	pos := strings.Index(bodyString, "&art=")
+	if pos == -1 {
+		log.Warnf("%s의 art 쿼리 문자열을 찾을 수 없습니다.", title)
+		return
+	}
+	artValue := bodyString[pos+5:]
+	artValue = artValue[:strings.Index(artValue, "&")]
+
+	//
+	// 구한 art 쿼리 문자열을 이용하여 네이버 카페 게시글 API를 호출한다.
+	//
+	title = fmt.Sprintf("%s('%s > %s') 게시글('%s')의 API 페이지", c.site, c.siteID, article.BoardName, article.ArticleID)
+
+	res2, err := http.Get(fmt.Sprintf("https://apis.naver.com/cafe-web/cafe-articleapi/v2/cafes/%s/articles/%s?art=%s&useCafeId=true&requestFrom=A", c.siteClubID, article.ArticleID, artValue))
+	if err != nil {
+		log.Warnf("%s 접근이 실패하였습니다. (error:%s)", title, err)
+		return
+	}
+	if res2.StatusCode != http.StatusOK {
+		// 특정 게시글은 StatusBadRequest(401)가 반환되는 경우가 있음!!!
+		// 이 경우는 해당 게시글이 네이버 로그인을 하지 않으면 외부에서(네이버 검색 서비스) 접근이 되지 않도록
+		// 작성자가 설정하였기 때문에 그런 것 같음!!!
+		log.Warnf("%s 접근이 실패하였습니다. (HTTP 상태코드:%d)", title, res2.StatusCode)
+		return
+	}
+	defer res2.Body.Close()
+
+	bodyBytes, err = ioutil.ReadAll(res2.Body)
+	if err != nil {
+		log.Warnf("%s의 내용을 읽을 수 없습니다. (error:%s)", title, err)
+		return
+	}
+
+	var apiResult naverCafeArticleAPIResult
+	err = json.Unmarshal(bodyBytes, &apiResult)
+	if err != nil {
+		m := fmt.Sprintf("%s 응답 데이터의 JSON 변환이 실패하였습니다.", title)
+
+		log.Warnf("%s (error:%s)", m, err)
+
+		notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), false)
+
+		return
+	}
+
+	article.Content = apiResult.Result.Article.ContentHtml
+	for i, element := range apiResult.Result.Article.ContentElements {
+		switch element.Type {
+		case "IMAGE":
+			article.Content = strings.ReplaceAll(article.Content, fmt.Sprintf("[[[CONTENT-ELEMENT-%d]]]", i), element.JSON.Image.URL)
+
+		default:
+			m := fmt.Sprintf("%s 응답 데이터에서 알 수 없는 ContentElement 타입('%s')이 입력되었습니다.", title, element.Type)
+
+			log.Warn(m)
+
+			notifyapi.SendNotifyMessage(m, false)
+		}
+	}
+
+	// 오늘 이전의 게시글이라서 작성일(시간) 추출을 못한 경우에 한해서 작성일(시간)을 다시 추출한다.
+	if article.CreatedDate.Format("15:04:05") == "23:59:59" {
+		writeDate := time.Unix(apiResult.Result.Article.WriteDate/1000, 0)
+		if writeDate.IsZero() == false {
+			article.CreatedDate = writeDate
+		}
 	}
 }
 
