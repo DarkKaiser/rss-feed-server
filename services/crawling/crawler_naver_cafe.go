@@ -13,6 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/korean"
+	"html"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -90,7 +91,16 @@ type naverCafeArticleAPIResult struct {
 						FileName string `json:"fileName"`
 						FileSize int    `json:"fileSize"`
 					} `json:"image"`
-					From string `json:"from"`
+					Layout         string `json:"layout"`
+					ImageURL       string `json:"imageUrl"`
+					VideoURL       string `json:"videoUrl"`
+					AudioURL       string `json:"audioUrl"`
+					Desc           string `json:"desc"`
+					TruncatedTitle string `json:"truncatedTitle"`
+					TruncatedDesc  string `json:"truncatedDesc"`
+					Domain         string `json:"domain"`
+					LinkURL        string `json:"linkUrl"`
+					From           string `json:"from"`
 				} `json:"json"`
 			} `json:"contentElements"`
 		} `json:"article"`
@@ -426,8 +436,20 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.RssFeed
 		case "IMAGE":
 			article.Content = strings.ReplaceAll(article.Content, fmt.Sprintf("[[[CONTENT-ELEMENT-%d]]]", i), element.JSON.Image.URL)
 
+		case "LINK":
+			if element.JSON.Layout == "SIMPLE_IMAGE" {
+				linkString := fmt.Sprintf("<a href=\"%s\" target=\"_blank\">%s</a>", element.JSON.LinkURL, html.UnescapeString(element.JSON.TruncatedTitle))
+				article.Content = strings.ReplaceAll(article.Content, fmt.Sprintf("[[[CONTENT-ELEMENT-%d]]]", i), linkString)
+			} else {
+				m := fmt.Sprintf("%s 응답 데이터에서 알 수 없는 LINK ContentElement Layout('%s')이 입력되었습니다.", title, element.JSON.Layout)
+
+				log.Warn(m)
+
+				notifyapi.SendNotifyMessage(m, false)
+			}
+
 		default:
-			m := fmt.Sprintf("%s 응답 데이터에서 알 수 없는 ContentElement 타입('%s')이 입력되었습니다.", title, element.Type)
+			m := fmt.Sprintf("%s 응답 데이터에서 알 수 없는 ContentElement Type('%s')이 입력되었습니다.", title, element.Type)
 
 			log.Warn(m)
 
