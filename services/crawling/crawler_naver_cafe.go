@@ -437,7 +437,7 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.RssFeed
 			article.Content = strings.ReplaceAll(article.Content, fmt.Sprintf("[[[CONTENT-ELEMENT-%d]]]", i), element.JSON.Image.URL)
 
 		case "LINK":
-			if element.JSON.Layout == "SIMPLE_IMAGE" {
+			if element.JSON.Layout == "SIMPLE_IMAGE" || element.JSON.Layout == "WIDE_IMAGE" {
 				linkString := fmt.Sprintf("<a href=\"%s\" target=\"_blank\">%s</a>", element.JSON.LinkURL, html.UnescapeString(element.JSON.TruncatedTitle))
 				article.Content = strings.ReplaceAll(article.Content, fmt.Sprintf("[[[CONTENT-ELEMENT-%d]]]", i), linkString)
 			} else {
