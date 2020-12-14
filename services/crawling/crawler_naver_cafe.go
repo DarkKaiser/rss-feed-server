@@ -100,6 +100,11 @@ type naverCafeArticleAPIResult struct {
 					TruncatedDesc  string `json:"truncatedDesc"`
 					Domain         string `json:"domain"`
 					LinkURL        string `json:"linkUrl"`
+					StickerID      string `json:"stickerId"`
+					MarketURL      string `json:"marketUrl"`
+					URL            string `json:"url"`
+					Width          int    `json:"width"`
+					Height         int    `json:"height"`
 					From           string `json:"from"`
 				} `json:"json"`
 			} `json:"contentElements"`
@@ -447,6 +452,10 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.RssFeed
 
 				notifyapi.SendNotifyMessage(m, false)
 			}
+
+		case "STICKER":
+			imgString := fmt.Sprintf("<img src=\"%s\" width=\"%d\" height=\"%d\" nhn_extra_image=\"true\" style=\"cursor:pointer\">", element.JSON.URL, element.JSON.Width, element.JSON.Height)
+			article.Content = strings.ReplaceAll(article.Content, fmt.Sprintf("[[[CONTENT-ELEMENT-%d]]]", i), imgString)
 
 		default:
 			m := fmt.Sprintf("%s 응답 데이터에서 알 수 없는 ContentElement Type('%s')이 입력되었습니다.", title, element.Type)
