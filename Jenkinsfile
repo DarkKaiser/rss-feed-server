@@ -54,15 +54,11 @@ pipeline {
     post {
         success {
             script {
-                echo 'success'
-                echo env.TELEGRAM_CHAT_ID
-                echo '【 Jenkins 알림 > ' + env.PROJECT_NAME + ' 】\n\n빌드 작업이 성공하였습니다.\n\n' + env.BUILD_URL
-                telegramSend(message: '【 Jenkins 알림 > ' + env.PROJECT_NAME + ' 】\n\n빌드 작업이 성공하였습니다.\n\n' + env.BUILD_URL, chatId: 297396697)
+                telegramSend(message: '【 Jenkins 알림 > ' + env.PROJECT_NAME + ' 】\n\n빌드 작업이 성공하였습니다.\n\n' + env.BUILD_URL, chatId: env.TELEGRAM_CHAT_ID)
             }
         }
         failure {
             script {
-                echo 'failure'
                 telegramSend(message: '【 Jenkins 알림 > ' + env.PROJECT_NAME + ' 】\n\n빌드 작업이 실패하였습니다.\n\n' + env.BUILD_URL, chatId: env.TELEGRAM_CHAT_ID)
             }
         }
