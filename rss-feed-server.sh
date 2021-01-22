@@ -3,8 +3,6 @@
 # 서버명
 SRV_NAME=RssFeedServer
 
-cd /usr/local/rss-feed-server
-
 case "$1" in
 stop)
   PROCESS_COUNT=`ps ax | grep -v grep | grep $SRV_NAME | wc -l`
@@ -52,7 +50,7 @@ stop)
     echo "$SRV_NAME가 이미 실행중입니다."
   else
     echo "$SRV_NAME가 실행되었습니다."
-    nohup ./rss-feed-server -D$SRV_NAME 1>/dev/null 2>&1 &
+    nohup /usr/local/rss-feed-server/rss-feed-server -D$SRV_NAME 1>/dev/null 2>&1 &
   fi
 ;;
 esac
