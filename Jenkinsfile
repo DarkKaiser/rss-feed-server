@@ -1,5 +1,6 @@
 pipeline {
 
+    
     agent any
 
     environment {
@@ -11,7 +12,10 @@ pipeline {
 
         stage('준비') {
             steps {
-                sh "rm ./rss-feed-server"
+                try {
+                    sh "rm ./rss-feed-server"
+                } catch (e) {
+                }
             }
         }
 
