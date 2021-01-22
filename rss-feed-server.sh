@@ -3,7 +3,7 @@
 # 서버명
 SRV_NAME=RssFeedServer
 
-cd /usr/local/go-workspace/src/github.com/darkkaiser/rss-feed-server
+cd /usr/local/rss-feed-server
 
 case "$1" in
 stop)
