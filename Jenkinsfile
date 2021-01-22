@@ -1,5 +1,4 @@
 pipeline {
-
     
     agent any
 
@@ -12,9 +11,11 @@ pipeline {
 
         stage('준비') {
             steps {
-                try {
-                    sh "rm ./rss-feed-server"
-                } catch (e) {
+                script {
+                    try {
+                        sh "rm ./rss-feed-server"
+                    } catch (e) {
+                    }
                 }
             }
         }
