@@ -51,7 +51,10 @@ pipeline {
         stage('서버 재시작') {
             steps {
                 sh '''
+                    // 현재 경로를 이동시켜 주지 않으면 로그파일의 생성위치가 /usr/local/rss-feed-server/logs에 생성되지 않아 서버 실행이 실패한다.
                     cd /usr/local/rss-feed-server
+                    
+                    // 서버 재실행
                     sudo /usr/local/rss-feed-server/rss-feed-server-restart.sh
                 '''
             }
