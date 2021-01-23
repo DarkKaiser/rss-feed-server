@@ -4,7 +4,6 @@ pipeline {
 
     environment {
         PROJECT_NAME = "RSS Feed 서버"
-        TELEGRAM_CHAT_ID = credentials('telegramChatId')
     }
 
     stages {
@@ -64,12 +63,12 @@ pipeline {
     post {
         success {
             script {
-                telegramSend(message: '【 알림 > Jenkins > ' + env.PROJECT_NAME + ' 】\n\n빌드 작업이 성공하였습니다.\n\n' + env.BUILD_URL, chatId: env.TELEGRAM_CHAT_ID)
+                telegramSend(message: '【 알림 > Jenkins > ' + env.PROJECT_NAME + ' 】\n\n빌드 작업이 성공하였습니다.\n\n' + env.BUILD_URL)
             }
         }
         failure {
             script {
-                telegramSend(message: '【 알림 > Jenkins > ' + env.PROJECT_NAME + ' 】\n\n빌드 작업이 실패하였습니다.\n\n' + env.BUILD_URL, chatId: env.TELEGRAM_CHAT_ID)
+                telegramSend(message: '【 알림 > Jenkins > ' + env.PROJECT_NAME + ' 】\n\n빌드 작업이 실패하였습니다.\n\n' + env.BUILD_URL)
             }
         }
     }
