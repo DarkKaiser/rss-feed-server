@@ -50,7 +50,10 @@ pipeline {
 
         stage('서버 재시작') {
             steps {
-                sh "sudo /usr/local/rss-feed-server/rss-feed-server-restart.sh"
+                sh '''
+                    cd /usr/local/rss-feed-server
+                    sudo /usr/local/rss-feed-server/rss-feed-server-restart.sh
+                '''
             }
         }
 
