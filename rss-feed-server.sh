@@ -3,6 +3,8 @@
 # 서버명
 SRV_NAME=RssFeedServer
 
+cd /usr/local/rss-feed-server
+
 case "$1" in
 stop)
   PROCESS_COUNT=`ps ax | grep -v grep | grep $SRV_NAME | wc -l`
