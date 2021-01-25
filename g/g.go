@@ -11,7 +11,7 @@ import (
 
 const (
 	AppName    string = "rss-feed-server"
-	AppVersion string = "0.2.8"
+	AppVersion string = "0.2.9"
 
 	AppConfigFileName = AppName + ".json"
 )
