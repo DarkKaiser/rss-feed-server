@@ -16,7 +16,7 @@ var (
 
 type notifyMessage struct {
 	Message       string `json:"message"`
-	ErrorOccured  bool   `json:"error_occured"`
+	ErrorOccurred bool   `json:"error_occurred"`
 	ApplicationID string `json:"application_id"`
 }
 
@@ -27,11 +27,11 @@ func Init(config *g.AppConfig) {
 }
 
 //noinspection GoUnhandledErrorResult
-func SendNotifyMessage(message string, errorOccured bool) bool {
+func SendNotifyMessage(message string, errorOccurred bool) bool {
 	notifyMessage := notifyMessage{
-		Message:       message,
-		ErrorOccured:  errorOccured,
 		ApplicationID: applicationID,
+		Message:       message,
+		ErrorOccurred: errorOccurred,
 	}
 
 	jsonBytes, err := json.Marshal(notifyMessage)
