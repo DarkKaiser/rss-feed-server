@@ -228,31 +228,37 @@
 					"id": "yeosu",
 					"name": "여수시 관련 소식",
 					"description": "여수시 관련 소식",
-					"url": "http://www.yeosu.go.kr",
+					"url": "https://www.yeosu.go.kr",
 					"boards": [
 						{
-							"id": "mn0101",
+							"id": "hotnews",
 							"name": "여수핫뉴스",
 							"type": "P",
-							"category": "행정정보 > 여수소식"
+							"category": "열린시정 > 여수소식"
 						},
 						{
-							"id": "mn0102",
+							"id": "notice",
 							"name": "공지사항",
 							"type": "L_1",
-							"category": "행정정보 > 여수소식"
+							"category": "열린시정 > 여수소식"
 						},
 						{
-							"id": "mn0103",
-							"name": "보도자료",
+							"id": "release",
+							"name": "보도/해명자료",
 							"type": "L_2",
-							"category": "행정정보 > 여수소식"
+							"category": "열린시정 > 여수소식"
 						},
 						{
-							"id": "mn0109",
+							"id": "other_news",
 							"name": "타기관소식",
 							"type": "L_1",
-							"category": "행정정보 > 여수소식"
+							"category": "열린시정 > 여수소식"
+						},
+						{
+							"id": "recruit",
+							"name": "시험/채용공고",
+							"type": "L_2",
+							"category": "열린시정 > 여수소식"
 						}
 					],
 					"article_archive_date": 90,
