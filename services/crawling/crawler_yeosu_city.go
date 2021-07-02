@@ -77,19 +77,19 @@ func init() {
 	// 게시판 유형별 설정정보를 초기화한다.
 	yeosuCityCrawlerBoardTypes = map[string]*yeosuCityCrawlerBoardTypeConfig{
 		yeosuCityCrawlerBoardTypePhotoNews: {
-			urlPath:              fmt.Sprintf("/www/information/mn01/%s/yeosu.go", yeosuCityUrlPathReplaceStringWithBoardID),
-			articleSelector:      "#content > dl.board_photonews",
+			urlPath:              fmt.Sprintf("/www/govt/news/%s", yeosuCityUrlPathReplaceStringWithBoardID),
+			articleSelector:      "#content div.board_list_box div.board_list div.item",
 			articleGroupSelector: "#content",
 		},
 		yeosuCityCrawlerBoardTypeList1: {
-			urlPath:              fmt.Sprintf("/www/information/mn01/%s/yeosu.go", yeosuCityUrlPathReplaceStringWithBoardID),
-			articleSelector:      "#board_list_table > tbody > tr",
-			articleGroupSelector: "#board_list_table",
+			urlPath:              fmt.Sprintf("/www/govt/news/%s", yeosuCityUrlPathReplaceStringWithBoardID),
+			articleSelector:      "#content table.board_basic > tbody > tr:not(.notice)",
+			articleGroupSelector: "#content",
 		},
 		yeosuCityCrawlerBoardTypeList2: {
-			urlPath:              fmt.Sprintf("/www/information/mn01/%s/yeosu.go", yeosuCityUrlPathReplaceStringWithBoardID),
-			articleSelector:      "#board_list_table > tbody > tr",
-			articleGroupSelector: "#board_list_table",
+			urlPath:              fmt.Sprintf("/www/govt/news/%s", yeosuCityUrlPathReplaceStringWithBoardID),
+			articleSelector:      "#content table.board_basic > tbody > tr:not(.notice)",
+			articleGroupSelector: "#content",
 		},
 	}
 }
@@ -168,9 +168,16 @@ func (c *yeosuCityCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 					if as.Length() == 1 {
 						for _, attr := range as.Nodes[0].Attr {
 							// 서버의 이상으로 게시글을 불러오지 못한건지 확인한다.
-							if attr.Key == "class" && attr.Val == "list_empty" {
+							if attr.Key == "class" && attr.Val == "data_none" {
 								// 2번째 이후의 페이지라면 모든 게시판의 크롤링 작업을 취소하고 빈 값을 바로 반환한다.
 								if pageNo > 1 {
+									// 2021년 07월 02일 기준으로 시험/채용공고 게시판의 경우 입력된 데이터가 몇 건 없어서
+									// 페이지가 1페이지만 존재하므로 2페이지 이상을 읽게 되면 무조건 빈 값이 반환되므로
+									// 특별히 예외처리를 한다. 추후에 데이터가 충분히 추가되면 아래 IF 문은 삭제해도 된다.
+									if b.ID == "recruit" {
+										goto SPECIALEXIT
+									}
+
 									return nil, nil, "", nil
 								}
 
@@ -223,6 +230,7 @@ func (c *yeosuCityCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 			}
 		}
 
+	SPECIALEXIT:
 		if newLatestCrawledArticleID != "" {
 			newLatestCrawledArticleIDsByBoard[b.ID] = newLatestCrawledArticleID
 		}
@@ -259,75 +267,76 @@ func (c *yeosuCityCrawler) extractArticle(boardType string, s *goquery.Selection
 
 	switch boardType {
 	case yeosuCityCrawlerBoardTypePhotoNews:
-		// 제목, 링크
-		as := s.Find("dd > a")
+		// 링크
+		as := s.Find("a.item_cont")
 		if as.Length() != 1 {
-			return nil, errors.New("게시글에서 제목 정보를 찾을 수 없습니다.")
+			return nil, errors.New("게시글에서 링크 정보를 찾을 수 없습니다.")
 		}
-		article.Title = strings.TrimSpace(as.Text())
 		article.Link, exists = as.Attr("href")
 		if exists == false {
 			return nil, errors.New("게시글에서 상세페이지 URL 추출이 실패하였습니다.")
 		}
 		article.Link = fmt.Sprintf("%s%s", c.siteUrl, article.Link)
 
-		// 분류
-		as = s.Find("dd > span.cate")
+		// 제목
+		as = s.Find("a.item_cont > div.cont_box > div.title_box")
 		if as.Length() != 1 {
-			return nil, errors.New("게시글에서 분류 정보를 찾을 수 없습니다.")
+			return nil, errors.New("게시글에서 제목 정보를 찾을 수 없습니다.")
 		}
-		classification := strings.TrimSpace(as.Text())
-		if classification != "" {
-			article.Title = fmt.Sprintf("[ %s ] %s", classification, article.Title)
-		}
+		article.Title = strings.ReplaceAll(strings.TrimSpace(as.Text()), "새로운글", "")
 
 		// 게시글 ID
 		u, err := url.Parse(article.Link)
 		if err != nil {
 			return nil, fmt.Errorf("게시글에서 상세페이지 URL 파싱이 실패하였습니다. (error:%s)", err)
 		}
-		pathTokens := strings.Split(u.Path, "/")
-		for i, token := range pathTokens {
-			if token == "show" {
-				if len(pathTokens) > i+1 {
-					article.ArticleID = pathTokens[i+1]
-				}
-				break
-			}
+		m, _ := url.ParseQuery(u.RawQuery)
+		if m["idx"] != nil {
+			article.ArticleID = m["idx"][0]
 		}
 		if article.ArticleID == "" {
 			return nil, errors.New("게시글에서 게시글 ID 추출이 실패하였습니다.")
 		}
 
-		// 등록자, 등록일
-		as = s.Find("dd > span.date")
-		if as.Length() != 1 {
+		// 등록자
+		as = s.Find("a.item_cont > div.cont_box > dl > dd")
+		if as.Length() != 3 {
 			return nil, errors.New("게시글에서 등록자 및 등록일 정보를 찾을 수 없습니다.")
 		}
-		var complexString = strings.TrimSpace(as.Text())
-		if matched, _ := regexp.MatchString("\\(.+ / [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}\\)", complexString); matched == true {
-			// 앞/뒤 괄호를 제거한다.
-			complexString = complexString[1 : len(complexString)-1]
+		authorTokens := strings.Split(strings.TrimSpace(as.Eq(0).Text()), " ")
+		article.Author = strings.TrimSpace(authorTokens[len(authorTokens)-1])
 
-			var slashPos = strings.LastIndex(complexString, "/")
-			article.Author = strings.TrimSpace(complexString[:slashPos])
-			article.CreatedDate, err = time.ParseInLocation("2006-01-02 15:04", strings.TrimSpace(complexString[slashPos+1:]), time.Local)
+		// 등록일
+		var createdDateString = strings.TrimSpace(as.Eq(1).Text())
+		if matched, _ := regexp.MatchString("[0-9]{2}:[0-9]{2}:[0-9]{2}", createdDateString); matched == true {
+			var now = time.Now()
+			article.CreatedDate, err = time.ParseInLocation("2006-01-02 15:04:05", fmt.Sprintf("%04d-%02d-%02d %s", now.Year(), now.Month(), now.Day(), createdDateString), time.Local)
 			if err != nil {
-				return nil, fmt.Errorf("게시글에서 등록자 및 등록일('%s') 파싱이 실패하였습니다. (error:%s)", complexString, err)
+				return nil, fmt.Errorf("게시글에서 등록일('%s') 파싱이 실패하였습니다. (error:%s)", createdDateString, err)
+			}
+		} else if matched, _ := regexp.MatchString("[0-9]{4}-[0-9]{2}-[0-9]{2}", createdDateString); matched == true {
+			var now = time.Now()
+			if fmt.Sprintf("%04d-%02d-%02d", now.Year(), now.Month(), now.Day()) == createdDateString {
+				article.CreatedDate, err = time.ParseInLocation("2006-01-02 15:04:05", fmt.Sprintf("%s %02d:%02d:%02d", createdDateString, now.Hour(), now.Minute(), now.Second()), time.Local)
+			} else {
+				article.CreatedDate, err = time.ParseInLocation("2006-01-02 15:04:05", fmt.Sprintf("%s 23:59:59", createdDateString), time.Local)
+			}
+			if err != nil {
+				return nil, fmt.Errorf("게시글에서 등록일('%s') 파싱이 실패하였습니다. (error:%s)", createdDateString, err)
 			}
 		} else {
-			return nil, fmt.Errorf("게시글에서 등록자 및 등록일('%s') 파싱이 실패하였습니다.", complexString)
+			return nil, fmt.Errorf("게시글에서 등록일('%s') 파싱이 실패하였습니다.", createdDateString)
 		}
 
 		return article, nil
 
 	case yeosuCityCrawlerBoardTypeList1, yeosuCityCrawlerBoardTypeList2:
 		// 제목, 링크
-		as := s.Find("td.list_title > a")
+		as := s.Find("a.basic_cont")
 		if as.Length() != 1 {
 			return nil, errors.New("게시글에서 제목 정보를 찾을 수 없습니다.")
 		}
-		article.Title = strings.TrimSpace(as.Text())
+		article.Title = strings.ReplaceAll(strings.TrimSpace(as.Text()), "새로운글", "")
 		article.Link, exists = as.Attr("href")
 		if exists == false {
 			return nil, errors.New("게시글에서 상세페이지 URL 추출이 실패하였습니다.")
@@ -351,39 +360,30 @@ func (c *yeosuCityCrawler) extractArticle(boardType string, s *goquery.Selection
 		if err != nil {
 			return nil, fmt.Errorf("게시글에서 상세페이지 URL 파싱이 실패하였습니다. (error:%s)", err)
 		}
-		pathTokens := strings.Split(u.Path, "/")
-		for i, token := range pathTokens {
-			if token == "show" {
-				if len(pathTokens) > i+1 {
-					article.ArticleID = pathTokens[i+1]
-				}
-				break
-			}
+		m, _ := url.ParseQuery(u.RawQuery)
+		if m["idx"] != nil {
+			article.ArticleID = m["idx"][0]
 		}
 		if article.ArticleID == "" {
 			return nil, errors.New("게시글에서 게시글 ID 추출이 실패하였습니다.")
 		}
 
 		// 등록자
-		as = s.Find("td.list_department")
-		if as.Length() != 1 {
-			as = s.Find("td.list_member_name")
-			if as.Length() != 1 {
-				return nil, errors.New("게시글에서 등록자/담당부서 정보를 찾을 수 없습니다.")
-			} else {
-				article.Author = strings.TrimSpace(as.Text())
-			}
-		} else {
-			article.Author = strings.TrimSpace(as.Text())
+		as = s.Find("td")
+		if (boardType == yeosuCityCrawlerBoardTypeList1 && as.Length() != 5) || (boardType == yeosuCityCrawlerBoardTypeList2 && as.Length() != 6) {
+			return nil, errors.New("게시글에서 등록자/담당부서 및 등록일 정보를 찾을 수 없습니다.")
 		}
+		article.Author = strings.TrimSpace(as.Eq(as.Length() - 3).Text())
 
 		// 등록일
-		as = s.Find("td.list_reg_date")
-		if as.Length() != 1 {
-			return nil, errors.New("게시글에서 등록일 정보를 찾을 수 없습니다.")
-		}
-		var createdDateString = strings.TrimSpace(as.Text())
-		if matched, _ := regexp.MatchString("[0-9]{4}-[0-9]{2}-[0-9]{2}", createdDateString); matched == true {
+		var createdDateString = strings.TrimSpace(as.Eq(as.Length() - 2).Text())
+		if matched, _ := regexp.MatchString("[0-9]{2}:[0-9]{2}:[0-9]{2}", createdDateString); matched == true {
+			var now = time.Now()
+			article.CreatedDate, err = time.ParseInLocation("2006-01-02 15:04:05", fmt.Sprintf("%04d-%02d-%02d %s", now.Year(), now.Month(), now.Day(), createdDateString), time.Local)
+			if err != nil {
+				return nil, fmt.Errorf("게시글에서 등록일('%s') 파싱이 실패하였습니다. (error:%s)", createdDateString, err)
+			}
+		} else if matched, _ := regexp.MatchString("[0-9]{4}-[0-9]{2}-[0-9]{2}", createdDateString); matched == true {
 			var now = time.Now()
 			if fmt.Sprintf("%04d-%02d-%02d", now.Year(), now.Month(), now.Day()) == createdDateString {
 				article.CreatedDate, err = time.ParseInLocation("2006-01-02 15:04:05", fmt.Sprintf("%s %02d:%02d:%02d", createdDateString, now.Hour(), now.Minute(), now.Second()), time.Local)
@@ -412,7 +412,7 @@ func (c *yeosuCityCrawler) crawlingArticleContent(article *model.RssFeedProvider
 		return
 	}
 
-	ysSelection := doc.Find("div.con_detail")
+	ysSelection := doc.Find("div.contbox > div.viewbox")
 	if ysSelection.Length() == 0 {
 		log.Warnf("게시글('%s')에서 내용 정보를 찾을 수 없습니다.", article.ArticleID)
 		return
@@ -426,7 +426,12 @@ func (c *yeosuCityCrawler) crawlingArticleContent(article *model.RssFeedProvider
 		if src != "" {
 			var alt, _ = s.Attr("alt")
 			var style, _ = s.Attr("style")
-			article.Content += fmt.Sprintf(`%s<img src="%s%s" alt="%s" style="%s">`, "\r\n", c.config.Url, src, alt, style)
+
+			if strings.HasPrefix(src, "data:image/") == true {
+				article.Content += fmt.Sprintf(`%s<img src="%s" alt="%s" style="%s">`, "\r\n", src, alt, style)
+			} else {
+				article.Content += fmt.Sprintf(`%s<img src="%s%s" alt="%s" style="%s">`, "\r\n", c.config.Url, src, alt, style)
+			}
 		}
 	})
 }

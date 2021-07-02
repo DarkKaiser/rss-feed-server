@@ -145,9 +145,13 @@ func (c *crawler) getWebPageDocument(url, title string, decoder *encoding.Decode
 
 	bodyBytes, err := ioutil.ReadAll(res.Body)
 	if err != nil {
+		if strings.Contains(err.Error(), "unexpected EOF") && len(bodyBytes) != 0 {
+			goto pars
+		}
 		return nil, fmt.Sprintf("%s의 내용을 읽을 수 없습니다.", title), err
 	}
 
+pars:
 	if decoder != nil {
 		bodyString, err := decoder.String(string(bodyBytes))
 		if err != nil {
