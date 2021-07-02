@@ -429,6 +429,8 @@ func (c *yeosuCityCrawler) crawlingArticleContent(article *model.RssFeedProvider
 
 			if strings.HasPrefix(src, "data:image/") == true {
 				article.Content += fmt.Sprintf(`%s<img src="%s" alt="%s" style="%s">`, "\r\n", src, alt, style)
+			} else if strings.HasPrefix(src, "./") == true {
+				article.Content += fmt.Sprintf(`%s<img src="%s" alt="%s" style="%s">`, "\r\n", src[1:], alt, style)
 			} else {
 				article.Content += fmt.Sprintf(`%s<img src="%s%s" alt="%s" style="%s">`, "\r\n", c.config.Url, src, alt, style)
 			}
