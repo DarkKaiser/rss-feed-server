@@ -430,7 +430,11 @@ func (c *yeosuCityCrawler) crawlingArticleContent(article *model.RssFeedProvider
 			if strings.HasPrefix(src, "data:image/") == true {
 				article.Content += fmt.Sprintf(`%s<img src="%s" alt="%s" style="%s">`, "\r\n", src, alt, style)
 			} else if strings.HasPrefix(src, "./") == true {
-				article.Content += fmt.Sprintf(`%s<img src="%s" alt="%s" style="%s">`, "\r\n", src[1:], alt, style)
+				boardTypeConfig, exists := yeosuCityCrawlerBoardTypes[article.BoardType]
+				if exists == true {
+					urlPath := strings.Replace(fmt.Sprintf("%s%s", c.siteUrl, boardTypeConfig.urlPath), yeosuCityUrlPathReplaceStringWithBoardID, article.BoardID, -1)
+					article.Content += fmt.Sprintf(`%s<img src="%s%s" alt="%s" style="%s">`, "\r\n", urlPath, src[1:], alt, style)
+				}
 			} else {
 				article.Content += fmt.Sprintf(`%s<img src="%s%s" alt="%s" style="%s">`, "\r\n", c.config.Url, src, alt, style)
 			}
