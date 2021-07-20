@@ -4,7 +4,7 @@
 * 라즈베리파이의 `/usr/local/rss-feed-server/`에 설치
 
 ### 실행
-* 재부팅시 실행되도록 crontab에 등록해 놓았음!   
+* 재부팅시 자동 실행되도록 crontab에 등록해 놓았음!   
   `@reboot sleep 20 && /usr/local/rss-feed-server/rss-feed-server.sh`
 
 ### SSL 인증서
