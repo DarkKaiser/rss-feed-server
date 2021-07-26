@@ -67,6 +67,9 @@ pipeline {
                 telegramSend(message: '【 알림 > Jenkins > ' + env.PROJECT_NAME + ' 】\n\n빌드 작업이 실패하였습니다.\n\n' + env.BUILD_URL)
             }
         }
+        always {
+            cleanWs()
+        }
     }
 
 }

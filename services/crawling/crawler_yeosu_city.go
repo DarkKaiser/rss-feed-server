@@ -428,7 +428,8 @@ func (c *yeosuCityCrawler) crawlingArticleContent(article *model.RssFeedProvider
 			var style, _ = s.Attr("style")
 
 			if strings.HasPrefix(src, "data:image/") == true {
-				article.Content += fmt.Sprintf(`%s<img src="%s" alt="%s" style="%s">`, "\r\n", src, alt, style)
+				// ※ data:image의 데이터 크기가 너무 큰 항목인 경우 스마트폰 앱이 죽는 현상이 생기므로 기능 비활성화함!!!
+				// article.Content += fmt.Sprintf(`%s<img src="%s" alt="%s" style="%s">`, "\r\n", src, alt, style)
 			} else if strings.HasPrefix(src, "./") == true {
 				boardTypeConfig, exists := yeosuCityCrawlerBoardTypes[article.BoardType]
 				if exists == true {
