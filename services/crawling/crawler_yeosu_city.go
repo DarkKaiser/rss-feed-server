@@ -418,7 +418,7 @@ func (c *yeosuCityCrawler) crawlingArticleContent(article *model.RssFeedProvider
 		return
 	}
 
-	article.Content = utils.CleanStringByLine(ysSelection.Text())
+	article.Content = utils.TrimMultiLine(ysSelection.Text())
 
 	// 내용에 이미지 태그가 포함되어 있다면 모두 추출한다.
 	ysSelection.Find("img").Each(func(i int, s *goquery.Selection) {

@@ -32,27 +32,37 @@ func Contains(list []string, item string) bool {
 	return false
 }
 
-func CleanString(s string) string {
+func Trim(s string) string {
 	return strings.Join(strings.Fields(strings.TrimSpace(s)), " ")
 }
 
-func CleanStringByLine(s string) string {
+func TrimMultiLine(s string) string {
 	var ret []string
 	var appendedEmptyLine bool
 
-	lines := strings.Split(strings.TrimSpace(s), "\n")
+	lines := strings.Split(s, "\n")
 	for _, line := range lines {
-		trimLine := strings.TrimSpace(line)
+		trimLine := Trim(line)
 		if trimLine != "" {
 			appendedEmptyLine = false
 			ret = append(ret, trimLine)
 		} else {
 			if appendedEmptyLine == false {
 				appendedEmptyLine = true
-				ret = append(ret, trimLine)
+				ret = append(ret, "")
 			}
 		}
 	}
+
+	if len(ret) >= 2 {
+		if ret[0] == "" {
+			ret = ret[1:]
+		}
+		if ret[len(ret)-1] == "" {
+			ret = ret[:len(ret)-1]
+		}
+	}
+
 	return strings.Join(ret, "\r\n")
 }
 
