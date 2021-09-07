@@ -10,6 +10,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.5
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/sirupsen/logrus v1.8.1
+	github.com/stretchr/testify v1.4.0
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9 // indirect
 	golang.org/x/net v0.0.0-20210614182718-04defd469f4e
 	golang.org/x/text v0.3.6

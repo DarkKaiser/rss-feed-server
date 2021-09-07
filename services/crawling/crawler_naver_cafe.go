@@ -489,7 +489,7 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingLink(article *model.RssFee
 		return
 	}
 
-	article.Content = utils.CleanStringByLine(ncSelection.Text())
+	article.Content = utils.TrimMultiLine(ncSelection.Text())
 
 	// 내용에 이미지 태그가 포함되어 있다면 모두 추출한다.
 	doc.Find("#tbody img").Each(func(i int, s *goquery.Selection) {
@@ -514,7 +514,7 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingNaverSearch(article *model
 
 	ncSelection := doc.Find(fmt.Sprintf("a.total_dsc[href='%s/%s']", c.siteUrl, article.ArticleID))
 	if ncSelection.Length() == 1 {
-		article.Content = utils.CleanStringByLine(ncSelection.Text())
+		article.Content = utils.TrimMultiLine(ncSelection.Text())
 	}
 
 	// 내용에 이미지 태그가 포함되어 있다면 모두 추출한다.
