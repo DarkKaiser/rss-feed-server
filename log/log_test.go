@@ -3,6 +3,7 @@ package log
 import (
 	"fmt"
 	"github.com/darkkaiser/rss-feed-server/g"
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"os"
@@ -47,6 +48,9 @@ func TestLog(t *testing.T) {
 	// 로그파일이 현재 열려있는 상태이므로 테스트를 위해 강제로 닫아준다.
 	// 임시폴더는 테스트 종료 이후에 자동으로 삭제가 되는데, 로그파일이 열려있으면 임시폴더가 삭제되지 않는 문제가 발생하기도 한다.
 	_ = lf.Close()
+
+	// 로그파일을 강제로 닫아주었으므로 로거의 출력을 기본값으로 재설정한다.
+	log.SetOutput(os.Stderr)
 
 	//
 	// 로그파일의 생성일자를 현재-(삭제기한+1)로 변경하여, 기한이 지난 로그파일이 삭제되는지 테스트한다.
