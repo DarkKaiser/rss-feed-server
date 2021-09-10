@@ -2,7 +2,6 @@ package log
 
 import (
 	"fmt"
-	"github.com/darkkaiser/rss-feed-server/g"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
@@ -18,13 +17,14 @@ func TestLog(t *testing.T) {
 
 	var checkDaysAgo = 10.
 	var logDirPath = fmt.Sprintf("%s%s", logDirParentPath, logDirName)
+	var appName = "log-package-testing"
 
 	assert := assert.New(t)
 
 	//
 	// 디버그 모드로 초기화하면, 로그폴더 및 파일은 생성되지 않아야 한다.
 	//
-	assert.Nil(Init(true, g.AppName, checkDaysAgo))
+	assert.Nil(Init(true, appName, checkDaysAgo))
 
 	_, err := os.Stat(logDirPath)
 	assert.Equal(true, os.IsNotExist(err))
@@ -32,7 +32,7 @@ func TestLog(t *testing.T) {
 	//
 	// 운영 모드로 초기화하면, 로그폴더 및 1개의 파일이 생성되어져야 한다.
 	//
-	lf := Init(false, g.AppName, checkDaysAgo)
+	lf := Init(false, appName, checkDaysAgo)
 	assert.NotNil(lf)
 
 	_, err = os.Stat(logDirPath)
@@ -42,7 +42,7 @@ func TestLog(t *testing.T) {
 	assert.Equal(1, len(fiList))
 
 	lfName := fiList[0].Name()
-	assert.True(strings.HasPrefix(lfName, g.AppName))
+	assert.True(strings.HasPrefix(lfName, appName))
 	assert.True(strings.HasSuffix(lfName, logFileExtension))
 
 	// 로그파일이 현재 열려있는 상태이므로 테스트를 위해 강제로 닫아준다.
@@ -60,13 +60,13 @@ func TestLog(t *testing.T) {
 	assert.Nil(err)
 
 	// 삭제기한을 임의로 +2해서 로그파일이 삭제되지 않는지 확인한다.
-	cleanOutOfLogFiles(g.AppName, checkDaysAgo+2)
+	cleanOutOfLogFiles(appName, checkDaysAgo+2)
 
 	fiList, _ = ioutil.ReadDir(logDirPath)
 	assert.Equal(1, len(fiList))
 
 	// 원래의 삭제기한으로 했을때 로그파일이 삭제되는지 확인한다.
-	cleanOutOfLogFiles(g.AppName, checkDaysAgo)
+	cleanOutOfLogFiles(appName, checkDaysAgo)
 
 	fiList, _ = ioutil.ReadDir(logDirPath)
 	assert.Equal(0, len(fiList))
