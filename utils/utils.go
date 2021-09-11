@@ -75,3 +75,17 @@ func FormatCommas(num int) string {
 	}
 	return str
 }
+
+func SplitExceptEmptyItems(s, sep string) []string {
+	tokens := strings.Split(s, sep)
+
+	var t []string
+	for _, token := range tokens {
+		token = strings.TrimSpace(token)
+		if token != "" {
+			t = append(t, token)
+		}
+	}
+
+	return t
+}

@@ -13,7 +13,9 @@ import (
 	"time"
 )
 
-var logDirParentPath = ""
+var (
+	logDirParentPath = ""
+)
 
 const (
 	logDirName       string = "logs"
