@@ -40,7 +40,11 @@ func main() {
 	_log_.Init(config.Debug, g.AppName, 30.)
 
 	// NotifyAPI를 초기화한다.
-	notifyapi.Init(config)
+	notifyapi.Init(&notifyapi.Config{
+		Url:           config.NotifyAPI.Url,
+		APIKey:        config.NotifyAPI.APIKey,
+		ApplicationID: config.NotifyAPI.ApplicationID,
+	})
 
 	// 아스키아트 출력(https://ko.rakko.tools/tools/68/, 폰트:standard)
 	fmt.Printf(banner, g.AppVersion)
