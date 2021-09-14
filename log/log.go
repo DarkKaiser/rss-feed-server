@@ -13,7 +13,9 @@ import (
 	"time"
 )
 
-var logDirParentPath = ""
+var (
+	logDirParentPath = ""
+)
 
 const (
 	logDirName       string = "logs"
@@ -25,7 +27,7 @@ func init() {
 	log.SetReportCaller(true)
 	log.SetFormatter(&log.TextFormatter{
 		CallerPrettyfier: func(frame *runtime.Frame) (function string, file string) {
-			const shortPath = "github.com/darkkaiser/rss-feed-server"
+			const shortPath = "github.com/darkkaiser"
 
 			function = fmt.Sprintf("%s(line:%d)", frame.Function, frame.Line)
 			if strings.HasPrefix(function, shortPath) == true {
