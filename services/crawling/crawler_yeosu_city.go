@@ -38,7 +38,7 @@ type yeosuCityCrawlerBoardTypeConfig struct {
 const yeosuCityUrlPathReplaceStringWithBoardID = "#{board_id}"
 
 func init() {
-	supportedCrawlers[g.RssFeedSupportedSiteYeosuCity] = &supportedCrawlerConfig{
+	supportedCrawlers[g.RssFeedProviderSiteYeosuCity] = &supportedCrawlerConfig{
 		newCrawlerFn: func(rssFeedProviderID string, config *g.ProviderConfig, modelGetter model.ModelGetter) cron.Job {
 			site := "여수시 홈페이지"
 
