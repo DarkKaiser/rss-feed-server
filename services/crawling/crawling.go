@@ -55,7 +55,7 @@ func (s *crawlingService) Run(serviceStopCtx context.Context, serviceStopWaiter 
 
 	// 크롤링 스케쥴러를 시작한다.
 	for _, p := range s.config.RssFeed.Providers {
-		crawlerConfig, err := findConfigFromSupportedCrawler(g.RssFeedSupportedSite(p.Site))
+		crawlerConfig, err := findConfigFromSupportedCrawler(g.RssFeedProviderSite(p.Site))
 		if err != nil {
 			m := fmt.Sprintf("%s(ID:%s) 크롤링 작업의 스케쥴러 등록이 실패하였습니다. 구현된 Crawler가 존재하지 않습니다.", p.Site, p.ID)
 

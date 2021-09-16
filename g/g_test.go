@@ -41,8 +41,8 @@ func TestAppConfig_Validation(t *testing.T) {
 
 	// 각각의 RSS Feed Provider Site에 대한 테스트 진행
 	for _, p := range config.RssFeed.Providers {
-		switch RssFeedSupportedSite(p.Site) {
-		case RssFeedSupportedSiteNaverCafe:
+		switch RssFeedProviderSite(p.Site) {
+		case RssFeedProviderSiteNaverCafe:
 			// 네이버 카페의 ClubID가 비어있는 경우 패닉 발생
 			tempString1, _ = p.Config.Data["club_id"].(string)
 			for _, v := range []string{"", "   "} {
@@ -51,7 +51,7 @@ func TestAppConfig_Validation(t *testing.T) {
 			}
 			p.Config.Data["club_id"] = tempString1
 
-		case RssFeedSupportedSiteYeosuCity:
+		case RssFeedProviderSiteYeosuCity:
 			// pass
 		}
 	}

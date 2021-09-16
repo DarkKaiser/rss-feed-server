@@ -24,7 +24,7 @@ import (
 )
 
 func init() {
-	supportedCrawlers[g.RssFeedSupportedSiteNaverCafe] = &supportedCrawlerConfig{
+	supportedCrawlers[g.RssFeedProviderSiteNaverCafe] = &supportedCrawlerConfig{
 		newCrawlerFn: func(rssFeedProviderID string, config *g.ProviderConfig, modelGetter model.ModelGetter) cron.Job {
 			site := "네이버 카페"
 

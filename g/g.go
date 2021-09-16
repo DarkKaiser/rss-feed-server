@@ -16,12 +16,12 @@ const (
 	appConfigFileName = AppName + ".json"
 )
 
-type RssFeedSupportedSite string
+type RssFeedProviderSite string
 
 const (
 	// RSS Feed 서비스 지원 사이트
-	RssFeedSupportedSiteNaverCafe RssFeedSupportedSite = "NaverCafe"
-	RssFeedSupportedSiteYeosuCity RssFeedSupportedSite = "YeosuCity"
+	RssFeedProviderSiteNaverCafe RssFeedProviderSite = "NaverCafe"
+	RssFeedProviderSiteYeosuCity RssFeedProviderSite = "YeosuCity"
 )
 
 type AppConfig struct {
@@ -77,19 +77,21 @@ func (c *AppConfig) validation() {
 
 		panicIfEmpty(p.Site, "RSS Feed Provider Site가 입력되지 않았습니다.")
 
-		switch RssFeedSupportedSite(p.Site) {
-		case RssFeedSupportedSiteNaverCafe:
-			c.validationRssFeedProviderConfig("네이버 카페", p.Config, &providerSiteNaverCafeIDs)
+		switch RssFeedProviderSite(p.Site) {
+		case RssFeedProviderSiteNaverCafe:
+			site := "네이버 카페"
+
+			c.validationRssFeedProviderConfig(site, p.Config, &providerSiteNaverCafeIDs)
 
 			clubID, ok := p.Config.Data["club_id"].(string)
 			if ok == false {
-				log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 ClubID가 입력되지 않았거나 타입이 유효하지 않습니다.", appConfigFileName, p.Config.ID)
+				log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' %s의 ClubID가 입력되지 않았거나 타입이 유효하지 않습니다.", appConfigFileName, p.Config.ID, site)
 			}
-			panicIfEmpty(clubID, fmt.Sprintf("%s 파일의 내용이 유효하지 않습니다. '%s' 네이버 카페의 ClubID가 입력되지 않았습니다.", appConfigFileName, p.Config.ID))
-			panicIfContains(providerSiteNaverCafeClubIDs, clubID, fmt.Sprintf("네이버 카페의 ClubID('%s')가 중복되었습니다.", clubID))
+			panicIfEmpty(clubID, fmt.Sprintf("%s 파일의 내용이 유효하지 않습니다. '%s' %s의 ClubID가 입력되지 않았습니다.", appConfigFileName, p.Config.ID, site))
+			panicIfContains(providerSiteNaverCafeClubIDs, clubID, fmt.Sprintf("%s의 ClubID('%s')가 중복되었습니다.", site, clubID))
 			providerSiteNaverCafeClubIDs = append(providerSiteNaverCafeClubIDs, clubID)
 
-		case RssFeedSupportedSiteYeosuCity:
+		case RssFeedProviderSiteYeosuCity:
 			c.validationRssFeedProviderConfig("여수시 홈페이지", p.Config, &providerSiteYeosuCityIDs)
 
 		default:

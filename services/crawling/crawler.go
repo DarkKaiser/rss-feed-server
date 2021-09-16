@@ -24,13 +24,13 @@ var errNotSupportedCrawler = errors.New("지원하지 않는 Crawler입니다")
 type newCrawlerFunc func(string, *g.ProviderConfig, model.ModelGetter) cron.Job
 
 // 지원되는 Crawler 목록
-var supportedCrawlers = make(map[g.RssFeedSupportedSite]*supportedCrawlerConfig)
+var supportedCrawlers = make(map[g.RssFeedProviderSite]*supportedCrawlerConfig)
 
 type supportedCrawlerConfig struct {
 	newCrawlerFn newCrawlerFunc
 }
 
-func findConfigFromSupportedCrawler(site g.RssFeedSupportedSite) (*supportedCrawlerConfig, error) {
+func findConfigFromSupportedCrawler(site g.RssFeedProviderSite) (*supportedCrawlerConfig, error) {
 	crawlerConfig, exists := supportedCrawlers[site]
 	if exists == true {
 		return crawlerConfig, nil
