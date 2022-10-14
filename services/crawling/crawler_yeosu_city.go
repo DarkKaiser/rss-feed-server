@@ -70,6 +70,8 @@ func init() {
 
 			crawler.crawlingArticlesFn = crawler.crawlingArticles
 
+			log.Debug(fmt.Sprintf("%s('%s') Crawler가 생성되었습니다.", crawler.site, crawler.siteID))
+
 			return crawler
 		},
 	}
@@ -131,7 +133,7 @@ func (c *yeosuCityCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 			if ysSelection.Length() == 0 {
 				// 여수시청 서버의 이상으로 가끔씩 게시글을 불러오지 못하는 현상이 발생함!!!
 				// 만약 1번째 페이지에 이 현상이 발생하였으면 아무 처리도 하지 않고 다음 게시판을 크롤링한다.
-				// 만약 2번째 이후의 페이지에 이 현상이 발생하였으면 모든 게시판의 크롤링 작업을 취소하고 빈 값을 바로 반환한다.
+				// 만약 2번째 이후의 페이지에서 이 현상이 발생하였으면 모든 게시판의 크롤링 작업을 취소하고 빈 값을 바로 반환한다.
 				switch b.Type {
 				case yeosuCityCrawlerBoardTypePhotoNews:
 					// 서버의 이상으로 게시글을 불러오지 못한건지 확인한다.
@@ -147,7 +149,7 @@ func (c *yeosuCityCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 					}
 
 				case yeosuCityCrawlerBoardTypeList1, yeosuCityCrawlerBoardTypeList2:
-					// 리스트 타입의 경우 서버 이상이 발생한 경우에는 Selection 노드의 갯수가 1개이므로, 서버 이상 유무를 아래쪽 코드에서 처리한다.
+					// 리스트 타입의 경우 서버 이상이 발생한 경우에는 Selection(ysSelection) 노드의 갯수가 1개이므로, 서버 이상 유무를 아래쪽 IF 블럭에서 처리한다.
 
 				default:
 					return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다.", c.site, c.siteID, b.Name), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
@@ -158,10 +160,10 @@ func (c *yeosuCityCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 			} else if ysSelection.Length() == 1 {
 				// 여수시청 서버의 이상으로 가끔씩 게시글을 불러오지 못하는 현상이 발생함!!!
 				// 만약 1번째 페이지에 이 현상이 발생하였으면 아무 처리도 하지 않고 다음 게시판을 크롤링한다.
-				// 만약 2번째 이후의 페이지에 이 현상이 발생하였으면 모든 게시판의 크롤링 작업을 취소하고 빈 값을 바로 반환한다.
+				// 만약 2번째 이후의 페이지에서 이 현상이 발생하였으면 모든 게시판의 크롤링 작업을 취소하고 빈 값을 바로 반환한다.
 				switch b.Type {
 				case yeosuCityCrawlerBoardTypePhotoNews:
-					// 포토뉴스 타입의 경우 서버 이상이 발생한 경우에는 Selection 노드의 갯수가 0개이므로, 서버 이상 유무를 위쪽 코드에서 처리한다.
+					// 포토뉴스 타입의 경우 서버 이상이 발생한 경우에는 Selection(ysSelection) 노드의 갯수가 0개이므로, 서버 이상 유무를 위쪽 IF 블럭에서 처리한다.
 
 				case yeosuCityCrawlerBoardTypeList1, yeosuCityCrawlerBoardTypeList2:
 					as := ysSelection.First().Find("td")
