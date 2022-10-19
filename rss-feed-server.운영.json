@@ -8,13 +8,13 @@
 				"site": "NaverCafe",
 				"config": {
 					"id": "ludypang",
-					"name": "여순광 돈되는 부동산 정보(여수,순천,광양)",
+					"name": "네이버카페 > 여순광 돈되는 부동산 정보",
 					"description": "여수 순천 광양 돈되는 부동산 정보 리얼 재테크 커뮤니티",
 					"url": "https://cafe.naver.com/ludypang",
 					"boards": [
 						{
 							"id": "222",
-							"name": "부동산 소식",
+							"name": "부동산 고시/공고",
 							"type": "",
 							"category": "여순광 부동산 정보"
 						},
@@ -129,7 +129,7 @@
 				"site": "NaverCafe",
 				"config": {
 					"id": "yeosumam",
-					"name": "여수맘들 모여라",
+					"name": "네이버카페 > 여수맘들 모여라",
 					"description": "여수맘들의 자유로운 공간~ 수다, 중고 장터, 직거래, 여수맛집, 여수여행, 육아정보 공유",
 					"url": "https://cafe.naver.com/yeosumam",
 					"boards": [
@@ -146,34 +146,10 @@
 							"category": "카페 이벤트/혜택"
 						},
 						{
-							"id": "124",
-							"name": "* 산모교실 *",
-							"type": "",
-							"category": "카페 이벤트/혜택"
-						},
-						{
 							"id": "122",
 							"name": "여수맘 문화 및 공연 제휴/공구",
 							"type": "",
 							"category": "카페 이벤트/혜택"
-						},
-						{
-							"id": "69",
-							"name": "여수 늬우스☆ (여수시에서 알려드립니다.)",
-							"type": "",
-							"category": "협력기관 / 정보안내"
-						},
-						{
-							"id": "142",
-							"name": "여수경찰서에서 알려드립니다.",
-							"type": "",
-							"category": "협력기관 / 정보안내"
-						},
-						{
-							"id": "223",
-							"name": "문화파출소 여수",
-							"type": "",
-							"category": "협력기관 / 정보안내"
 						},
 						{
 							"id": "237",
@@ -189,7 +165,7 @@
 						},
 						{
 							"id": "296",
-							"name": "여수시 건강가정 통합지원센터",
+							"name": "여수시 가족+센터",
 							"type": "",
 							"category": "협력기관 / 정보안내"
 						},
@@ -210,6 +186,12 @@
 							"name": "정책정보 안내",
 							"type": "",
 							"category": "협력기관 / 정보안내"
+						},
+						{
+							"id": "429",
+							"name": "2012여수세계박람회재단",
+							"type": "",
+							"category": "협력기관 / 정보안내"
 						}
 					],
 					"article_archive_date": 90,
@@ -226,7 +208,7 @@
 				"site": "YeosuCity",
 				"config": {
 					"id": "yeosu",
-					"name": "여수시 관련 소식",
+					"name": "여수시청",
 					"description": "여수시 관련 소식",
 					"url": "https://www.yeosu.go.kr",
 					"boards": [
