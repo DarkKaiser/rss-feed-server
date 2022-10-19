@@ -20,6 +20,9 @@ const (
 	// 포토뉴스
 	yeosuCityCrawlerBoardTypePhotoNews string = "P"
 
+	// 카드뉴스
+	yeosuCityCrawlerBoardTypeCardNews string = "C"
+
 	// 리스트 1(번호, 제목, 등록자, 등록일, 조회)
 	yeosuCityCrawlerBoardTypeList1 string = "L_1"
 
@@ -93,6 +96,11 @@ func init() {
 			articleSelector:      "#content table.board_basic > tbody > tr:not(.notice)",
 			articleGroupSelector: "#content",
 		},
+		yeosuCityCrawlerBoardTypeCardNews: {
+			urlPath:              fmt.Sprintf("/www/govt/news/%s", yeosuCityUrlPathReplaceStringWithBoardID),
+			articleSelector:      "#content div.board_list_box div.board_list > div.board_list > div.board_photo > div.item_wrap > div.item",
+			articleGroupSelector: "#content",
+		},
 	}
 }
 
@@ -135,7 +143,7 @@ func (c *yeosuCityCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 				// 만약 1번째 페이지에 이 현상이 발생하였으면 아무 처리도 하지 않고 다음 게시판을 크롤링한다.
 				// 만약 2번째 이후의 페이지에서 이 현상이 발생하였으면 모든 게시판의 크롤링 작업을 취소하고 빈 값을 바로 반환한다.
 				switch b.Type {
-				case yeosuCityCrawlerBoardTypePhotoNews:
+				case yeosuCityCrawlerBoardTypePhotoNews, yeosuCityCrawlerBoardTypeCardNews:
 					// 서버의 이상으로 게시글을 불러오지 못한건지 확인한다.
 					ysSelection = doc.Find(boardTypeConfig.articleGroupSelector)
 					if ysSelection.Length() == 1 {
@@ -162,8 +170,8 @@ func (c *yeosuCityCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 				// 만약 1번째 페이지에 이 현상이 발생하였으면 아무 처리도 하지 않고 다음 게시판을 크롤링한다.
 				// 만약 2번째 이후의 페이지에서 이 현상이 발생하였으면 모든 게시판의 크롤링 작업을 취소하고 빈 값을 바로 반환한다.
 				switch b.Type {
-				case yeosuCityCrawlerBoardTypePhotoNews:
-					// 포토뉴스 타입의 경우 서버 이상이 발생한 경우에는 Selection(ysSelection) 노드의 갯수가 0개이므로, 서버 이상 유무를 위쪽 IF 블럭에서 처리한다.
+				case yeosuCityCrawlerBoardTypePhotoNews, yeosuCityCrawlerBoardTypeCardNews:
+					// 포토뉴스/카드뉴스 타입의 경우 서버 이상이 발생한 경우에는 Selection(ysSelection) 노드의 갯수가 0개이므로, 서버 이상 유무를 위쪽 IF 블럭에서 처리한다.
 
 				case yeosuCityCrawlerBoardTypeList1, yeosuCityCrawlerBoardTypeList2:
 					as := ysSelection.First().Find("td")
@@ -386,6 +394,63 @@ func (c *yeosuCityCrawler) extractArticle(boardType string, s *goquery.Selection
 				return nil, fmt.Errorf("게시글에서 등록일('%s') 파싱이 실패하였습니다. (error:%s)", createdDateString, err)
 			}
 		} else if matched, _ := regexp.MatchString("[0-9]{4}-[0-9]{2}-[0-9]{2}", createdDateString); matched == true {
+			var now = time.Now()
+			if fmt.Sprintf("%04d-%02d-%02d", now.Year(), now.Month(), now.Day()) == createdDateString {
+				article.CreatedDate, err = time.ParseInLocation("2006-01-02 15:04:05", fmt.Sprintf("%s %02d:%02d:%02d", createdDateString, now.Hour(), now.Minute(), now.Second()), time.Local)
+			} else {
+				article.CreatedDate, err = time.ParseInLocation("2006-01-02 15:04:05", fmt.Sprintf("%s 23:59:59", createdDateString), time.Local)
+			}
+			if err != nil {
+				return nil, fmt.Errorf("게시글에서 등록일('%s') 파싱이 실패하였습니다. (error:%s)", createdDateString, err)
+			}
+		} else {
+			return nil, fmt.Errorf("게시글에서 등록일('%s') 파싱이 실패하였습니다.", createdDateString)
+		}
+
+		return article, nil
+
+	case yeosuCityCrawlerBoardTypeCardNews:
+		// 링크
+		as := s.Find("div.cont_box ul > li > div.board_share_box > ul > li.share_btn > a")
+		if as.Length() == 0 {
+			return nil, errors.New("게시글에서 링크 정보를 찾을 수 없습니다.")
+		}
+		article.Link, exists = as.Eq(0).Attr("data-url")
+		if exists == false {
+			return nil, errors.New("게시글에서 상세페이지 URL 추출이 실패하였습니다.")
+		}
+		article.Link = fmt.Sprintf("%s%s", c.siteUrl, article.Link)
+
+		// 제목
+		as = s.Find("div.cont_box > h3")
+		if as.Length() != 1 {
+			return nil, errors.New("게시글에서 제목 정보를 찾을 수 없습니다.")
+		}
+		article.Title = strings.TrimSpace(as.Text())
+
+		// 게시글 ID
+		u, err := url.Parse(article.Link)
+		if err != nil {
+			return nil, fmt.Errorf("게시글에서 상세페이지 URL 파싱이 실패하였습니다. (error:%s)", err)
+		}
+		m, _ := url.ParseQuery(u.RawQuery)
+		if m["idx"] != nil {
+			article.ArticleID = m["idx"][0]
+		}
+		if article.ArticleID == "" {
+			return nil, errors.New("게시글에서 게시글 ID 추출이 실패하였습니다.")
+		}
+
+		// 등록자
+		as = s.Find("div.cont_box > dl > dd")
+		if as.Length() != 2 {
+			return nil, errors.New("게시글에서 등록자 및 등록일 정보를 찾을 수 없습니다.")
+		}
+		article.Author = strings.TrimSpace(as.Eq(1).Text())
+
+		// 등록일
+		var createdDateString = strings.TrimSpace(as.Eq(0).Text())
+		if matched, _ := regexp.MatchString("[0-9]{4}-[0-9]{2}-[0-9]{2}", createdDateString); matched == true {
 			var now = time.Now()
 			if fmt.Sprintf("%04d-%02d-%02d", now.Year(), now.Month(), now.Day()) == createdDateString {
 				article.CreatedDate, err = time.ParseInLocation("2006-01-02 15:04:05", fmt.Sprintf("%s %02d:%02d:%02d", createdDateString, now.Hour(), now.Minute(), now.Second()), time.Local)
