@@ -69,6 +69,8 @@ func init() {
 
 			crawler.crawlingArticlesFn = crawler.crawlingArticles
 
+			log.Debug(fmt.Sprintf("%s('%s') Crawler가 생성되었습니다.", crawler.site, crawler.siteID))
+
 			return crawler
 		},
 	}

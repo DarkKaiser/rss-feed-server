@@ -55,7 +55,7 @@ func (s *webService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 	e, s.handlers = router.New(s.config)
 
 	go func(listenPort int) {
-		log.Debug("웹 서비스 > http 서버 시작")
+		log.Debugf("웹 서비스 > http 서버(:%d) 시작", listenPort)
 
 		var err error
 		if s.config.WS.TLSServer == true {
@@ -63,16 +63,16 @@ func (s *webService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 		} else {
 			err = e.Start(fmt.Sprintf(":%d", listenPort))
 		}
-		if err != nil {
-			if err == http.ErrServerClosed {
-				log.Debug("웹 서비스 > http 서버 중지됨")
-			} else {
-				m := "웹 서비스를 구성하는 중에 치명적인 오류가 발생하였습니다."
 
-				log.Errorf("%s (error:%s)", m, err)
+		// StartTLS(), Start() 함수는 항상 nil이 아닌 error를 반환한다.
+		if err == http.ErrServerClosed {
+			log.Debug("웹 서비스 > http 서버 중지됨")
+		} else {
+			m := "웹 서비스 > http 서버를 구성하는 중에 치명적인 오류가 발생하였습니다."
 
-				notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
-			}
+			log.Errorf("%s (error:%s)", m, err)
+
+			notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 		}
 	}(s.config.WS.ListenPort)
 
