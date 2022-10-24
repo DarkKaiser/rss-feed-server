@@ -136,7 +136,11 @@ func (c *crawler) Run() {
 func (c *crawler) getWebPageDocument(url, title string, decoder *encoding.Decoder) (*goquery.Document, string, error) {
 	res, err := http.Get(url)
 	if err != nil {
-		return nil, fmt.Sprintf("%s 접근이 실패하였습니다.", title), err
+		// @@@@@
+		res, err = http.Get(url)
+		if err != nil {
+			return nil, fmt.Sprintf("%s 접근이 실패하였습니다.", title), err
+		}
 	}
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Sprintf("%s 접근이 실패하였습니다.", title), fmt.Errorf("HTTP Response StatusCode %d", res.StatusCode)
