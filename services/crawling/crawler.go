@@ -136,7 +136,8 @@ func (c *crawler) Run() {
 func (c *crawler) getWebPageDocument(url, title string, decoder *encoding.Decoder) (*goquery.Document, string, error) {
 	res, err := http.Get(url)
 	if err != nil {
-		// @@@@@
+		// 2022년 10월 중순경부터 네이버카페의 글을 일정 시간이 지난후에 http.Get()을 호출하게 되면 'connection reset by peer' 에러가 발생함!
+		// 그래서 http.Get()에서 에러가 발생하면 다시 한번 호출하도록 변경함!!
 		res, err = http.Get(url)
 		if err != nil {
 			return nil, fmt.Sprintf("%s 접근이 실패하였습니다.", title), err
