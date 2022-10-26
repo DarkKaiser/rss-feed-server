@@ -14,6 +14,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 )
 
 var errNotSupportedCrawler = errors.New("지원하지 않는 Crawler입니다")
@@ -137,12 +138,19 @@ func (c *crawler) getWebPageDocument(url, title string, decoder *encoding.Decode
 	res, err := http.Get(url)
 	if err != nil {
 		// 2022년 10월 중순경부터 네이버카페의 글을 일정 시간이 지난후에 http.Get()을 호출하게 되면 'connection reset by peer' 에러가 발생함!
-		// 그래서 http.Get()에서 에러가 발생하면 다시 한번 호출하도록 변경함!!
-		res, err = http.Get(url)
-		if err != nil {
-			return nil, fmt.Sprintf("%s 접근이 실패하였습니다.", title), err
+		// 그래서 http.Get()에서 에러가 발생하면 최대 2번 호출하도록 변경함!!
+		for i := 1; i <= 2; i++ {
+			time.Sleep(100 * time.Millisecond)
+
+			res, err = http.Get(url)
+			if err == nil {
+				goto SUCCEED
+			}
 		}
+
+		return nil, fmt.Sprintf("%s 접근이 실패하였습니다.", title), err
 	}
+SUCCEED:
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Sprintf("%s 접근이 실패하였습니다.", title), fmt.Errorf("HTTP Response StatusCode %d", res.StatusCode)
 	}
