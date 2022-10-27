@@ -450,7 +450,13 @@ func (c *yeosuCityCrawler) extractArticle(boardType string, s *goquery.Selection
 
 		// 등록일
 		var createdDateString = strings.TrimSpace(as.Eq(0).Text())
-		if matched, _ := regexp.MatchString("[0-9]{4}-[0-9]{2}-[0-9]{2}", createdDateString); matched == true {
+		if matched, _ := regexp.MatchString("[0-9]{2}:[0-9]{2}:[0-9]{2}", createdDateString); matched == true {
+			var now = time.Now()
+			article.CreatedDate, err = time.ParseInLocation("2006-01-02 15:04:05", fmt.Sprintf("%04d-%02d-%02d %s", now.Year(), now.Month(), now.Day(), createdDateString), time.Local)
+			if err != nil {
+				return nil, fmt.Errorf("게시글에서 등록일('%s') 파싱이 실패하였습니다. (error:%s)", createdDateString, err)
+			}
+		} else if matched, _ := regexp.MatchString("[0-9]{4}-[0-9]{2}-[0-9]{2}", createdDateString); matched == true {
 			var now = time.Now()
 			if fmt.Sprintf("%04d-%02d-%02d", now.Year(), now.Month(), now.Day()) == createdDateString {
 				article.CreatedDate, err = time.ParseInLocation("2006-01-02 15:04:05", fmt.Sprintf("%s %02d:%02d:%02d", createdDateString, now.Hour(), now.Minute(), now.Second()), time.Local)
