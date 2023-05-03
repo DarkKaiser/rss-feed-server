@@ -26,10 +26,6 @@ func New(config *g.AppConfig) (*echo.Echo, *handler.WebServiceHandlers) {
 	e.Debug = true
 	e.HideBanner = true
 
-	e.Renderer = &TemplateRegistry{
-		templates: template.Must(template.ParseFiles("services/ws/templates/rss_feed_summary_view.html")),
-	}
-
 	// echo에서 출력되는 로그를 Logrus Logger로 출력되도록 한다.
 	// echo Logger의 인터페이스를 래핑한 객체를 이용하여 Logrus Logger로 보낸다.
 	e.Logger = _middleware_.Logger{Logger: log.StandardLogger()}
@@ -39,6 +35,10 @@ func New(config *g.AppConfig) (*echo.Echo, *handler.WebServiceHandlers) {
 	//	Format: `time="${time_rfc3339}" level=${level} remote_ip="${remote_ip}" host="${host}" method="${method}" uri="${uri}" user_agent="${user_agent}" ` +
 	//		`status=${status} error="${error}" latency=${latency} latency_human="${latency_human}" bytes_in=${bytes_in} bytes_out=${bytes_out}` + "\n",
 	//}))
+
+	e.Renderer = &TemplateRegistry{
+		templates: template.Must(template.ParseFiles("services/ws/templates/rss_feed_summary_view.html")),
+	}
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{ // CORS Middleware
 		AllowOrigins: []string{"*"},
