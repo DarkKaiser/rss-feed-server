@@ -7,14 +7,28 @@ import (
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 	log "github.com/sirupsen/logrus"
+	"html/template"
+	"io"
 	"net/http"
 )
+
+type TemplateRegistry struct {
+	templates *template.Template
+}
+
+func (t *TemplateRegistry) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
+	return t.templates.ExecuteTemplate(w, name, data)
+}
 
 func New(config *g.AppConfig) (*echo.Echo, *handler.WebServiceHandlers) {
 	e := echo.New()
 
 	e.Debug = true
 	e.HideBanner = true
+
+	e.Renderer = &TemplateRegistry{
+		templates: template.Must(template.ParseFiles("services/ws/templates/rss_feed_summary_view.html")),
+	}
 
 	// echo에서 출력되는 로그를 Logrus Logger로 출력되도록 한다.
 	// echo Logger의 인터페이스를 래핑한 객체를 이용하여 Logrus Logger로 보낸다.

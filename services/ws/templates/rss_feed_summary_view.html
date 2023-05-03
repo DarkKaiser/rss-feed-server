@@ -1,0 +1,64 @@
+{{ define "rss_feed_summary_view.html" }}
+<!doctype html>
+<html>
+<head>
+    <style>
+        #providers {
+            font-family: Arial, Helvetica, sans-serif;
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        #providers td, #providers th {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+
+        #providers tr:nth-child(even) { background-color: #f2f2f2; }
+
+        #providers tr:hover { background-color: #ddd; }
+
+        #providers th {
+            padding-top: 12px;
+            padding-bottom: 12px;
+            text-align: center;
+            background-color: #4CAF50;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+<h3>RSS 피드 목록</h3>
+* RSS 피드 최대 갯수 : {{ .rssFeed.MaxItemCount }}개
+<table id="providers">
+    <tr>
+        <th>정보제공</th>
+        <th>RSS 주소</th>
+        <th>사이트<br>ID</th>
+        <th>사이트<br>이름</th>
+        <th>사이트<br>URL</th>
+        <th>사이트<br>게시판목록</th>
+        <th>사이트<br>스케쥴</th>
+        <th>사이트<br>게시글 저장기간</th>
+    </tr>
+    {{ $srvUrl := .srvUrl }}
+    {{ range .rssFeed.Providers }}
+    <tr>
+        <td>{{ .Site }}</td>
+        <td><a href="{{ $srvUrl }}/{{ .ID }}.xml" target="_blank">{{ $srvUrl }}/{{ .ID }}.xml</a></td>
+        <td>{{ .Config.ID }}</td>
+        <td>{{ .Config.Name }}</td>
+        <td>{{ .Config.Url }}</td>
+        <td>
+            {{ range .Config.Boards }}
+                {{ .Name }}<br>
+            {{ end }}
+        </td>
+        <td>{{ .CrawlingScheduler.TimeSpec }}</td>
+        <td>{{ .Config.ArticleArchiveDate }}일</td>
+    </tr>
+    {{ end }}
+</table>
+</body>
+</html>
+{{ end }}
