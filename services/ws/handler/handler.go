@@ -65,80 +65,10 @@ func (h *WebServiceHandlers) GetModel() model.RssFeedProvidersAccessor {
 }
 
 func (h *WebServiceHandlers) GetRssFeedSummaryViewHandler(c echo.Context) error {
-	var html = fmt.Sprintf(`
-		<!DOCTYPE html>
-		<html>
-		<head>
-		<style>
-		#providers {
-		  font-family: Arial, Helvetica, sans-serif;
-		  border-collapse: collapse;
-		  width: 100%%;
-		}
-		
-		#providers td, #providers th {
-		  border: 1px solid #ddd;
-		  padding: 8px;
-		}
-
-		#providers tr:nth-child(even) { background-color: #f2f2f2; }
-		
-		#providers tr:hover { background-color: #ddd; }
-		
-		#providers th {
-		  padding-top: 12px;
-		  padding-bottom: 12px;
-		  text-align: center;
-		  background-color: #4CAF50;
-		  color: white;
-		}
-		</style>
-		</head>
-		<body>
-		<h3>RSS 피드 목록</h3>
-		* RSS 피드 최대 갯수 : %d개
-		<table id="providers">
-		  <tr>
-		    <th>정보제공</th>
-		    <th>RSS 주소</th>
-			<th>사이트<br>ID</th>
-		    <th>사이트<br>이름</th>
-		    <th>사이트<br>URL</th>
-		    <th>사이트<br>게시판목록</th>
-		    <th>사이트<br>스케쥴</th>
-		    <th>사이트<br>게시글 저장기간</th>
-		  </tr>
-	`, h.config.RssFeed.MaxItemCount)
-
-	for _, p := range h.config.RssFeed.Providers {
-		rssFeedUrl := fmt.Sprintf("%s://%s/%s.xml", c.Scheme(), c.Request().Host, p.ID)
-
-		boardNames := ""
-		for _, board := range p.Config.Boards {
-			boardNames += fmt.Sprintf("%s<br>", board.Name)
-		}
-
-		html += fmt.Sprintf(`
-		  <tr>
-		    <td>%s</td>
-		    <td><a href="%s" target="_blank">%s</a></td>
-		    <td>%s</td>
-		    <td>%s</td>
-		    <td>%s</td>
-		    <td>%s</td>
-		    <td>%s</td>
-		    <td>%d일</td>
-		  </tr>
-		`, p.Site, rssFeedUrl, rssFeedUrl, p.Config.ID, p.Config.Name, p.Config.Url, boardNames, p.CrawlingScheduler.TimeSpec, p.Config.ArticleArchiveDate)
-	}
-
-	html += `
-		</table>
-		</body>
-		</html>
-	`
-
-	return c.HTML(200, html)
+	return c.Render(http.StatusOK, "rss_feed_summary_view.html", map[string]interface{}{
+		"srvUrl":  fmt.Sprintf("%s://%s", c.Scheme(), c.Request().Host),
+		"rssFeed": h.config.RssFeed,
+	})
 }
 
 func (h *WebServiceHandlers) GetRssFeedHandler(c echo.Context) error {
