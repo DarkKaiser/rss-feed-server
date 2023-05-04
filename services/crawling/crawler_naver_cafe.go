@@ -143,7 +143,7 @@ type naverCafeCrawler struct {
 
 //noinspection GoErrorStringFormat,GoUnhandledErrorResult
 func (c *naverCafeCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, map[string]string, string, error) {
-	idString, latestCrawledCreatedDate, err := c.rssFeedProvidersAccessor.LatestCrawledArticleData(c.rssFeedProviderID, "")
+	idString, latestCrawledCreatedDate, err := c.rssFeedProvidersAccessor.LatestCrawledInfo(c.rssFeedProviderID, "")
 	if err != nil {
 		return nil, nil, fmt.Sprintf("%s('%s')에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", c.site, c.siteID), err
 	}

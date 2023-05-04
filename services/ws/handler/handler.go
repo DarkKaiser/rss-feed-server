@@ -66,8 +66,8 @@ func (h *WebServiceHandlers) GetModel() model.RssFeedProvidersAccessor {
 
 func (h *WebServiceHandlers) GetRssFeedSummaryViewHandler(c echo.Context) error {
 	return c.Render(http.StatusOK, "rss_feed_summary_view.html", map[string]interface{}{
-		"srvUrl":  fmt.Sprintf("%s://%s", c.Scheme(), c.Request().Host),
-		"rssFeed": h.config.RssFeed,
+		"serviceUrl": fmt.Sprintf("%s://%s", c.Scheme(), c.Request().Host),
+		"rssFeed":    h.config.RssFeed,
 	})
 }
 

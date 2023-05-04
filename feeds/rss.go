@@ -19,7 +19,7 @@ type CDATA2 struct {
 	Text string `xml:",cdata"`
 }
 
-// private wrapper around the RssFeed which gives us the <rss>..</rss> xml
+// private wrapper around the RssFeed which gives us the <rss>...</rss> xml
 type RssFeedXml struct {
 	XMLName xml.Name `xml:"rss"`
 	Version string   `xml:"version,attr"`
@@ -68,7 +68,7 @@ type RssItem struct {
 	Category    CDATA  `xml:"category,omitempty"`
 	Comments    string `xml:"comments,omitempty"`
 	Enclosure   *RssEnclosure
-	Guid        string `xml:"guid,omitempty"`    // Id used
+	Guid        string `xml:"guid,omitempty"`    // ID used
 	PubDate     string `xml:"pubDate,omitempty"` // created or updated
 	Source      string `xml:"source,omitempty"`
 }

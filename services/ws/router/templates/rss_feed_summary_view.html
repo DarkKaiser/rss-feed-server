@@ -1,7 +1,8 @@
 {{ define "rss_feed_summary_view.html" }}
-<!doctype html>
-<html>
+<!DOCTYPE HTML>
+<html lang="ko">
 <head>
+    <title>RSS 피드 목록</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
     <style>
         * {
@@ -40,11 +41,11 @@
             </tr>
         </thead>
         <tbody>
-            {{ $srvUrl := .srvUrl }}
+            {{ $serviceUrl := .serviceUrl }}
             {{ range .rssFeed.Providers }}
             <tr>
                 <td>{{ .Site }}</td>
-                <td><a href="{{ $srvUrl }}/{{ .ID }}.xml" target="_blank">{{ $srvUrl }}/{{ .ID }}.xml</a></td>
+                <td><a href="{{ $serviceUrl }}/{{ .ID }}.xml" target="_blank">{{ $serviceUrl }}/{{ .ID }}.xml</a></td>
                 <td>{{ .Config.ID }}</td>
                 <td>{{ .Config.Name }}</td>
                 <td>{{ .Config.Url }}</td>
