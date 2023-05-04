@@ -333,7 +333,7 @@ func (p *RssFeedProviders) deleteOutOfDateArticle(providerID string, articleArch
 }
 
 //noinspection GoUnhandledErrorResult,GoSnakeCaseUsage
-func (p *RssFeedProviders) LatestCrawledArticleData(providerID, emptyOrBoardID string) (string, time.Time, error) {
+func (p *RssFeedProviders) LatestCrawledInfo(providerID, emptyOrBoardID string) (string, time.Time, error) {
 	var err error
 	var articleID sql.NullString
 	var createdDate sql.NullTime

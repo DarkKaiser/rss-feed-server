@@ -55,7 +55,7 @@ func (s *webService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 	e, s.handlers = router.New(s.config)
 
 	go func(listenPort int) {
-		log.Debugf("웹 서비스 > http 서버(:%d) 시작", listenPort)
+		log.Debugf("웹 서비스 > http 서버(:%d) 시작됨", listenPort)
 
 		var err error
 		if s.config.WS.TLSServer == true {
