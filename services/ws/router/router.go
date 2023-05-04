@@ -1,6 +1,7 @@
 package router
 
 import (
+	"embed"
 	"github.com/darkkaiser/rss-feed-server/g"
 	"github.com/darkkaiser/rss-feed-server/services/ws/handler"
 	_middleware_ "github.com/darkkaiser/rss-feed-server/services/ws/middleware"
@@ -10,6 +11,11 @@ import (
 	"html/template"
 	"io"
 	"net/http"
+)
+
+var (
+	//go:embed templates/*.html
+	templatesFS embed.FS
 )
 
 type TemplateRegistry struct {
@@ -37,7 +43,7 @@ func New(config *g.AppConfig) (*echo.Echo, *handler.WebServiceHandlers) {
 	//}))
 
 	e.Renderer = &TemplateRegistry{
-		templates: template.Must(template.ParseFiles("services/ws/templates/rss_feed_summary_view.html")),
+		templates: template.Must(template.ParseFS(templatesFS, "templates/rss_feed_summary_view.html")),
 	}
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{ // CORS Middleware
