@@ -35,9 +35,9 @@ pipeline {
                     sudo cp -f ./rss-feed-server.운영.json /usr/local/rss-feed-server/rss-feed-server.json
 
                     sudo chown pi:staff /usr/local/rss-feed-server/rss-feed-server
-                    sudo chown pi:staff /usr/local/rss-feed-server/rss-feed-server.sh
-                    sudo chown pi:staff /usr/local/rss-feed-server/rss-feed-server-restart.sh
                     sudo chown pi:staff /usr/local/rss-feed-server/rss-feed-server.json
+                    sudo chown root:staff /usr/local/rss-feed-server/rss-feed-server.sh
+                    sudo chown root:staff /usr/local/rss-feed-server/rss-feed-server-restart.sh
                 '''
             }
         }
