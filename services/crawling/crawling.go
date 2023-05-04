@@ -59,7 +59,7 @@ func (s *crawlingService) Run(serviceStopCtx context.Context, serviceStopWaiter 
 		if err != nil {
 			m := fmt.Sprintf("%s(ID:%s) 크롤링 작업의 스케쥴러 등록이 실패하였습니다. 구현된 Crawler가 존재하지 않습니다.", p.Site, p.ID)
 
-			notifyapi.SendNotifyMessage(m, true)
+			notifyapi.Send(m, true)
 
 			log.Panic(m)
 
@@ -69,7 +69,7 @@ func (s *crawlingService) Run(serviceStopCtx context.Context, serviceStopWaiter 
 		if _, err := s.cron.AddJob(p.CrawlingScheduler.TimeSpec, crawlerConfig.newCrawlerFn(p.ID, p.Config, s.modelGetter)); err != nil {
 			m := fmt.Sprintf("%s(ID:%s) 크롤링 작업의 스케쥴러 등록이 실패하였습니다. (error:%s)", p.Site, p.ID, err)
 
-			notifyapi.SendNotifyMessage(m, true)
+			notifyapi.Send(m, true)
 
 			log.Panic(m)
 		}

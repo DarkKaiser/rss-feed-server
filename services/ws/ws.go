@@ -72,7 +72,7 @@ func (s *webService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 
 			log.Errorf("%s (error:%s)", m, err)
 
-			notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+			notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 		}
 	}(s.config.WS.ListenPort)
 
@@ -94,7 +94,7 @@ func (s *webService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 
 					log.Errorf("%s (error:%s)", m, err)
 
-					notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+					notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 				}
 
 				// 웹 서비스의 핸들러를 닫는다.

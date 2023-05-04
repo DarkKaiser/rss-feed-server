@@ -33,7 +33,7 @@ func NewWebServiceHandlers(config *g.AppConfig) *WebServiceHandlers {
 	if err != nil {
 		m := "RSS Feed DB를 여는 중에 치명적인 오류가 발생하였습니다."
 
-		notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+		notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 
 		log.Panicf("%s (error:%s)", m, err)
 	}
@@ -56,7 +56,7 @@ func (h *WebServiceHandlers) Close() {
 
 		log.Errorf("%s (error:%s)", m, err)
 
-		notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+		notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 	}
 }
 
@@ -96,7 +96,7 @@ func (h *WebServiceHandlers) GetRssFeedHandler(c echo.Context) error {
 
 				log.Errorf("%s (error:%s)", m, err)
 
-				notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+				notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 
 				return echo.NewHTTPError(http.StatusInternalServerError, err)
 			}
@@ -128,7 +128,7 @@ func (h *WebServiceHandlers) GetRssFeedHandler(c echo.Context) error {
 
 		log.Errorf("%s (error:%s)", m, err)
 
-		notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+		notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 
 		return echo.NewHTTPError(http.StatusInternalServerError, err)
 	}

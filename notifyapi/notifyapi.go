@@ -55,7 +55,7 @@ type notifyMessage struct {
 }
 
 //goland:noinspection GoUnhandledErrorResult
-func SendNotifyMessage(message string, errorOccurred bool) bool {
+func Send(message string, errorOccurred bool) bool {
 	if config.valid == false {
 		log.Warn("NotifyAPI의 설정값이 유효하지 않습니다. NotifyAPI를 사용할 수 없습니다.")
 		return false

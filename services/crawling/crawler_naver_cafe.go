@@ -32,7 +32,7 @@ func init() {
 			if ok == false {
 				m := fmt.Sprintf("%s Crawler에서 사용할 RSS Feed Providers를 찾을 수 없습니다.", site)
 
-				notifyapi.SendNotifyMessage(m, true)
+				notifyapi.Send(m, true)
 
 				log.Panic(m)
 			}
@@ -41,7 +41,7 @@ func init() {
 			if err := data.fillFromMap(config.Data); err != nil {
 				m := fmt.Sprintf("작업 데이터가 유효하지 않아 %s('%s') Crawler 생성이 실패하였습니다. (error:%s)", site, config.ID, err)
 
-				notifyapi.SendNotifyMessage(m, true)
+				notifyapi.Send(m, true)
 
 				log.Panic(m)
 			}
@@ -432,7 +432,7 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.RssFeed
 
 		log.Warnf("%s (error:%s)", m, err)
 
-		notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), false)
+		notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), false)
 
 		return
 	}
@@ -452,7 +452,7 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.RssFeed
 
 				log.Warn(m)
 
-				notifyapi.SendNotifyMessage(m, false)
+				notifyapi.Send(m, false)
 			}
 
 		case "STICKER":
@@ -464,7 +464,7 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.RssFeed
 
 			log.Warn(m)
 
-			notifyapi.SendNotifyMessage(m, false)
+			notifyapi.Send(m, false)
 		}
 	}
 

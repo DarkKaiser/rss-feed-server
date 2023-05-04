@@ -39,7 +39,7 @@ func NewRssFeedProviders(config *g.AppConfig, db *sql.DB) *RssFeedProviders {
 	if err := p.init(config); err != nil {
 		m := "RSS Feed DB를 초기화하는 중에 치명적인 오류가 발생하였습니다."
 
-		notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+		notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 
 		log.Panicf("%s (error:%s)", m, err)
 	}
@@ -252,7 +252,7 @@ func (p *RssFeedProviders) InsertArticles(providerID string, articles []*RssFeed
 
 			// 너무 많은 알림 메시지가 발송될 수 있으므로, 동시에 입력되는 게시글 중 최초 오류건에 대해서만 알림 메시지를 보낸다.
 			if sentNotifyMessage == false {
-				sentNotifyMessage = notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+				sentNotifyMessage = notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 			}
 		} else {
 			insertedCnt += 1
