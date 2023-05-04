@@ -72,7 +72,7 @@ func (c *crawler) Run() {
 	if err != nil {
 		log.Errorf("%s (error:%s)", errOccurred, err)
 
-		notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", errOccurred, err), true)
+		notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", errOccurred, err), true)
 
 		return
 	}
@@ -87,7 +87,7 @@ func (c *crawler) Run() {
 
 				log.Errorf("%s (error:%s)", m, err)
 
-				notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+				notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 
 				return
 			}
@@ -102,7 +102,7 @@ func (c *crawler) Run() {
 
 					log.Errorf("%s (error:%s)", m, err)
 
-					notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+					notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 				}
 			}
 
@@ -122,7 +122,7 @@ func (c *crawler) Run() {
 
 					log.Errorf("%s (error:%s)", m, err)
 
-					notifyapi.SendNotifyMessage(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+					notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 				}
 			}
 

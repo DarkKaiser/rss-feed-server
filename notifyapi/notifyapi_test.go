@@ -91,7 +91,7 @@ func TestInit(t *testing.T) {
 	}
 }
 
-func TestSendNotifyMessage(t *testing.T) {
+func TestSend(t *testing.T) {
 	assert := assert.New(t)
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -111,10 +111,10 @@ func TestSendNotifyMessage(t *testing.T) {
 	})
 
 	assert.True(config.valid)
-	assert.True(SendNotifyMessage("메시지", false))
+	assert.True(Send("메시지", false))
 
 	// 빈 메시지를 넘겼을 경우...
-	assert.False(SendNotifyMessage("", false))
+	assert.False(Send("", false))
 
 	// 유효하지 않은 설정값으로 초기화되었을 경우...
 	Init(&Config{
@@ -124,5 +124,5 @@ func TestSendNotifyMessage(t *testing.T) {
 	})
 
 	assert.False(config.valid)
-	assert.False(SendNotifyMessage("메시지", false))
+	assert.False(Send("메시지", false))
 }

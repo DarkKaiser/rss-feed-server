@@ -49,7 +49,7 @@ func init() {
 			if ok == false {
 				m := fmt.Sprintf("%s Crawler에서 사용할 RSS Feed Providers를 찾을 수 없습니다.", site)
 
-				notifyapi.SendNotifyMessage(m, true)
+				notifyapi.Send(m, true)
 
 				log.Panic(m)
 			}
