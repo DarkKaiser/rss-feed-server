@@ -51,7 +51,7 @@ func main() {
 
 	// 서비스를 생성하고 초기화한다.
 	webService := ws.NewService(config)
-	crawlingService := crawling.NewService(config, webService.(model.ModelGetter))
+	crawlingService := crawling.NewService(config, webService.(model.Accessor))
 
 	// Set up cancellation context and waitgroup
 	serviceStopCtx, cancel := context.WithCancel(context.Background())
