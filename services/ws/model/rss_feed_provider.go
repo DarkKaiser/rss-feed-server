@@ -27,12 +27,19 @@ func (a RssFeedProviderArticle) String() string {
 	return fmt.Sprintf("[%s, %s, %s, %s, %s, %s, %s, %s]", a.BoardID, a.BoardName, a.ArticleID, a.Title, a.Content, a.Link, a.Author, a.CreatedDate.Format("2006-10-02 15:04:05"))
 }
 
-type RssFeedProviders struct {
+type RssFeedProvider struct {
 	db *sql.DB
 }
 
-func NewRssFeedProviders(config *g.AppConfig, db *sql.DB) *RssFeedProviders {
-	p := &RssFeedProviders{
+type RssFeedProviderAccessor interface {
+	InsertArticles(providerID string, articles []*RssFeedProviderArticle) (int, error)
+
+	LatestCrawledInfo(providerID, emptyOrBoardID string) (string, time.Time, error)
+	UpdateLatestCrawledArticleID(providerID, emptyOrBoardID, latestCrawledArticleID string) error
+}
+
+func NewRssFeedProvider(config *g.AppConfig, db *sql.DB) *RssFeedProvider {
+	p := &RssFeedProvider{
 		db: db,
 	}
 
@@ -47,7 +54,7 @@ func NewRssFeedProviders(config *g.AppConfig, db *sql.DB) *RssFeedProviders {
 	return p
 }
 
-func (p *RssFeedProviders) init(config *g.AppConfig) error {
+func (p *RssFeedProvider) init(config *g.AppConfig) error {
 	if err := p.createTables(); err != nil {
 		return err
 	}
@@ -74,7 +81,7 @@ func (p *RssFeedProviders) init(config *g.AppConfig) error {
 }
 
 //noinspection GoUnhandledErrorResult
-func (p *RssFeedProviders) createTables() error {
+func (p *RssFeedProvider) createTables() error {
 	//
 	// rss_provider 테이블
 	//
@@ -199,7 +206,7 @@ func (p *RssFeedProviders) createTables() error {
 }
 
 //noinspection GoUnhandledErrorResult
-func (p *RssFeedProviders) insertRssFeedProvider(id, site, sId, sName, sDescription, sUrl string) error {
+func (p *RssFeedProvider) insertRssFeedProvider(id, site, sId, sName, sDescription, sUrl string) error {
 	stmt, err := p.db.Prepare(`
 		INSERT OR REPLACE
 		  INTO rss_provider (id, site, s_id, s_name, s_description, s_url) 
@@ -217,7 +224,7 @@ func (p *RssFeedProviders) insertRssFeedProvider(id, site, sId, sName, sDescript
 }
 
 //noinspection GoUnhandledErrorResult
-func (p *RssFeedProviders) insertRssFeedProviderBoard(providerID, id, name string) error {
+func (p *RssFeedProvider) insertRssFeedProviderBoard(providerID, id, name string) error {
 	stmt, err := p.db.Prepare("INSERT OR REPLACE INTO rss_provider_board (p_id, id, name) VALUES (?, ?, ?)")
 	if err != nil {
 		return err
@@ -231,7 +238,7 @@ func (p *RssFeedProviders) insertRssFeedProviderBoard(providerID, id, name strin
 }
 
 //noinspection GoUnhandledErrorResult
-func (p *RssFeedProviders) InsertArticles(providerID string, articles []*RssFeedProviderArticle) (int, error) {
+func (p *RssFeedProvider) InsertArticles(providerID string, articles []*RssFeedProviderArticle) (int, error) {
 	stmt, err := p.db.Prepare(`
 		INSERT OR REPLACE
 		  INTO rss_provider_article (p_id, b_id, id, title, content, link, author, created_date)
@@ -263,7 +270,7 @@ func (p *RssFeedProviders) InsertArticles(providerID string, articles []*RssFeed
 }
 
 //noinspection GoUnhandledErrorResult
-func (p *RssFeedProviders) Articles(providerID string, boardIDs []string, maxArticleCount uint) ([]*RssFeedProviderArticle, error) {
+func (p *RssFeedProvider) Articles(providerID string, boardIDs []string, maxArticleCount uint) ([]*RssFeedProviderArticle, error) {
 	stmt, err := p.db.Prepare(fmt.Sprintf(`
 		SELECT a.b_id
              , b.name b_name
@@ -314,7 +321,7 @@ func (p *RssFeedProviders) Articles(providerID string, boardIDs []string, maxArt
 }
 
 //noinspection GoUnhandledErrorResult
-func (p *RssFeedProviders) deleteOutOfDateArticle(providerID string, articleArchiveDate uint) error {
+func (p *RssFeedProvider) deleteOutOfDateArticle(providerID string, articleArchiveDate uint) error {
 	stmt, err := p.db.Prepare(fmt.Sprintf(`
 		DELETE 
 		  FROM rss_provider_article
@@ -333,7 +340,7 @@ func (p *RssFeedProviders) deleteOutOfDateArticle(providerID string, articleArch
 }
 
 //noinspection GoUnhandledErrorResult,GoSnakeCaseUsage
-func (p *RssFeedProviders) LatestCrawledInfo(providerID, emptyOrBoardID string) (string, time.Time, error) {
+func (p *RssFeedProvider) LatestCrawledInfo(providerID, emptyOrBoardID string) (string, time.Time, error) {
 	var err error
 	var articleID sql.NullString
 	var createdDate sql.NullTime
@@ -385,7 +392,7 @@ func (p *RssFeedProviders) LatestCrawledInfo(providerID, emptyOrBoardID string) 
 }
 
 //noinspection GoUnhandledErrorResult,GoSnakeCaseUsage
-func (p *RssFeedProviders) UpdateLatestCrawledArticleID(providerID, emptyOrBoardID, latestCrawledArticleID string) error {
+func (p *RssFeedProvider) UpdateLatestCrawledArticleID(providerID, emptyOrBoardID, latestCrawledArticleID string) error {
 	stmt, err := p.db.Prepare("INSERT OR REPLACE INTO rss_provider_site_crawled_data (p_id, b_id, latest_crawled_article_id) VALUES (?, ?, ?)")
 	if err != nil {
 		return err

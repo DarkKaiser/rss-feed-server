@@ -114,6 +114,6 @@ func (s *webService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 	log.Debug("웹 서비스 시작됨")
 }
 
-func (s *webService) GetModel() model.RssFeedProvidersAccessor {
-	return s.handlers.GetModel()
+func (s *webService) RssFeedProviderModel() model.RssFeedProviderAccessor {
+	return s.handlers.RssFeedProviderModel()
 }

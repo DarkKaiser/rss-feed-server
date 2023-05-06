@@ -103,10 +103,6 @@ func (c *AppConfig) validation() {
 		panicIfEmpty(c.WS.CertFilePath, "웹서버의 Cert 파일 경로가 입력되지 않았습니다.")
 		panicIfEmpty(c.WS.KeyFilePath, "웹서버의 Key 파일 경로가 입력되지 않았습니다.")
 	}
-
-	panicIfEmpty(c.NotifyAPI.Url, "NotifyAPI의 Url이 입력되지 않았습니다.")
-	panicIfEmpty(c.NotifyAPI.APIKey, "NotifyAPI의 APIKey가 입력되지 않았습니다.")
-	panicIfEmpty(c.NotifyAPI.ApplicationID, "NotifyAPI의 ApplicationID가 입력되지 않았습니다.")
 }
 
 func (c *AppConfig) validationRssFeedProviderConfig(provider string, providerConfig *ProviderConfig, validatedProviderSiteIDs *[]string) {

@@ -20,19 +20,19 @@ type crawlingService struct {
 
 	cron *cron.Cron
 
-	modelGetter model.ModelGetter
+	modelAccessor model.Accessor
 
 	running   bool
 	runningMu sync.Mutex
 }
 
-func NewService(config *g.AppConfig, modelGetter model.ModelGetter) services.Service {
+func NewService(config *g.AppConfig, modelAccessor model.Accessor) services.Service {
 	return &crawlingService{
 		config: config,
 
 		cron: cron.New(cron.WithLogger(cron.VerbosePrintfLogger(log.StandardLogger()))),
 
-		modelGetter: modelGetter,
+		modelAccessor: modelAccessor,
 
 		running:   false,
 		runningMu: sync.Mutex{},
@@ -66,7 +66,7 @@ func (s *crawlingService) Run(serviceStopCtx context.Context, serviceStopWaiter 
 			return
 		}
 
-		if _, err := s.cron.AddJob(p.CrawlingScheduler.TimeSpec, crawlerConfig.newCrawlerFn(p.ID, p.Config, s.modelGetter)); err != nil {
+		if _, err := s.cron.AddJob(p.CrawlingScheduler.TimeSpec, crawlerConfig.newCrawlerFn(p.ID, p.Config, s.modelAccessor)); err != nil {
 			m := fmt.Sprintf("%s(ID:%s) 크롤링 작업의 스케쥴러 등록이 실패하였습니다. (error:%s)", p.Site, p.ID, err)
 
 			notifyapi.Send(m, true)

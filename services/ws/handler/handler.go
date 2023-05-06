@@ -23,7 +23,7 @@ type WebServiceHandlers struct {
 
 	db *sql.DB
 
-	rssFeedProvidersModel *model.RssFeedProviders
+	rssFeedProviderModel *model.RssFeedProvider
 
 	rssFeedMaxItemCount uint
 }
@@ -43,7 +43,7 @@ func NewWebServiceHandlers(config *g.AppConfig) *WebServiceHandlers {
 
 		db: db,
 
-		rssFeedProvidersModel: model.NewRssFeedProviders(config, db),
+		rssFeedProviderModel: model.NewRssFeedProvider(config, db),
 
 		rssFeedMaxItemCount: config.RssFeed.MaxItemCount,
 	}
@@ -60,8 +60,8 @@ func (h *WebServiceHandlers) Close() {
 	}
 }
 
-func (h *WebServiceHandlers) GetModel() model.RssFeedProvidersAccessor {
-	return h.rssFeedProvidersModel
+func (h *WebServiceHandlers) RssFeedProviderModel() model.RssFeedProviderAccessor {
+	return h.rssFeedProviderModel
 }
 
 func (h *WebServiceHandlers) GetRssFeedSummaryViewHandler(c echo.Context) error {
@@ -90,7 +90,7 @@ func (h *WebServiceHandlers) GetRssFeedHandler(c echo.Context) error {
 				boardIDs = append(boardIDs, b.ID)
 			}
 
-			articles, err := h.rssFeedProvidersModel.Articles(p.ID, boardIDs, h.rssFeedMaxItemCount)
+			articles, err := h.rssFeedProviderModel.Articles(p.ID, boardIDs, h.rssFeedMaxItemCount)
 			if err != nil {
 				m := fmt.Sprintf("RSS Feed DB에서 게시글을 읽어오는 중에 오류가 발생하였습니다. (p_id:%s)", p.ID)
 
