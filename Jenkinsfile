@@ -16,12 +16,23 @@ pipeline {
 
         stage('체크아웃') {
             steps {
-                checkout([$class: 'GitSCM', branches: [[name: '*/main']], extensions: [[$class: 'SubmoduleOption',
-                                                                                                                                                        disableSubmodules: false,
-                                                                                                                                                        parentCredentials: true,
-                                                                                                                                                        recursiveSubmodules: false,
-                                                                                                                                                        reference: '',
-                                                                                                                                                        trackingSubmodules: true]], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'github-darkkaiser-credentials', url: 'https://github.com/DarkKaiser/rss-feed-server.git']]])
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[ name: '*/main' ]],
+                    extensions: [[
+                        $class: 'SubmoduleOption',
+                        disableSubmodules: false,
+                        parentCredentials: true,
+                        recursiveSubmodules: false,
+                        reference: '',
+                        trackingSubmodules: true
+                    ]],
+                    submoduleCfg: [],
+                    userRemoteConfigs: [[
+                        credentialsId: 'github-darkkaiser-credentials',
+                        url: 'https://github.com/DarkKaiser/rss-feed-server.git'
+                    ]]
+                ])
             }
         }
 
@@ -37,7 +48,7 @@ pipeline {
                     sudo cp -f ./rss-feed-server /usr/local/rss-feed-server/
                     sudo cp -f ./rss-feed-server.sh /usr/local/rss-feed-server/
                     sudo cp -f ./rss-feed-server-restart.sh /usr/local/rss-feed-server/
-                    sudo cp -f ./rss-feed-server.운영.json /usr/local/rss-feed-server/rss-feed-server.json
+                    sudo cp -f ./secrets/rss-feed-server.운영.json /usr/local/rss-feed-server/rss-feed-server.json
 
                     sudo chown pi:staff /usr/local/rss-feed-server/rss-feed-server
                     sudo chown pi:staff /usr/local/rss-feed-server/rss-feed-server.json
@@ -72,9 +83,9 @@ pipeline {
                 telegramSend(message: '【 알림 > Jenkins > ' + env.PROJECT_NAME + ' 】\n\n빌드 작업이 실패하였습니다.\n\n' + env.BUILD_URL)
             }
         }
-//         always {
-            //cleanWs()
-//         }
+        always {
+            cleanWs()
+        }
     }
 
 }
