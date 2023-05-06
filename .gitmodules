@@ -1,3 +1,4 @@
-[submodule "secret"]
-	path = secret
-	url = https://github.com/DarkKaiser/rss-feed-server-secret.git
+git
+[submodule "secrets"]
+	path = secrets
+	url = https://github.com/DarkKaiser/rss-feed-server-secrets.git
