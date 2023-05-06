@@ -1,0 +1,164 @@
+{
+	"debug": true,
+	"rss_feed": {
+		"max_item_count": 150,
+		"providers": [
+			{
+				"id": "ludypang",
+				"site": "NaverCafe",
+				"config": {
+					"id": "ludypang",
+					"name": "네이버카페 > 여순광 돈되는 부동산 정보",
+					"description": "여수 순천 광양 돈되는 부동산 정보 리얼 재테크 커뮤니티",
+					"url": "https://cafe.naver.com/ludypang",
+					"boards": [
+						{
+							"id": "222",
+							"name": "부동산 소식",
+							"type": "",
+							"category": "여순광 부동산 정보"
+						},
+						{
+							"id": "17",
+							"name": "여수 Q&A",
+							"type": "",
+							"category": "여순광 부동산 Q&A"
+						},
+						{
+							"id": "164",
+							"name": "순천 Q&A",
+							"type": "",
+							"category": "여순광 부동산 Q&A"
+						},
+						{
+							"id": "58",
+							"name": "광양 Q&A",
+							"type": "",
+							"category": "여순광 부동산 Q&A"
+						},
+						{
+							"id": "167",
+							"name": "기타 Q&A",
+							"type": "",
+							"category": "여순광 부동산 Q&A"
+						},
+						{
+							"id": "72",
+							"name": "여수 자유발언",
+							"type": "",
+							"category": "여순광 부동산 이야기"
+						},
+						{
+							"id": "246",
+							"name": "순천 자유발언",
+							"type": "",
+							"category": "여순광 부동산 이야기"
+						},
+						{
+							"id": "247",
+							"name": "광양 자유발언",
+							"type": "",
+							"category": "여순광 부동산 이야기"
+						},
+						{
+							"id": "248",
+							"name": "기타 자유발언",
+							"type": "",
+							"category": "여순광 부동산 이야기"
+						},
+						{
+							"id": "249",
+							"name": "여순광 지역 소식",
+							"type": "",
+							"category": "여순광 생활 정보"
+						},
+						{
+							"id": "5",
+							"name": "여순광 문화 행사",
+							"type": "",
+							"category": "여순광 생활 정보"
+						},
+						{
+							"id": "403",
+							"name": "여순광 여행 정보",
+							"type": "",
+							"category": "여순광 생활 정보"
+						},
+						{
+							"id": "225",
+							"name": "여순광 맛집",
+							"type": "",
+							"category": "여순광 생활 정보"
+						},
+						{
+							"id": "363",
+							"name": "여순광 생할 정보",
+							"type": "",
+							"category": "여순광 생활 정보"
+						},
+						{
+							"id": "401",
+							"name": "여순광 자동차 정보",
+							"type": "",
+							"category": "여순광 생활 정보"
+						},
+						{
+							"id": "288",
+							"name": "여순광 교육 정보",
+							"type": "",
+							"category": "여순광 생활 정보"
+						},
+						{
+							"id": "307",
+							"name": "여순광 의료 정보",
+							"type": "",
+							"category": "여순광 생활 정보"
+						}
+					],
+					"article_archive_date": 90,
+					"data": {
+						"club_id": "12303558"
+					}
+				},
+				"crawling_scheduler": {
+					"time_spec": "0 * * * *"
+				}
+			},
+			{
+				"id": "yeosu",
+				"site": "YeosuCity",
+				"config": {
+					"id": "yeosu",
+					"name": "여수시 관련 소식",
+					"description": "여수시 관련 소식",
+					"url": "https://www.yeosu.go.kr",
+					"boards": [
+						{
+							"id": "recruit",
+							"name": "시험/채용공고",
+							"type": "L_2",
+							"category": "열린시정 > 여수소식"
+						}
+					],
+					"article_archive_date": 90,
+					"data": {
+					}
+				},
+				"crawling_scheduler": {
+					"time_spec": "*/1 * * * *"
+				}
+			}
+		]
+	},
+	"ws": {
+		"tls_server": false,
+		"certfile_path": "",
+		"keyfile_path": "",
+		"listen_port": 80
+	},
+	"notify_api": {
+		"url": "",
+		"api_key": "",
+		"application_id": ""
+	}
+}
