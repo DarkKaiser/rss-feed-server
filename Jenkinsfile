@@ -16,10 +16,10 @@ pipeline {
 
         stage('체크아웃') {
             steps {
-                checkout([$class: 'GitSCM', branches: [[name: '*/main']], doGenerateSubmoduleConfigurations: false, extensions: [[$class: 'SubmoduleOption',
+                checkout([$class: 'GitSCM', branches: [[name: '*/main']], extensions: [[$class: 'SubmoduleOption',
                                                                                                                                                         disableSubmodules: false,
                                                                                                                                                         parentCredentials: true,
-                                                                                                                                                        recursiveSubmodules: true,
+                                                                                                                                                        recursiveSubmodules: false,
                                                                                                                                                         reference: '',
                                                                                                                                                         trackingSubmodules: true]], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'github-darkkaiser-credentials', url: 'https://github.com/DarkKaiser/rss-feed-server.git']]])
             }
