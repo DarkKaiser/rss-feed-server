@@ -14,7 +14,7 @@
 					"boards": [
 						{
 							"id": "222",
-							"name": "부동산 소식",
+							"name": "부동산 고시/공고",
 							"type": "",
 							"category": "여순광 부동산 정보"
 						},
@@ -121,7 +121,86 @@
 					}
 				},
 				"crawling_scheduler": {
-					"time_spec": "0 * * * *"
+					"time_spec": "15,35,55 * * * *"
+				}
+			},
+			{
+				"id": "yeosumam",
+				"site": "NaverCafe",
+				"config": {
+					"id": "yeosumam",
+					"name": "네이버카페 > 여수맘들 모여라",
+					"description": "여수맘들의 자유로운 공간~ 수다, 중고 장터, 직거래, 여수맛집, 여수여행, 육아정보 공유",
+					"url": "https://cafe.naver.com/yeosumam",
+					"boards": [
+						{
+							"id": "1",
+							"name": "공지/행사 게시판",
+							"type": "",
+							"category": "규칙/공지"
+						},
+						{
+							"id": "86",
+							"name": "카페 이벤트 공지",
+							"type": "",
+							"category": "카페 이벤트/혜택"
+						},
+						{
+							"id": "122",
+							"name": "여수맘 문화 및 공연 제휴/공구",
+							"type": "",
+							"category": "카페 이벤트/혜택"
+						},
+						{
+							"id": "237",
+							"name": "굿네이버스 전남동부 아동권리옹호센터",
+							"type": "",
+							"category": "협력기관 / 정보안내"
+						},
+						{
+							"id": "260",
+							"name": "전남대학교",
+							"type": "",
+							"category": "협력기관 / 정보안내"
+						},
+						{
+							"id": "296",
+							"name": "여수시 가족+센터",
+							"type": "",
+							"category": "협력기관 / 정보안내"
+						},
+						{
+							"id": "318",
+							"name": "여수시청소년수련관",
+							"type": "",
+							"category": "협력기관 / 정보안내"
+						},
+						{
+							"id": "320",
+							"name": "여성인력개발센터",
+							"type": "",
+							"category": "협력기관 / 정보안내"
+						},
+						{
+							"id": "123",
+							"name": "정책정보 안내",
+							"type": "",
+							"category": "협력기관 / 정보안내"
+						},
+						{
+							"id": "429",
+							"name": "2012여수세계박람회재단",
+							"type": "",
+							"category": "협력기관 / 정보안내"
+						}
+					],
+					"article_archive_date": 90,
+					"data": {
+						"club_id": "19246017"
+					}
+				},
+				"crawling_scheduler": {
+					"time_spec": "16,36,56 * * * *"
 				}
 			},
 			{
@@ -129,14 +208,44 @@
 				"site": "YeosuCity",
 				"config": {
 					"id": "yeosu",
-					"name": "여수시 관련 소식",
+					"name": "여수시청",
 					"description": "여수시 관련 소식",
 					"url": "https://www.yeosu.go.kr",
 					"boards": [
 						{
+							"id": "hotnews",
+							"name": "여수핫뉴스",
+							"type": "P",
+							"category": "열린시정 > 여수소식"
+						},
+						{
+							"id": "notice",
+							"name": "공지사항",
+							"type": "L_1",
+							"category": "열린시정 > 여수소식"
+						},
+						{
+							"id": "release",
+							"name": "보도/해명자료",
+							"type": "L_2",
+							"category": "열린시정 > 여수소식"
+						},
+						{
+							"id": "other_news",
+							"name": "타기관소식",
+							"type": "L_1",
+							"category": "열린시정 > 여수소식"
+						},
+						{
 							"id": "recruit",
 							"name": "시험/채용공고",
 							"type": "L_2",
+							"category": "열린시정 > 여수소식"
+						},
+						{
+							"id": "card_news",
+							"name": "카드뉴스",
+							"type": "C",
 							"category": "열린시정 > 여수소식"
 						}
 					],
@@ -145,7 +254,7 @@
 					}
 				},
 				"crawling_scheduler": {
-					"time_spec": "*/1 * * * *"
+					"time_spec": "17,37,57 * * * *"
 				}
 			}
 		]
