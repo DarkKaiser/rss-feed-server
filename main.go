@@ -2,14 +2,16 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"github.com/darkkaiser/rss-feed-server/db"
 	"github.com/darkkaiser/rss-feed-server/g"
 	_log_ "github.com/darkkaiser/rss-feed-server/log"
+	"github.com/darkkaiser/rss-feed-server/model"
 	"github.com/darkkaiser/rss-feed-server/notifyapi"
 	"github.com/darkkaiser/rss-feed-server/services"
 	"github.com/darkkaiser/rss-feed-server/services/crawling"
 	"github.com/darkkaiser/rss-feed-server/services/ws"
-	"github.com/darkkaiser/rss-feed-server/services/ws/model"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
@@ -49,9 +51,25 @@ func main() {
 	// 아스키아트 출력(https://ko.rakko.tools/tools/68/, 폰트:standard)
 	fmt.Printf(banner, g.AppVersion)
 
+	// 데이터베이스를 초기화한다.
+	db := db.New()
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			m := "DB를 닫는 중에 오류가 발생하였습니다."
+
+			log.Errorf("%s (error:%s)", m, err)
+
+			notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+		}
+	}(db)
+
+	// RSS Feed Store를 초기화한다.
+	rssFeedProviderStore := model.NewRssFeedProviderStore(config, db)
+
 	// 서비스를 생성하고 초기화한다.
-	webService := ws.NewService(config)
-	crawlingService := crawling.NewService(config, webService.(model.Accessor))
+	webService := ws.NewService(config, rssFeedProviderStore)
+	crawlingService := crawling.NewService(config, rssFeedProviderStore)
 
 	// Set up cancellation context and waitgroup
 	serviceStopCtx, cancel := context.WithCancel(context.Background())

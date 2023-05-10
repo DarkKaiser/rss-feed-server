@@ -1,0 +1,66 @@
+{{ define "rss_feed_summary_view.tmpl" }}
+<!DOCTYPE HTML>
+<html lang="ko">
+<head>
+    <title>RSS 피드 목록</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+    <style>
+        * {
+            font-size: 13px;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            padding: 20px;
+        }
+
+        th, td {
+            font-size: 13px;
+            font-family: Arial, Helvetica, sans-serif;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div class=".container-fluid">
+    <hgroup>
+        <h1 style="text-align: center">RSS 피드 목록</h1>
+        <h3 style="text-align: right">RSS 피드 최대 갯수 : {{ .rssFeed.MaxItemCount }}개</h3>
+    </hgroup>
+    <table role="grid">
+        <thead>
+            <tr>
+                <th>정보제공</th>
+                <th>RSS 주소</th>
+                <th>사이트 ID</th>
+                <th>사이트 이름</th>
+                <th>사이트 URL</th>
+                <th>사이트 게시판목록</th>
+                <th>사이트 스케쥴</th>
+                <th>사이트 게시글 저장기간</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{ $serviceUrl := .serviceUrl }}
+            {{ range .rssFeed.Providers }}
+            <tr>
+                <td>{{ .Site }}</td>
+                <td><a href="{{ $serviceUrl }}/{{ .ID }}.xml" target="_blank">{{ $serviceUrl }}/{{ .ID }}.xml</a></td>
+                <td>{{ .Config.ID }}</td>
+                <td>{{ .Config.Name }}</td>
+                <td>{{ .Config.Url }}</td>
+                <td style="text-align: left">
+                    {{ range .Config.Boards }}
+                        {{ .Name }}<br>
+                    {{ end }}
+                </td>
+                <td>{{ .CrawlingScheduler.TimeSpec }}</td>
+                <td>{{ .Config.ArticleArchiveDate }}일</td>
+            </tr>
+            {{ end }}
+        </tbody>
+    </table>
+</div>
+</body>
+</html>
+{{ end }}

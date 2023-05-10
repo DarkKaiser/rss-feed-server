@@ -2,12 +2,13 @@ package ws
 
 import (
 	"context"
+	"embed"
 	"fmt"
 	"github.com/darkkaiser/rss-feed-server/g"
+	"github.com/darkkaiser/rss-feed-server/model"
 	"github.com/darkkaiser/rss-feed-server/notifyapi"
 	"github.com/darkkaiser/rss-feed-server/services"
 	"github.com/darkkaiser/rss-feed-server/services/ws/handler"
-	"github.com/darkkaiser/rss-feed-server/services/ws/model"
 	"github.com/darkkaiser/rss-feed-server/services/ws/router"
 	"github.com/labstack/echo"
 	log "github.com/sirupsen/logrus"
@@ -16,21 +17,32 @@ import (
 	"time"
 )
 
+var (
+	//go:embed views
+	views embed.FS
+)
+
 //
 // webService
 //
 type webService struct {
 	config *g.AppConfig
 
-	handlers *handler.WebServiceHandlers
+	handler *handler.Handler
+
+	rssFeedProviderStore *model.RssFeedProviderStore
 
 	running   bool
 	runningMu sync.Mutex
 }
 
-func NewService(config *g.AppConfig) services.Service {
+func NewService(config *g.AppConfig, rssFeedProviderStore *model.RssFeedProviderStore) services.Service {
 	return &webService{
 		config: config,
+
+		handler: handler.NewHandler(config, rssFeedProviderStore),
+
+		rssFeedProviderStore: rssFeedProviderStore,
 
 		running:   false,
 		runningMu: sync.Mutex{},
@@ -52,7 +64,9 @@ func (s *webService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 	}
 
 	var e *echo.Echo
-	e, s.handlers = router.New(s.config)
+	e = router.New(views)
+	e.GET("/", s.handler.GetRssFeedSummaryViewHandler)
+	e.GET("/:id", s.handler.GetRssFeedHandler)
 
 	go func(listenPort int) {
 		log.Debugf("웹 서비스 > http 서버(:%d) 시작됨", listenPort)
@@ -64,7 +78,7 @@ func (s *webService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 			err = e.Start(fmt.Sprintf(":%d", listenPort))
 		}
 
-		// StartTLS(), Start() 함수는 항상 nil이 아닌 error를 반환한다.
+		// Start(), StartTLS() 함수는 항상 nil이 아닌 error를 반환한다.
 		if err == http.ErrServerClosed {
 			log.Debug("웹 서비스 > http 서버 중지됨")
 		} else {
@@ -97,10 +111,6 @@ func (s *webService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 					notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 				}
 
-				// 웹 서비스의 핸들러를 닫는다.
-				s.handlers.Close()
-
-				s.handlers = nil
 				s.running = false
 			}
 			s.runningMu.Unlock()
@@ -112,8 +122,4 @@ func (s *webService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 	s.running = true
 
 	log.Debug("웹 서비스 시작됨")
-}
-
-func (s *webService) RssFeedProviderModel() model.RssFeedProviderAccessor {
-	return s.handlers.RssFeedProviderModel()
 }
