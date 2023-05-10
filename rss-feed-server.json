@@ -261,8 +261,8 @@
 	},
 	"ws": {
 		"tls_server": false,
-		"certfile_path": "",
-		"keyfile_path": "",
+		"tls_cert_file": "",
+		"tls_key_file": "",
 		"listen_port": 80
 	},
 	"notify_api": {
