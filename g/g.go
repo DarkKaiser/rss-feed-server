@@ -38,10 +38,10 @@ type AppConfig struct {
 		} `json:"providers"`
 	} `json:"rss_feed"`
 	WS struct {
-		TLSServer    bool   `json:"tls_server"`
-		CertFilePath string `json:"certfile_path"`
-		KeyFilePath  string `json:"keyfile_path"`
-		ListenPort   int    `json:"listen_port"`
+		TLSServer   bool   `json:"tls_server"`
+		TLSCertFile string `json:"tls_cert_file"`
+		TLSKeyFile  string `json:"tls_key_file"`
+		ListenPort  int    `json:"listen_port"`
 	} `json:"ws"`
 	NotifyAPI struct {
 		Url           string `json:"url"`
@@ -100,8 +100,8 @@ func (c *AppConfig) validation() {
 	}
 
 	if c.WS.TLSServer == true {
-		panicIfEmpty(c.WS.CertFilePath, "웹서버의 Cert 파일 경로가 입력되지 않았습니다.")
-		panicIfEmpty(c.WS.KeyFilePath, "웹서버의 Key 파일 경로가 입력되지 않았습니다.")
+		panicIfEmpty(c.WS.TLSCertFile, "웹서버의 Cert 파일 경로가 입력되지 않았습니다.")
+		panicIfEmpty(c.WS.TLSKeyFile, "웹서버의 Key 파일 경로가 입력되지 않았습니다.")
 	}
 }
 

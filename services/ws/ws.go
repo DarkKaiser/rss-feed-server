@@ -69,7 +69,7 @@ func (s *webService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 
 		var err error
 		if s.config.WS.TLSServer == true {
-			err = e.StartTLS(fmt.Sprintf(":%d", listenPort), s.config.WS.CertFilePath, s.config.WS.KeyFilePath)
+			err = e.StartTLS(fmt.Sprintf(":%d", listenPort), s.config.WS.TLSCertFile, s.config.WS.TLSKeyFile)
 		} else {
 			err = e.Start(fmt.Sprintf(":%d", listenPort))
 		}

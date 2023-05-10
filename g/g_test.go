@@ -66,24 +66,24 @@ func TestAppConfig_Validation(t *testing.T) {
 
 	// 웹서버 설정정보 확인
 	tempBool = config.WS.TLSServer
-	tempString1 = config.WS.CertFilePath
-	tempString2 = config.WS.KeyFilePath
+	tempString1 = config.WS.TLSCertFile
+	tempString2 = config.WS.TLSKeyFile
 	{
 		config.WS.TLSServer = true
 		{
 			// 웹서버의 Cert 파일 경로가 비어있는 경우 패닉 발생
-			config.WS.KeyFilePath = "/etc/letsencrypt/privkey.pem"
+			config.WS.TLSKeyFile = "/etc/letsencrypt/privkey.pem"
 			for _, v := range []string{"", "   "} {
-				config.WS.CertFilePath = v
+				config.WS.TLSCertFile = v
 				assert.Panics(func() {
 					config.validation()
 				})
 			}
 
 			// 웹서버의 Key 파일 경로가 비어있는 경우 패닉 발생
-			config.WS.CertFilePath = "/etc/letsencrypt/fullchain.pem"
+			config.WS.TLSCertFile = "/etc/letsencrypt/fullchain.pem"
 			for _, v := range []string{"", "   "} {
-				config.WS.KeyFilePath = v
+				config.WS.TLSKeyFile = v
 				assert.Panics(func() {
 					config.validation()
 				})
@@ -92,16 +92,16 @@ func TestAppConfig_Validation(t *testing.T) {
 
 		config.WS.TLSServer = false
 		{
-			config.WS.CertFilePath = ""
-			config.WS.KeyFilePath = ""
+			config.WS.TLSCertFile = ""
+			config.WS.TLSKeyFile = ""
 			assert.NotPanics(func() {
 				config.validation()
 			})
 		}
 	}
 	config.WS.TLSServer = tempBool
-	config.WS.CertFilePath = tempString1
-	config.WS.KeyFilePath = tempString2
+	config.WS.TLSCertFile = tempString1
+	config.WS.TLSKeyFile = tempString2
 
 	// NotifyAPI의 URL이 비어있는 경우 패닉 발생
 	tempString1 = config.NotifyAPI.Url
