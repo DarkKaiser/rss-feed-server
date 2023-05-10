@@ -30,8 +30,6 @@ type webService struct {
 
 	handler *handler.Handler
 
-	rssFeedProviderStore *model.RssFeedProviderStore
-
 	running   bool
 	runningMu sync.Mutex
 }
@@ -41,8 +39,6 @@ func NewService(config *g.AppConfig, rssFeedProviderStore *model.RssFeedProvider
 		config: config,
 
 		handler: handler.NewHandler(config, rssFeedProviderStore),
-
-		rssFeedProviderStore: rssFeedProviderStore,
 
 		running:   false,
 		runningMu: sync.Mutex{},
