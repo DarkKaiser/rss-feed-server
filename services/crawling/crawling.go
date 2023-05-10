@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/darkkaiser/rss-feed-server/g"
+	"github.com/darkkaiser/rss-feed-server/model"
 	"github.com/darkkaiser/rss-feed-server/notifyapi"
 	"github.com/darkkaiser/rss-feed-server/services"
-	"github.com/darkkaiser/rss-feed-server/services/ws/model"
 	"github.com/robfig/cron/v3"
 	log "github.com/sirupsen/logrus"
 	"sync"
@@ -20,19 +20,19 @@ type crawlingService struct {
 
 	cron *cron.Cron
 
-	modelAccessor model.Accessor
+	rssFeedProviderStore *model.RssFeedProviderStore
 
 	running   bool
 	runningMu sync.Mutex
 }
 
-func NewService(config *g.AppConfig, modelAccessor model.Accessor) services.Service {
+func NewService(config *g.AppConfig, rssFeedProviderStore *model.RssFeedProviderStore) services.Service {
 	return &crawlingService{
 		config: config,
 
 		cron: cron.New(cron.WithLogger(cron.VerbosePrintfLogger(log.StandardLogger()))),
 
-		modelAccessor: modelAccessor,
+		rssFeedProviderStore: rssFeedProviderStore,
 
 		running:   false,
 		runningMu: sync.Mutex{},
@@ -66,7 +66,7 @@ func (s *crawlingService) Run(serviceStopCtx context.Context, serviceStopWaiter 
 			return
 		}
 
-		if _, err := s.cron.AddJob(p.CrawlingScheduler.TimeSpec, crawlerConfig.newCrawlerFn(p.ID, p.Config, s.modelAccessor)); err != nil {
+		if _, err := s.cron.AddJob(p.CrawlingScheduler.TimeSpec, crawlerConfig.newCrawlerFn(p.ID, p.Config, s.rssFeedProviderStore)); err != nil {
 			m := fmt.Sprintf("%s(ID:%s) 크롤링 작업의 스케쥴러 등록이 실패하였습니다. (error:%s)", p.Site, p.ID, err)
 
 			notifyapi.Send(m, true)

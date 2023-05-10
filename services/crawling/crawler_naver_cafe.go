@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/darkkaiser/rss-feed-server/g"
+	"github.com/darkkaiser/rss-feed-server/model"
 	"github.com/darkkaiser/rss-feed-server/notifyapi"
-	"github.com/darkkaiser/rss-feed-server/services/ws/model"
 	"github.com/darkkaiser/rss-feed-server/utils"
 	"github.com/robfig/cron/v3"
 	log "github.com/sirupsen/logrus"
@@ -25,17 +25,8 @@ import (
 
 func init() {
 	supportedCrawlers[g.RssFeedProviderSiteNaverCafe] = &supportedCrawlerConfig{
-		newCrawlerFn: func(rssFeedProviderID string, config *g.ProviderConfig, modelAccessor model.Accessor) cron.Job {
+		newCrawlerFn: func(rssFeedProviderID string, config *g.ProviderConfig, rssFeedProviderStore *model.RssFeedProviderStore) cron.Job {
 			site := "네이버 카페"
-
-			rssFeedProviderAccessor, ok := modelAccessor.RssFeedProviderModel().(model.RssFeedProviderAccessor)
-			if ok == false {
-				m := fmt.Sprintf("%s Crawler에서 사용할 RSS Feed Provider를 찾을 수 없습니다.", site)
-
-				notifyapi.Send(m, true)
-
-				log.Panic(m)
-			}
 
 			data := naverCafeCrawlerConfigData{}
 			if err := data.fillFromMap(config.Data); err != nil {
@@ -50,8 +41,8 @@ func init() {
 				crawler: crawler{
 					config: config,
 
-					rssFeedProviderID:       rssFeedProviderID,
-					rssFeedProviderAccessor: rssFeedProviderAccessor,
+					rssFeedProviderID:    rssFeedProviderID,
+					rssFeedProviderStore: rssFeedProviderStore,
 
 					site:            site,
 					siteID:          config.ID,
@@ -143,7 +134,7 @@ type naverCafeCrawler struct {
 
 //noinspection GoErrorStringFormat,GoUnhandledErrorResult
 func (c *naverCafeCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, map[string]string, string, error) {
-	idString, latestCrawledCreatedDate, err := c.rssFeedProviderAccessor.LatestCrawledInfo(c.rssFeedProviderID, "")
+	idString, latestCrawledCreatedDate, err := c.rssFeedProviderStore.LatestCrawledInfo(c.rssFeedProviderID, "")
 	if err != nil {
 		return nil, nil, fmt.Sprintf("%s('%s')에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", c.site, c.siteID), err
 	}

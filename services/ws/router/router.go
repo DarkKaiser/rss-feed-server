@@ -2,8 +2,6 @@ package router
 
 import (
 	"embed"
-	"github.com/darkkaiser/rss-feed-server/g"
-	"github.com/darkkaiser/rss-feed-server/services/ws/handler"
 	_middleware_ "github.com/darkkaiser/rss-feed-server/services/ws/middleware"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
@@ -11,11 +9,6 @@ import (
 	"html/template"
 	"io"
 	"net/http"
-)
-
-var (
-	//go:embed templates/*.html
-	templatesFS embed.FS
 )
 
 type TemplateRegistry struct {
@@ -26,7 +19,7 @@ func (t *TemplateRegistry) Render(w io.Writer, name string, data interface{}, _ 
 	return t.templates.ExecuteTemplate(w, name, data)
 }
 
-func New(config *g.AppConfig) (*echo.Echo, *handler.WebServiceHandlers) {
+func New(views embed.FS) *echo.Echo {
 	e := echo.New()
 
 	e.Debug = true
@@ -44,10 +37,6 @@ func New(config *g.AppConfig) (*echo.Echo, *handler.WebServiceHandlers) {
 		}))
 	*/
 
-	e.Renderer = &TemplateRegistry{
-		templates: template.Must(template.ParseFS(templatesFS, "templates/rss_feed_summary_view.html")),
-	}
-
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{ // CORS Middleware
 		AllowOrigins: []string{"*"},
 		AllowMethods: []string{http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete},
@@ -55,11 +44,9 @@ func New(config *g.AppConfig) (*echo.Echo, *handler.WebServiceHandlers) {
 	e.Use(middleware.Recover()) // Recover from panics anywhere in the chain
 	e.Use(middleware.Secure())
 
-	h := handler.NewWebServiceHandlers(config)
-	{
-		e.GET("/", h.GetRssFeedSummaryViewHandler)
-		e.GET("/:id", h.GetRssFeedHandler)
+	e.Renderer = &TemplateRegistry{
+		templates: template.Must(template.ParseFS(views, "views/templates/rss_feed_summary_view.tmpl")),
 	}
 
-	return e, h
+	return e
 }

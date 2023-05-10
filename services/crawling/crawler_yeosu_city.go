@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/darkkaiser/rss-feed-server/g"
-	"github.com/darkkaiser/rss-feed-server/notifyapi"
-	"github.com/darkkaiser/rss-feed-server/services/ws/model"
+	"github.com/darkkaiser/rss-feed-server/model"
 	"github.com/darkkaiser/rss-feed-server/utils"
 	"github.com/robfig/cron/v3"
 	log "github.com/sirupsen/logrus"
@@ -42,24 +41,15 @@ const yeosuCityUrlPathReplaceStringWithBoardID = "#{board_id}"
 
 func init() {
 	supportedCrawlers[g.RssFeedProviderSiteYeosuCity] = &supportedCrawlerConfig{
-		newCrawlerFn: func(rssFeedProviderID string, config *g.ProviderConfig, modelAccessor model.Accessor) cron.Job {
+		newCrawlerFn: func(rssFeedProviderID string, config *g.ProviderConfig, rssFeedProviderStore *model.RssFeedProviderStore) cron.Job {
 			site := "여수시 홈페이지"
-
-			rssFeedProviderAccessor, ok := modelAccessor.RssFeedProviderModel().(model.RssFeedProviderAccessor)
-			if ok == false {
-				m := fmt.Sprintf("%s Crawler에서 사용할 RSS Feed Provider를 찾을 수 없습니다.", site)
-
-				notifyapi.Send(m, true)
-
-				log.Panic(m)
-			}
 
 			crawler := &yeosuCityCrawler{
 				crawler: crawler{
 					config: config,
 
-					rssFeedProviderID:       rssFeedProviderID,
-					rssFeedProviderAccessor: rssFeedProviderAccessor,
+					rssFeedProviderID:    rssFeedProviderID,
+					rssFeedProviderStore: rssFeedProviderStore,
 
 					site:            site,
 					siteID:          config.ID,
@@ -119,7 +109,7 @@ func (c *yeosuCityCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 			return nil, nil, fmt.Sprintf("%s('%s')의 게시판 Type별 정보를 구하는 중에 오류가 발생하였습니다.", c.site, c.siteID), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
 		}
 
-		latestCrawledArticleID, latestCrawledCreatedDate, err := c.rssFeedProviderAccessor.LatestCrawledInfo(c.rssFeedProviderID, b.ID)
+		latestCrawledArticleID, latestCrawledCreatedDate, err := c.rssFeedProviderStore.LatestCrawledInfo(c.rssFeedProviderID, b.ID)
 		if err != nil {
 			return nil, nil, fmt.Sprintf("%s('%s') %s 게시판에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", c.site, c.siteID, b.Name), err
 		}

@@ -48,7 +48,7 @@ func Init(c *Config) {
 	config.validation()
 }
 
-type notifyMessage struct {
+type sendMessage struct {
 	ApplicationID string `json:"application_id"`
 	Message       string `json:"message"`
 	ErrorOccurred bool   `json:"error_occurred"`
@@ -59,30 +59,27 @@ func Send(message string, errorOccurred bool) bool {
 	if config.valid == false {
 		return false
 	}
+
 	if strings.TrimSpace(message) == "" {
 		log.Warn("NotifyAPI로 전달하려는 메시지가 빈 문자열입니다. NotifyAPI를 사용할 수 없습니다.")
 		return false
 	}
 
-	m := notifyMessage{
+	data, err := json.Marshal(sendMessage{
 		ApplicationID: config.ApplicationID,
 		Message:       message,
 		ErrorOccurred: errorOccurred,
-	}
-
-	data, err := json.Marshal(m)
+	})
 	if err != nil {
 		log.Errorf("NotifyAPI 호출이 실패하였습니다. (error:%s)", err)
 		return false
 	}
 	reqBody := bytes.NewBuffer(data)
-
 	req, err := http.NewRequest("POST", config.Url, reqBody)
 	if err != nil {
 		log.Errorf("NotifyAPI 호출이 실패하였습니다. (error:%s)", err)
 		return false
 	}
-
 	req.Header.Set("Authorization", "Bearer "+config.APIKey)
 	req.Header.Set("Cache-Control", "no-cache")
 	req.Header.Set("Content-Type", "application/json")
