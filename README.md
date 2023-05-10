@@ -9,5 +9,5 @@
   `@reboot sleep 20 && /usr/local/rss-feed-server/rss-feed-server.sh`
 
 ## SSL 인증서
-인증서 위치
+인증서 위치   
   `/etc/letsencrypt/live/darkkaiser.com`
