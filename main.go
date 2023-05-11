@@ -67,9 +67,6 @@ func main() {
 	// RSS Feed Store를 초기화한다.
 	rssFeedProviderStore := model.NewRssFeedProviderStore(config, db)
 
-	// @@@@@ 테스트
-	notifyapi.Send("테스트", true)
-
 	// 서비스를 생성하고 초기화한다.
 	webService := ws.NewService(config, rssFeedProviderStore)
 	crawlingService := crawling.NewService(config, rssFeedProviderStore)
