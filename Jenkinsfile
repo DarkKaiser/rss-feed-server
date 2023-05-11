@@ -52,8 +52,11 @@ pipeline {
 
                     sudo chown pi:staff /usr/local/rss-feed-server/rss-feed-server
                     sudo chown pi:staff /usr/local/rss-feed-server/rss-feed-server.json
-                    sudo chown root:staff /usr/local/rss-feed-server/rss-feed-server.sh
-                    sudo chown root:staff /usr/local/rss-feed-server/rss-feed-server-restart.sh
+                    sudo chown root:root /usr/local/rss-feed-server/rss-feed-server.sh
+                    sudo chown root:root /usr/local/rss-feed-server/rss-feed-server-restart.sh
+
+                    sudo chmod 754 /usr/local/rss-feed-server/rss-feed-server.sh
+                    sudo chmod 754 /usr/local/rss-feed-server/rss-feed-server-restart.sh
                 '''
             }
         }
