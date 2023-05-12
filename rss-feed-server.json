@@ -267,7 +267,7 @@
 	},
 	"notify_api": {
 		"url": "",
-		"api_key": "",
+		"app_key": "",
 		"application_id": ""
 	}
 }

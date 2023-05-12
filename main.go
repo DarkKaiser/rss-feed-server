@@ -44,7 +44,7 @@ func main() {
 	// NotifyAPI를 초기화한다.
 	notifyapi.Init(&notifyapi.Config{
 		Url:           config.NotifyAPI.Url,
-		APIKey:        config.NotifyAPI.APIKey,
+		AppKey:        config.NotifyAPI.AppKey,
 		ApplicationID: config.NotifyAPI.ApplicationID,
 	})
 

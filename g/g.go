@@ -45,7 +45,7 @@ type AppConfig struct {
 	} `json:"ws"`
 	NotifyAPI struct {
 		Url           string `json:"url"`
-		APIKey        string `json:"api_key"`
+		AppKey        string `json:"app_key"`
 		ApplicationID string `json:"application_id"`
 	} `json:"notify_api"`
 }

@@ -64,6 +64,10 @@ func (s *webService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 	e.GET("/", s.handler.GetRssFeedSummaryViewHandler)
 	e.GET("/:id", s.handler.GetRssFeedHandler)
 
+	echo.NotFoundHandler = func(c echo.Context) error {
+		return echo.NewHTTPError(http.StatusNotFound, fmt.Sprintf("페이지를 찾을 수 없습니다."))
+	}
+
 	go func(listenPort int) {
 		log.Debugf("웹 서비스 > http 서버(:%d) 시작됨", listenPort)
 

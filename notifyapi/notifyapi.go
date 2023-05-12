@@ -3,6 +3,7 @@ package notifyapi
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"strings"
@@ -12,7 +13,7 @@ type Config struct {
 	valid bool
 
 	Url           string
-	APIKey        string
+	AppKey        string
 	ApplicationID string
 }
 
@@ -27,8 +28,8 @@ func (c *Config) validation() bool {
 		log.Warn("유효하지 않은 NotifyAPI의 Url이 입력되었습니다. NotifyAPI를 사용할 수 없습니다.")
 		return false
 	}
-	if strings.TrimSpace(c.APIKey) == "" {
-		log.Warn("NotifyAPI의 APIKey가 입력되지 않았습니다. NotifyAPI를 사용할 수 없습니다.")
+	if strings.TrimSpace(c.AppKey) == "" {
+		log.Warn("NotifyAPI의 APP_KEY가 입력되지 않았습니다. NotifyAPI를 사용할 수 없습니다.")
 		return false
 	}
 	if strings.TrimSpace(c.ApplicationID) == "" {
@@ -75,12 +76,11 @@ func Send(message string, errorOccurred bool) bool {
 		return false
 	}
 	reqBody := bytes.NewBuffer(data)
-	req, err := http.NewRequest("POST", config.Url, reqBody)
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s?app_key=%s", config.Url, config.AppKey), reqBody)
 	if err != nil {
 		log.Errorf("NotifyAPI 호출이 실패하였습니다. (error:%s)", err)
 		return false
 	}
-	req.Header.Set("Authorization", "Bearer "+config.APIKey)
 	req.Header.Set("Cache-Control", "no-cache")
 	req.Header.Set("Content-Type", "application/json")
 
