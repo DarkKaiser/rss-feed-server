@@ -14,7 +14,7 @@ pipeline {
             }
         }
 
-        stage('체크아웃') {
+        stage('소스 체크아웃') {
             steps {
                 checkout([
                     $class: 'GitSCM',
@@ -36,59 +36,54 @@ pipeline {
             }
         }
 
-        stage('빌드') {
+        stage('도커 이미지 빌드') {
             steps {
-                sh "./build_raspberrypi.sh"
+                sh "docker build -t darkkaiser/rss-feed-server ."
             }
         }
 
-        stage('배포') {
+        stage('도커 컨테이너 실행') {
             steps {
                 sh '''
-                    sudo cp -f ./rss-feed-server /usr/local/rss-feed-server/
-                    sudo cp -f ./rss-feed-server.sh /usr/local/rss-feed-server/
-                    sudo cp -f ./rss-feed-server-restart.sh /usr/local/rss-feed-server/
-                    sudo cp -f ./secrets/rss-feed-server.운영.json /usr/local/rss-feed-server/rss-feed-server.json
+                    docker ps -q --filter name=rss-feed-server | grep -q . && docker container stop rss-feed-server && docker container rm rss-feed-server
 
-                    sudo chown pi:staff /usr/local/rss-feed-server/rss-feed-server
-                    sudo chown pi:staff /usr/local/rss-feed-server/rss-feed-server.json
-                    sudo chown root:root /usr/local/rss-feed-server/rss-feed-server.sh
-                    sudo chown root:root /usr/local/rss-feed-server/rss-feed-server-restart.sh
-
-                    sudo chmod 754 /usr/local/rss-feed-server/rss-feed-server.sh
-                    sudo chmod 754 /usr/local/rss-feed-server/rss-feed-server-restart.sh
+                    docker run -d --name rss-feed-server \
+                                  -e TZ=Asia/Seoul \
+                                  -v /usr/local/docker/rss-feed-server:/usr/local/app \
+                                  -v /etc/letsencrypt/:/etc/letsencrypt/ \
+                                  -p 443:443 \
+                                  --restart="always" \
+                                  darkkaiser/rss-feed-server
                 '''
             }
         }
 
-        stage('서버 재시작') {
+        stage('도커 이미지 정리') {
             steps {
-                // 경로를 이동하지 않고 서버를 재시작하게 되면 로그 파일의 생성 위치가
-                // '/usr/local/rss-feed-server/logs'에 생성되는게 아니라 Jenkins 작업 위치에 생성되게 되는데
-                // 이때 'logs' 폴더가 존재하지 않으므로 서버 실행이 실패하게 된다.
-                sh '''
-                    cd /usr/local/rss-feed-server
-                    sudo /usr/local/rss-feed-server/rss-feed-server-restart.sh
-                '''
+                sh 'docker images -qf dangling=true | xargs -I{} docker rmi {}'
             }
         }
 
     }
 
     post {
+
         success {
             script {
-                telegramSend(message: '【 알림 > Jenkins > ' + env.PROJECT_NAME + ' 】\n\n빌드 작업이 성공하였습니다.\n\n' + env.BUILD_URL)
+                sh "curl -s -X POST https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage -d chat_id=${env.TELEGRAM_CHAT_ID} -d text='【 알림 > Jenkins > ${env.PROJECT_NAME} 】\n\n빌드 작업이 성공하였습니다.\n\n${env.BUILD_URL}'"
             }
         }
+
         failure {
             script {
-                telegramSend(message: '【 알림 > Jenkins > ' + env.PROJECT_NAME + ' 】\n\n빌드 작업이 실패하였습니다.\n\n' + env.BUILD_URL)
+                sh "curl -s -X POST https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage -d chat_id=${env.TELEGRAM_CHAT_ID} -d text='【 알림 > Jenkins > ${env.PROJECT_NAME} 】\n\n빌드 작업이 실패하였습니다.\n\n${env.BUILD_URL}'"
             }
         }
+
         always {
             cleanWs()
         }
+
     }
 
 }
