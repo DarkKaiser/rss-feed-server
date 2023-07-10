@@ -204,6 +204,73 @@
 				}
 			},
 			{
+				"id": "dlsghkwlghks",
+				"site": "NaverCafe",
+				"config": {
+					"id": "dlsghkwlghks",
+					"name": "네이버카페 > 행복한 여수시민들",
+					"description": "여수 시민들과 여수맘이 소통하는 공간",
+					"url": "https://cafe.naver.com/dlsghkwlghks",
+					"boards": [
+						{
+							"id": "82",
+							"name": "공지사항",
+							"type": "",
+							"category": "공지사항"
+						},
+						{
+							"id": "104",
+							"name": "여수시 소식통",
+							"type": "",
+							"category": "여시들 수다방"
+						},
+						{
+							"id": "2",
+							"name": "여수시 수다방o",
+							"type": "",
+							"category": "여시들 수다방"
+						},
+						{
+							"id": "69",
+							"name": "맛집/카페/여행",
+							"type": "",
+							"category": "여시들 수다방"
+						},
+						{
+							"id": "60",
+							"name": "여시들에게 물어봐",
+							"type": "",
+							"category": "궁금한거 여시들에게"
+						},
+						{
+							"id": "101",
+							"name": "초등생정보",
+							"type": "",
+							"category": "학부모 수다방"
+						},
+						{
+							"id": "156",
+							"name": "부동산 자유이야기",
+							"type": "",
+							"category": "여수 부동산"
+						},
+						{
+							"id": "164",
+							"name": "여수시 가족+센터",
+							"type": "",
+							"category": "협력기관"
+						}
+					],
+					"article_archive_date": 90,
+					"data": {
+						"club_id": "15346057"
+					}
+				},
+				"crawling_scheduler": {
+					"time_spec": "17,37,57 * * * *"
+				}
+			},
+			{
 				"id": "yeosu",
 				"site": "YeosuCity",
 				"config": {
@@ -254,7 +321,7 @@
 					}
 				},
 				"crawling_scheduler": {
-					"time_spec": "17,37,57 * * * *"
+					"time_spec": "18,38,58 * * * *"
 				}
 			}
 		]
