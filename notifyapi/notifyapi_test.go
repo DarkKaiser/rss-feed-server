@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	validUrl           = "http://api.darkkaiser.com/api/notify/message/send"
+	validUrl           = "http://api.darkkaiser.com/api/v1/notice/message"
 	validAPIKey        = "ABCDEFG:12345"
 	validApplicationID = "rss-feed-server"
 )
