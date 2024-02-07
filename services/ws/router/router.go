@@ -3,8 +3,8 @@ package router
 import (
 	"embed"
 	_middleware_ "github.com/darkkaiser/rss-feed-server/services/ws/middleware"
-	"github.com/labstack/echo"
-	"github.com/labstack/echo/middleware"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	log "github.com/sirupsen/logrus"
 	"html/template"
 	"io"

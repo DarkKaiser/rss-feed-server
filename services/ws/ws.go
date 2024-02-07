@@ -10,7 +10,7 @@ import (
 	"github.com/darkkaiser/rss-feed-server/services"
 	"github.com/darkkaiser/rss-feed-server/services/ws/handler"
 	"github.com/darkkaiser/rss-feed-server/services/ws/router"
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"sync"
@@ -22,9 +22,7 @@ var (
 	views embed.FS
 )
 
-//
 // webService
-//
 type webService struct {
 	config *g.AppConfig
 
