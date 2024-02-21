@@ -27,7 +27,7 @@ docker run -d --name rss-feed-server \
               -e TZ=Asia/Seoul \
               -v /usr/local/docker/rss-feed-server:/usr/local/app \
               -v /etc/letsencrypt/:/etc/letsencrypt/ \
-              -p 443:443 \
+              -p 3443:3443 \
               --restart="always" \
               darkkaiser/rss-feed-server
 ```
