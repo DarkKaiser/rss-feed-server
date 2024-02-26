@@ -52,8 +52,7 @@ pipeline {
                                   -v /usr/local/docker/rss-feed-server:/usr/local/app \
                                   -v /usr/local/docker/nginx-proxy-manager/letsencrypt:/etc/letsencrypt:ro \
                                   -p 3443:3443 \
-                                  --dns 192.168.219.110 \
-                                  --dns 8.8.8.8 \
+                                  --add-host=api.darkkaiser.com:192.168.219.110 \
                                   --restart="always" \
                                   darkkaiser/rss-feed-server
                 '''
