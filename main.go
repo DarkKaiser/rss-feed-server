@@ -64,7 +64,7 @@ func main() {
 		}
 	}(db)
 
-	// RSS Feed Store를 초기화한다.
+	// RSS Feed Store를 초기화한다
 	rssFeedProviderStore := model.NewRssFeedProviderStore(config, db)
 
 	// 서비스를 생성하고 초기화한다.
