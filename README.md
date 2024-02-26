@@ -26,8 +26,10 @@ docker ps -q --filter name=rss-feed-server | grep -q . && docker container stop 
 docker run -d --name rss-feed-server \
               -e TZ=Asia/Seoul \
               -v /usr/local/docker/rss-feed-server:/usr/local/app \
-              -v /etc/letsencrypt/:/etc/letsencrypt/ \
+              -v /usr/local/docker/nginx-proxy-manager/letsencrypt:/etc/letsencrypt:ro \
               -p 3443:3443 \
+              --dns 192.168.219.110 \
+              --dns 8.8.8.8 \
               --restart="always" \
               darkkaiser/rss-feed-server
 ```
@@ -35,7 +37,7 @@ docker run -d --name rss-feed-server \
 ## SSL 인증서
 
 ```
-/etc/letsencrypt/live/darkkaiser.com
+/usr/local/docker/nginx-proxy-manager/letsencrypt/live/npm-1
 ```
 
 ## 🤝 Contributing
@@ -47,5 +49,5 @@ Feel free to check [issues page](https://github.com/DarkKaiser/rss-feed-server/i
 
 👤 **DarkKaiser**
 
-- Blog: [@DarkKaiser](http://www.darkkaiser.com)
+- Blog: [@DarkKaiser](https://www.darkkaiser.com)
 - Github: [@DarkKaiser](https://github.com/DarkKaiser)
