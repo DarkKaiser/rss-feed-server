@@ -51,7 +51,7 @@ func TestAppConfig_Validation(t *testing.T) {
 			}
 			p.Config.Data["club_id"] = tempString1
 
-		case RssFeedProviderSiteYeosuCity:
+		case RssFeedProviderSiteYeosuCityHall:
 			// pass
 		}
 	}

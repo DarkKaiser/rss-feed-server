@@ -17,34 +17,34 @@ import (
 
 const (
 	// 포토뉴스
-	yeosuCityCrawlerBoardTypePhotoNews string = "P"
+	yeosuCityHallCrawlerBoardTypePhotoNews string = "P"
 
 	// 카드뉴스
-	yeosuCityCrawlerBoardTypeCardNews string = "C"
+	yeosuCityHallCrawlerBoardTypeCardNews string = "C"
 
 	// 리스트 1(번호, 제목, 등록자, 등록일, 조회)
-	yeosuCityCrawlerBoardTypeList1 string = "L_1"
+	yeosuCityHallCrawlerBoardTypeList1 string = "L_1"
 
 	// 리스트 2(번호, 분류, 제목, 담당부서, 등록일, 조회)
-	yeosuCityCrawlerBoardTypeList2 string = "L_2"
+	yeosuCityHallCrawlerBoardTypeList2 string = "L_2"
 )
 
-var yeosuCityCrawlerBoardTypes map[string]*yeosuCityCrawlerBoardTypeConfig
+var yeosuCityHallCrawlerBoardTypes map[string]*yeosuCityHallCrawlerBoardTypeConfig
 
-type yeosuCityCrawlerBoardTypeConfig struct {
+type yeosuCityHallCrawlerBoardTypeConfig struct {
 	urlPath              string
 	articleSelector      string
 	articleGroupSelector string
 }
 
-const yeosuCityUrlPathReplaceStringWithBoardID = "#{board_id}"
+const yeosuCityHallUrlPathReplaceStringWithBoardID = "#{board_id}"
 
 func init() {
-	supportedCrawlers[g.RssFeedProviderSiteYeosuCity] = &supportedCrawlerConfig{
+	supportedCrawlers[g.RssFeedProviderSiteYeosuCityHall] = &supportedCrawlerConfig{
 		newCrawlerFn: func(rssFeedProviderID string, config *g.ProviderConfig, rssFeedProviderStore *model.RssFeedProviderStore) cron.Job {
 			site := "여수시 홈페이지"
 
-			crawler := &yeosuCityCrawler{
+			crawler := &yeosuCityHallCrawler{
 				crawler: crawler{
 					config: config,
 
@@ -70,41 +70,41 @@ func init() {
 	}
 
 	// 게시판 유형별 설정정보를 초기화한다.
-	yeosuCityCrawlerBoardTypes = map[string]*yeosuCityCrawlerBoardTypeConfig{
-		yeosuCityCrawlerBoardTypePhotoNews: {
-			urlPath:              fmt.Sprintf("/www/govt/news/%s", yeosuCityUrlPathReplaceStringWithBoardID),
+	yeosuCityHallCrawlerBoardTypes = map[string]*yeosuCityHallCrawlerBoardTypeConfig{
+		yeosuCityHallCrawlerBoardTypePhotoNews: {
+			urlPath:              fmt.Sprintf("/www/govt/news/%s", yeosuCityHallUrlPathReplaceStringWithBoardID),
 			articleSelector:      "#content div.board_list_box div.board_list div.item",
 			articleGroupSelector: "#content",
 		},
-		yeosuCityCrawlerBoardTypeList1: {
-			urlPath:              fmt.Sprintf("/www/govt/news/%s", yeosuCityUrlPathReplaceStringWithBoardID),
+		yeosuCityHallCrawlerBoardTypeList1: {
+			urlPath:              fmt.Sprintf("/www/govt/news/%s", yeosuCityHallUrlPathReplaceStringWithBoardID),
 			articleSelector:      "#content table.board_basic > tbody > tr:not(.notice)",
 			articleGroupSelector: "#content",
 		},
-		yeosuCityCrawlerBoardTypeList2: {
-			urlPath:              fmt.Sprintf("/www/govt/news/%s", yeosuCityUrlPathReplaceStringWithBoardID),
+		yeosuCityHallCrawlerBoardTypeList2: {
+			urlPath:              fmt.Sprintf("/www/govt/news/%s", yeosuCityHallUrlPathReplaceStringWithBoardID),
 			articleSelector:      "#content table.board_basic > tbody > tr:not(.notice)",
 			articleGroupSelector: "#content",
 		},
-		yeosuCityCrawlerBoardTypeCardNews: {
-			urlPath:              fmt.Sprintf("/www/govt/news/%s", yeosuCityUrlPathReplaceStringWithBoardID),
+		yeosuCityHallCrawlerBoardTypeCardNews: {
+			urlPath:              fmt.Sprintf("/www/govt/news/%s", yeosuCityHallUrlPathReplaceStringWithBoardID),
 			articleSelector:      "#content div.board_list_box div.board_list > div.board_list > div.board_photo > div.item_wrap > div.item",
 			articleGroupSelector: "#content",
 		},
 	}
 }
 
-type yeosuCityCrawler struct {
+type yeosuCityHallCrawler struct {
 	crawler
 }
 
 //noinspection GoErrorStringFormat,GoUnhandledErrorResult
-func (c *yeosuCityCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, map[string]string, string, error) {
+func (c *yeosuCityHallCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, map[string]string, string, error) {
 	var articles = make([]*model.RssFeedProviderArticle, 0)
 	var newLatestCrawledArticleIDsByBoard = make(map[string]string, 0)
 
 	for _, b := range c.config.Boards {
-		boardTypeConfig, exists := yeosuCityCrawlerBoardTypes[b.Type]
+		boardTypeConfig, exists := yeosuCityHallCrawlerBoardTypes[b.Type]
 		if exists == false {
 			return nil, nil, fmt.Sprintf("%s('%s')의 게시판 Type별 정보를 구하는 중에 오류가 발생하였습니다.", c.site, c.siteID), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
 		}
@@ -120,7 +120,7 @@ func (c *yeosuCityCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 		// 게시글 크롤링
 		//
 		for pageNo := 1; pageNo <= c.crawlingMaxPageCount; pageNo++ {
-			ysPageUrl := strings.Replace(fmt.Sprintf("%s%s?page=%d", c.siteUrl, boardTypeConfig.urlPath, pageNo), yeosuCityUrlPathReplaceStringWithBoardID, b.ID, -1)
+			ysPageUrl := strings.Replace(fmt.Sprintf("%s%s?page=%d", c.siteUrl, boardTypeConfig.urlPath, pageNo), yeosuCityHallUrlPathReplaceStringWithBoardID, b.ID, -1)
 
 			doc, errOccurred, err := c.getWebPageDocument(ysPageUrl, fmt.Sprintf("%s('%s') %s 게시판", c.site, c.siteID, b.Name), nil)
 			if err != nil {
@@ -133,7 +133,7 @@ func (c *yeosuCityCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 				// 만약 1번째 페이지에 이 현상이 발생하였으면 아무 처리도 하지 않고 다음 게시판을 크롤링한다.
 				// 만약 2번째 이후의 페이지에서 이 현상이 발생하였으면 모든 게시판의 크롤링 작업을 취소하고 빈 값을 바로 반환한다.
 				switch b.Type {
-				case yeosuCityCrawlerBoardTypePhotoNews, yeosuCityCrawlerBoardTypeCardNews:
+				case yeosuCityHallCrawlerBoardTypePhotoNews, yeosuCityHallCrawlerBoardTypeCardNews:
 					// 서버의 이상으로 게시글을 불러오지 못한건지 확인한다.
 					ysSelection = doc.Find(boardTypeConfig.articleGroupSelector)
 					if ysSelection.Length() == 1 {
@@ -146,7 +146,7 @@ func (c *yeosuCityCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 						goto NEXTBOARD
 					}
 
-				case yeosuCityCrawlerBoardTypeList1, yeosuCityCrawlerBoardTypeList2:
+				case yeosuCityHallCrawlerBoardTypeList1, yeosuCityHallCrawlerBoardTypeList2:
 					// 리스트 타입의 경우 서버 이상이 발생한 경우에는 Selection(ysSelection) 노드의 갯수가 1개이므로, 서버 이상 유무를 아래쪽 IF 블럭에서 처리한다.
 
 				default:
@@ -160,10 +160,10 @@ func (c *yeosuCityCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 				// 만약 1번째 페이지에 이 현상이 발생하였으면 아무 처리도 하지 않고 다음 게시판을 크롤링한다.
 				// 만약 2번째 이후의 페이지에서 이 현상이 발생하였으면 모든 게시판의 크롤링 작업을 취소하고 빈 값을 바로 반환한다.
 				switch b.Type {
-				case yeosuCityCrawlerBoardTypePhotoNews, yeosuCityCrawlerBoardTypeCardNews:
+				case yeosuCityHallCrawlerBoardTypePhotoNews, yeosuCityHallCrawlerBoardTypeCardNews:
 					// 포토뉴스/카드뉴스 타입의 경우 서버 이상이 발생한 경우에는 Selection(ysSelection) 노드의 갯수가 0개이므로, 서버 이상 유무를 위쪽 IF 블럭에서 처리한다.
 
-				case yeosuCityCrawlerBoardTypeList1, yeosuCityCrawlerBoardTypeList2:
+				case yeosuCityHallCrawlerBoardTypeList1, yeosuCityHallCrawlerBoardTypeList2:
 					as := ysSelection.First().Find("td")
 					if as.Length() == 1 {
 						for _, attr := range as.Nodes[0].Attr {
@@ -261,12 +261,12 @@ func (c *yeosuCityCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 }
 
 //noinspection GoErrorStringFormat
-func (c *yeosuCityCrawler) extractArticle(boardType string, s *goquery.Selection) (*model.RssFeedProviderArticle, error) {
+func (c *yeosuCityHallCrawler) extractArticle(boardType string, s *goquery.Selection) (*model.RssFeedProviderArticle, error) {
 	var exists bool
 	var article = &model.RssFeedProviderArticle{}
 
 	switch boardType {
-	case yeosuCityCrawlerBoardTypePhotoNews:
+	case yeosuCityHallCrawlerBoardTypePhotoNews:
 		// 링크
 		as := s.Find("a.item_cont")
 		if as.Length() != 1 {
@@ -330,7 +330,7 @@ func (c *yeosuCityCrawler) extractArticle(boardType string, s *goquery.Selection
 
 		return article, nil
 
-	case yeosuCityCrawlerBoardTypeList1, yeosuCityCrawlerBoardTypeList2:
+	case yeosuCityHallCrawlerBoardTypeList1, yeosuCityHallCrawlerBoardTypeList2:
 		// 제목, 링크
 		as := s.Find("a.basic_cont")
 		if as.Length() != 1 {
@@ -343,7 +343,7 @@ func (c *yeosuCityCrawler) extractArticle(boardType string, s *goquery.Selection
 		}
 		article.Link = fmt.Sprintf("%s%s", c.siteUrl, article.Link)
 
-		if boardType == yeosuCityCrawlerBoardTypeList2 {
+		if boardType == yeosuCityHallCrawlerBoardTypeList2 {
 			// 분류
 			as = s.Find("td.list_cate")
 			if as.Length() != 1 {
@@ -370,7 +370,7 @@ func (c *yeosuCityCrawler) extractArticle(boardType string, s *goquery.Selection
 
 		// 등록자
 		as = s.Find("td")
-		if (boardType == yeosuCityCrawlerBoardTypeList1 && as.Length() != 5) || (boardType == yeosuCityCrawlerBoardTypeList2 && as.Length() != 6) {
+		if (boardType == yeosuCityHallCrawlerBoardTypeList1 && as.Length() != 5) || (boardType == yeosuCityHallCrawlerBoardTypeList2 && as.Length() != 6) {
 			return nil, errors.New("게시글에서 등록자/담당부서 및 등록일 정보를 찾을 수 없습니다.")
 		}
 		article.Author = strings.TrimSpace(as.Eq(as.Length() - 3).Text())
@@ -399,7 +399,7 @@ func (c *yeosuCityCrawler) extractArticle(boardType string, s *goquery.Selection
 
 		return article, nil
 
-	case yeosuCityCrawlerBoardTypeCardNews:
+	case yeosuCityHallCrawlerBoardTypeCardNews:
 		// 링크
 		as := s.Find("div.cont_box ul > li > div.board_share_box > ul > li.share_btn > a")
 		if as.Length() == 0 {
@@ -468,7 +468,7 @@ func (c *yeosuCityCrawler) extractArticle(boardType string, s *goquery.Selection
 }
 
 //noinspection GoUnhandledErrorResult
-func (c *yeosuCityCrawler) crawlingArticleContent(article *model.RssFeedProviderArticle) {
+func (c *yeosuCityHallCrawler) crawlingArticleContent(article *model.RssFeedProviderArticle) {
 	doc, errOccurred, err := c.getWebPageDocument(article.Link, fmt.Sprintf("%s('%s') %s 게시판의 게시글('%s') 상세페이지", c.site, c.siteID, article.BoardName, article.ArticleID), nil)
 	if err != nil {
 		log.Warnf("%s (error:%s)", errOccurred, err)
@@ -494,9 +494,9 @@ func (c *yeosuCityCrawler) crawlingArticleContent(article *model.RssFeedProvider
 				// ※ data:image의 데이터 크기가 너무 큰 항목인 경우 스마트폰 앱이 죽는 현상이 생기므로 기능 비활성화함!!!
 				// article.Content += fmt.Sprintf(`%s<img src="%s" alt="%s" style="%s">`, "\r\n", src, alt, style)
 			} else if strings.HasPrefix(src, "./") == true {
-				boardTypeConfig, exists := yeosuCityCrawlerBoardTypes[article.BoardType]
+				boardTypeConfig, exists := yeosuCityHallCrawlerBoardTypes[article.BoardType]
 				if exists == true {
-					urlPath := strings.Replace(fmt.Sprintf("%s%s", c.siteUrl, boardTypeConfig.urlPath), yeosuCityUrlPathReplaceStringWithBoardID, article.BoardID, -1)
+					urlPath := strings.Replace(fmt.Sprintf("%s%s", c.siteUrl, boardTypeConfig.urlPath), yeosuCityHallUrlPathReplaceStringWithBoardID, article.BoardID, -1)
 					article.Content += fmt.Sprintf(`%s<img src="%s%s" alt="%s" style="%s">`, "\r\n", urlPath, src[1:], alt, style)
 				}
 			} else {

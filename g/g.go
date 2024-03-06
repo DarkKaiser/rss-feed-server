@@ -20,8 +20,8 @@ type RssFeedProviderSite string
 
 const (
 	// RSS Feed 서비스 지원 사이트
-	RssFeedProviderSiteNaverCafe RssFeedProviderSite = "NaverCafe"
-	RssFeedProviderSiteYeosuCity RssFeedProviderSite = "YeosuCity"
+	RssFeedProviderSiteNaverCafe     RssFeedProviderSite = "NaverCafe"
+	RssFeedProviderSiteYeosuCityHall RssFeedProviderSite = "YeosuCityHall"
 )
 
 type AppConfig struct {
@@ -67,9 +67,9 @@ type ProviderConfig struct {
 
 func (c *AppConfig) validation() {
 	var providerIDs = make([]string, 0)
-	var providerSiteYeosuCityIDs = make([]string, 0)
 	var providerSiteNaverCafeIDs = make([]string, 0)
 	var providerSiteNaverCafeClubIDs = make([]string, 0)
+	var providerSiteYeosuCityHallIDs = make([]string, 0)
 
 	for _, p := range c.RssFeed.Providers {
 		panicIfContains(providerIDs, p.ID, fmt.Sprintf("RSS Feed Provider의 ID('%s')가 중복되었습니다.", p.ID))
@@ -91,8 +91,8 @@ func (c *AppConfig) validation() {
 			panicIfContains(providerSiteNaverCafeClubIDs, clubID, fmt.Sprintf("%s의 ClubID('%s')가 중복되었습니다.", site, clubID))
 			providerSiteNaverCafeClubIDs = append(providerSiteNaverCafeClubIDs, clubID)
 
-		case RssFeedProviderSiteYeosuCity:
-			c.validationRssFeedProviderConfig("여수시 홈페이지", p.Config, &providerSiteYeosuCityIDs)
+		case RssFeedProviderSiteYeosuCityHall:
+			c.validationRssFeedProviderConfig("여수시 홈페이지", p.Config, &providerSiteYeosuCityHallIDs)
 
 		default:
 			log.Panicf("%s 파일의 내용이 유효하지 않습니다. 지원하지 않는 RSS Feed Provider Site('%s')입니다.", appConfigFileName, p.Site)
