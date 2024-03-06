@@ -59,13 +59,13 @@ pipeline {
             }
         }
 
+        /* 이미지를 사용중이지만 태깅되어 있지 않은 이미지(registry.hub.docker.com/*)가 존재하는 경우 에러가 발생하므로 주석 처리함!
         stage('도커 이미지 정리') {
             steps {
-                /* 이미지를 사용중이지만 태깅되어 있지 않은 이미지(registry.hub.docker.com/*)가 존재하는 경우 에러가 발생하므로 주석 처리함!
                 sh 'docker images -qf dangling=true | xargs -I{} docker rmi {}'
-                */
             }
         }
+        */
 
     }
 
