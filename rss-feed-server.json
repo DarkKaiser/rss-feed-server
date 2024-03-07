@@ -271,10 +271,10 @@
 				}
 			},
 			{
-				"id": "yeosunews",
+				"id": "yeosu-cityhall-news",
 				"site": "YeosuCityHall",
 				"config": {
-					"id": "yeosunews",
+					"id": "yeosu-cityhall-news",
 					"name": "여수시청",
 					"description": "여수시 관련 소식",
 					"url": "https://www.yeosu.go.kr",

@@ -27,8 +27,6 @@ func (h *Handler) GetRssFeedHandler(c echo.Context) error {
 		id = id[:len(id)-len(".xml")]
 	}
 
-	rssFeed := &feeds.RssFeed{}
-
 	for _, p := range h.config.RssFeed.Providers {
 		if p.ID == id {
 			//
@@ -60,27 +58,27 @@ func (h *Handler) GetRssFeedHandler(c echo.Context) error {
 				lastBuildDate = articles[0].CreatedDate
 			}
 
-			rssFeed = feeds.NewRssFeed(p.Config.Name, p.Config.Url, p.Config.Description, "ko", g.AppName, time.Now(), lastBuildDate)
+			rssFeed := feeds.NewRssFeed(p.Config.Name, p.Config.Url, p.Config.Description, "ko", g.AppName, time.Now(), lastBuildDate)
 			for _, article := range articles {
 				rssFeed.Items = append(rssFeed.Items,
 					feeds.NewRssFeedItem(article.Title, article.Link, strings.ReplaceAll(article.Content, "\r\n", "<br>"), article.Author, article.BoardName, article.CreatedDate),
 				)
 			}
 
-			break
+			xmlBytes, err := xml.MarshalIndent(rssFeed.FeedXml(), "", "  ")
+			if err != nil {
+				m := fmt.Sprintf("RSS Feed 객체를 XML로 변환하는 중에 오류가 발생하였습니다. (ID:%s)", id)
+
+				log.Errorf("%s (error:%s)", m, err)
+
+				notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+
+				return echo.NewHTTPError(http.StatusInternalServerError, err)
+			}
+
+			return c.XMLBlob(http.StatusOK, xmlBytes)
 		}
 	}
 
-	xmlBytes, err := xml.MarshalIndent(rssFeed.FeedXml(), "", "  ")
-	if err != nil {
-		m := fmt.Sprintf("RSS Feed 객체를 XML로 변환하는 중에 오류가 발생하였습니다. (ID:%s)", id)
-
-		log.Errorf("%s (error:%s)", m, err)
-
-		notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
-
-		return echo.NewHTTPError(http.StatusInternalServerError, err)
-	}
-
-	return c.XMLBlob(http.StatusOK, xmlBytes)
+	return c.NoContent(http.StatusBadRequest)
 }
