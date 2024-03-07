@@ -42,7 +42,7 @@ const yeosuCityHallUrlPathReplaceStringWithBoardID = "#{board_id}"
 func init() {
 	supportedCrawlers[g.RssFeedProviderSiteYeosuCityHall] = &supportedCrawlerConfig{
 		newCrawlerFn: func(rssFeedProviderID string, config *g.ProviderConfig, rssFeedProviderStore *model.RssFeedProviderStore) cron.Job {
-			site := "여수시 홈페이지"
+			site := "여수시청 홈페이지"
 
 			crawler := &yeosuCityHallCrawler{
 				crawler: crawler{
@@ -98,7 +98,7 @@ type yeosuCityHallCrawler struct {
 	crawler
 }
 
-//noinspection GoErrorStringFormat,GoUnhandledErrorResult
+// noinspection GoErrorStringFormat,GoUnhandledErrorResult
 func (c *yeosuCityHallCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, map[string]string, string, error) {
 	var articles = make([]*model.RssFeedProviderArticle, 0)
 	var newLatestCrawledArticleIDsByBoard = make(map[string]string, 0)
@@ -242,7 +242,7 @@ func (c *yeosuCityHallCrawler) crawlingArticles() ([]*model.RssFeedProviderArtic
 	// 게시글 내용 크롤링 : 내용은 크롤링이 실패해도 에러를 발생하지 않고 무시한다.
 	// 동시에 여러개의 게시글을 읽는 경우 에러가 발생하는 경우가 생기므로 최대 1개씩 순차적으로 읽는다.
 	// 만약 에러가 발생하여 게시글 내용을 크롤링 하지 못한 경우가 생길 수 있으므로 2번 크롤링한다.
-	// ( ※ 여수시 홈페이지의 성능이 좋지 않은것 같음!!! )
+	// ( ※ 여수시청 홈페이지의 성능이 좋지 않은것 같음!!! )
 	//
 	for i := 0; i < 2; i++ {
 		for _, article := range articles {
@@ -260,7 +260,7 @@ func (c *yeosuCityHallCrawler) crawlingArticles() ([]*model.RssFeedProviderArtic
 	return articles, newLatestCrawledArticleIDsByBoard, "", nil
 }
 
-//noinspection GoErrorStringFormat
+// noinspection GoErrorStringFormat
 func (c *yeosuCityHallCrawler) extractArticle(boardType string, s *goquery.Selection) (*model.RssFeedProviderArticle, error) {
 	var exists bool
 	var article = &model.RssFeedProviderArticle{}
@@ -467,7 +467,7 @@ func (c *yeosuCityHallCrawler) extractArticle(boardType string, s *goquery.Selec
 	}
 }
 
-//noinspection GoUnhandledErrorResult
+// noinspection GoUnhandledErrorResult
 func (c *yeosuCityHallCrawler) crawlingArticleContent(article *model.RssFeedProviderArticle) {
 	doc, errOccurred, err := c.getWebPageDocument(article.Link, fmt.Sprintf("%s('%s') %s 게시판의 게시글('%s') 상세페이지", c.site, c.siteID, article.BoardName, article.ArticleID), nil)
 	if err != nil {

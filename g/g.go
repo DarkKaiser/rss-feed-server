@@ -92,7 +92,7 @@ func (c *AppConfig) validation() {
 			providerSiteNaverCafeClubIDs = append(providerSiteNaverCafeClubIDs, clubID)
 
 		case RssFeedProviderSiteYeosuCityHall:
-			c.validationRssFeedProviderConfig("여수시 홈페이지", p.Config, &providerSiteYeosuCityHallIDs)
+			c.validationRssFeedProviderConfig("여수시청 홈페이지", p.Config, &providerSiteYeosuCityHallIDs)
 
 		default:
 			log.Panicf("%s 파일의 내용이 유효하지 않습니다. 지원하지 않는 RSS Feed Provider Site('%s')입니다.", appConfigFileName, p.Site)
