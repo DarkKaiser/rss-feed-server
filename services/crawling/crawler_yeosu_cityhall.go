@@ -101,7 +101,7 @@ type yeosuCityHallCrawler struct {
 // noinspection GoErrorStringFormat,GoUnhandledErrorResult
 func (c *yeosuCityHallCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, map[string]string, string, error) {
 	var articles = make([]*model.RssFeedProviderArticle, 0)
-	var newLatestCrawledArticleIDsByBoard = make(map[string]string, 0)
+	var newLatestCrawledArticleIDsByBoard = make(map[string]string)
 
 	for _, b := range c.config.Boards {
 		boardTypeConfig, exists := yeosuCityHallCrawlerBoardTypes[b.Type]
