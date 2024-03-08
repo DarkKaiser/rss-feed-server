@@ -11,7 +11,7 @@ import (
 
 const (
 	AppName    string = "rss-feed-server"
-	AppVersion string = "0.0.2"
+	AppVersion string = "0.0.3"
 
 	appConfigFileName = AppName + ".json"
 )
@@ -20,8 +20,9 @@ type RssFeedProviderSite string
 
 const (
 	// RSS Feed 서비스 지원 사이트
-	RssFeedProviderSiteNaverCafe     RssFeedProviderSite = "NaverCafe"
-	RssFeedProviderSiteYeosuCityHall RssFeedProviderSite = "YeosuCityHall"
+	RssFeedProviderSiteNaverCafe       RssFeedProviderSite = "NaverCafe"
+	RssFeedProviderSiteYeosuCityHall   RssFeedProviderSite = "YeosuCityHall"
+	RssFeedProviderSiteSsangbongSchool RssFeedProviderSite = "SsangbongSchool"
 )
 
 type AppConfig struct {
@@ -70,6 +71,7 @@ func (c *AppConfig) validation() {
 	var providerSiteNaverCafeIDs = make([]string, 0)
 	var providerSiteNaverCafeClubIDs = make([]string, 0)
 	var providerSiteYeosuCityHallIDs = make([]string, 0)
+	var providerSiteSsangbongSchoolIDs = make([]string, 0)
 
 	for _, p := range c.RssFeed.Providers {
 		panicIfContains(providerIDs, p.ID, fmt.Sprintf("RSS Feed Provider의 ID('%s')가 중복되었습니다.", p.ID))
@@ -93,6 +95,9 @@ func (c *AppConfig) validation() {
 
 		case RssFeedProviderSiteYeosuCityHall:
 			c.validationRssFeedProviderConfig("여수시청 홈페이지", p.Config, &providerSiteYeosuCityHallIDs)
+
+		case RssFeedProviderSiteSsangbongSchool:
+			c.validationRssFeedProviderConfig("쌍봉초등학교 홈페이지", p.Config, &providerSiteSsangbongSchoolIDs)
 
 		default:
 			log.Panicf("%s 파일의 내용이 유효하지 않습니다. 지원하지 않는 RSS Feed Provider Site('%s')입니다.", appConfigFileName, p.Site)

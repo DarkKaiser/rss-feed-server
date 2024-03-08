@@ -323,6 +323,66 @@
 				"crawling_scheduler": {
 					"time_spec": "18,38,58 * * * *"
 				}
+			},
+			{
+				"id": "ssangbong-school-news",
+				"site": "SsangbongSchool",
+				"config": {
+					"id": "ssangbong-school-news",
+					"name": "쌍봉초등학교",
+					"description": "쌍봉초등학교 관련 소식",
+					"url": "https://ys-ssangbong.es.jne.kr",
+					"boards": [
+						{
+							"id": "156452",
+							"name": "공지사항",
+							"type": "L_1",
+							"category": "알림마당"
+						},
+						{
+							"id": "156453",
+							"name": "학교앨범",
+							"type": "P_1",
+							"category": "알림마당"
+						},
+						{
+							"id": "156455",
+							"name": "가정통신문",
+							"type": "L_1",
+							"category": "알림마당"
+						},
+						{
+							"id": "156457",
+							"name": "체험/행사활동안내",
+							"type": "L_1",
+							"category": "알림마당"
+						},
+						{
+							"id": "156473",
+							"name": "방과후학교",
+							"type": "L_1",
+							"category": "알림마당"
+						},
+						{
+							"id": "156475",
+							"name": "방과후학교 > 방과후갤러리",
+							"type": "P_1",
+							"category": "알림마당"
+						},
+						{
+							"id": "156443",
+							"name": "학부모회",
+							"type": "L_1",
+							"category": "학부모마당"
+						}
+					],
+					"article_archive_date": 90,
+					"data": {
+					}
+				},
+				"crawling_scheduler": {
+					"time_spec": "* * * * *"
+				}
 			}
 		]
 	},

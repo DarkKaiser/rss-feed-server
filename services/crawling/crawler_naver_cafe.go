@@ -132,7 +132,7 @@ type naverCafeCrawler struct {
 	crawlingDelayTimeMinutes int
 }
 
-//noinspection GoErrorStringFormat,GoUnhandledErrorResult
+// noinspection GoErrorStringFormat,GoUnhandledErrorResult
 func (c *naverCafeCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, map[string]string, string, error) {
 	idString, latestCrawledCreatedDate, err := c.rssFeedProviderStore.LatestCrawledInfo(c.rssFeedProviderID, "")
 	if err != nil {
@@ -164,7 +164,7 @@ func (c *naverCafeCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 
 		ncSelection := doc.Find("div.article-board > table > tbody > tr:not(.board-notice)")
 		if len(ncSelection.Nodes) == 0 { // 전체글보기의 게시글이 0건이라면 CSS 파싱이 실패한것으로 본다.
-			return nil, nil, fmt.Sprintf("%s('%s')의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.site, c.siteID), err
+			return nil, nil, fmt.Sprintf("%s('%s')의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.site, c.siteID), errors.New("게시글 추출이 실패하였습니다.")
 		}
 
 		var foundAlreadyCrawledArticle = false
@@ -335,7 +335,7 @@ func (c *naverCafeCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 	return articles, newLatestCrawledArticleIDsByBoard, "", nil
 }
 
-//noinspection GoUnhandledErrorResult
+// noinspection GoUnhandledErrorResult
 func (c *naverCafeCrawler) crawlingArticleContent(article *model.RssFeedProviderArticle, euckrDecoder *encoding.Decoder) {
 	c.crawlingArticleContentUsingAPI(article, euckrDecoder)
 	if article.Content == "" {
@@ -346,7 +346,7 @@ func (c *naverCafeCrawler) crawlingArticleContent(article *model.RssFeedProvider
 	}
 }
 
-//noinspection GoUnhandledErrorResult
+// noinspection GoUnhandledErrorResult
 func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.RssFeedProviderArticle, euckrDecoder *encoding.Decoder) {
 	//
 	// 네이버 카페 상세페이지를 로드하여 art 쿼리 문자열을 구한다.
@@ -468,7 +468,7 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.RssFeed
 	}
 }
 
-//noinspection GoUnhandledErrorResult
+// noinspection GoUnhandledErrorResult
 func (c *naverCafeCrawler) crawlingArticleContentUsingLink(article *model.RssFeedProviderArticle, euckrDecoder *encoding.Decoder) {
 	doc, errOccurred, err := c.getWebPageDocument(article.Link, fmt.Sprintf("%s('%s > %s') 게시글('%s')의 상세페이지", c.site, c.siteID, article.BoardName, article.ArticleID), euckrDecoder)
 	if err != nil {
@@ -495,7 +495,7 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingLink(article *model.RssFee
 	})
 }
 
-//noinspection GoUnhandledErrorResult
+// noinspection GoUnhandledErrorResult
 func (c *naverCafeCrawler) crawlingArticleContentUsingNaverSearch(article *model.RssFeedProviderArticle) {
 	searchUrl := fmt.Sprintf("https://search.naver.com/search.naver?where=article&query=%s&ie=utf8&st=date&date_option=0&date_from=&date_to=&board=&srchby=title&dup_remove=0&cafe_url=%s&without_cafe_url=&sm=tab_opt&nso=so:dd,p:all,a:t&t=0&mson=0&prdtype=0", url.QueryEscape(article.Title), c.siteID)
 
