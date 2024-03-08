@@ -9,6 +9,10 @@ WORKDIR /go/src/app/
 
 COPY . .
 
+# 신뢰하는 인증기관 추가하기
+COPY --chmod=644 ./secrets/SsangbongES/Sectigo_RSA_Domain_Validation_Secure_Server_CA.crt /usr/local/share/ca-certificates/
+RUN /usr/sbin/update-ca-certificates
+
 ENV GO111MODULE=on
 
 RUN CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -a -ldflags="-s -w" -o ${APP_NAME} .
@@ -29,10 +33,6 @@ COPY --from=builder /go/src/app/${APP_NAME} .
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 COPY ./secrets/${APP_NAME}.운영.json /docker-entrypoint/dist/${APP_NAME}.json
-
-# 신뢰하는 인증기관 추가하기
-COPY ./secrets/SsangbongES/Sectigo_RSA_Domain_Validation_Secure_Server_CA.crt /usr/local/share/ca-certificates/
-RUN /usr/sbin/update-ca-certificates
 
 WORKDIR /usr/local/app/
 
