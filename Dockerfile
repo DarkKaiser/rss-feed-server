@@ -10,7 +10,7 @@ WORKDIR /go/src/app/
 COPY . .
 
 # 신뢰하는 인증기관 추가하기
-COPY --chmod=644 ./secrets/SsangbongES/Sectigo_RSA_Domain_Validation_Secure_Server_CA.crt /usr/local/share/ca-certificates/
+COPY --chmod=644 ./secrets/CA/Sectigo_RSA_Domain_Validation_Secure_Server_CA.crt /usr/local/share/ca-certificates/
 RUN /usr/sbin/update-ca-certificates
 
 ENV GO111MODULE=on
