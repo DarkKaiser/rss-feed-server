@@ -5,9 +5,15 @@ FROM golang:1.20.5-bullseye AS builder
 
 ARG APP_NAME=rss-feed-server
 
+RUN apt update && apt -y install ca-certificates
+
 WORKDIR /go/src/app/
 
 COPY . .
+
+# 신뢰하는 인증기관 추가하기
+COPY --chmod=644 ./secrets/SsangbongES/Sectigo_RSA_Domain_Validation_Secure_Server_CA.crt /usr/local/share/ca-certificates/
+RUN /usr/sbin/update-ca-certificates
 
 ENV GO111MODULE=on
 
@@ -31,9 +37,9 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY ./secrets/${APP_NAME}.운영.json /docker-entrypoint/dist/${APP_NAME}.json
 
 # 신뢰하는 인증기관 추가하기
-USER root
-COPY ./secrets/SsangbongES/Sectigo_RSA_Domain_Validation_Secure_Server_CA.crt /usr/local/share/ca-certificates/
-RUN chmod 644 /usr/local/share/ca-certificates/Sectigo_RSA_Domain_Validation_Secure_Server_CA.crt
+#USER root
+#COPY ./secrets/SsangbongES/Sectigo_RSA_Domain_Validation_Secure_Server_CA.crt /usr/local/share/ca-certificates/
+#RUN chmod 644 /usr/local/share/ca-certificates/Sectigo_RSA_Domain_Validation_Secure_Server_CA.crt
 # RUN update-ca-certificates
 
 WORKDIR /usr/local/app/
