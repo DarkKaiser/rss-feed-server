@@ -31,7 +31,8 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY ./secrets/${APP_NAME}.운영.json /docker-entrypoint/dist/${APP_NAME}.json
 
 # 신뢰하는 인증기관 추가하기
-COPY ./secrets/SsangbongES/Sectigo_RSA_Domain_Validation_Secure_Server_CA.crt /usr/local/share/ca-certificates/
+# USER root
+COPY --chmod=644 ./secrets/SsangbongES/Sectigo_RSA_Domain_Validation_Secure_Server_CA.crt /usr/local/share/ca-certificates/
 RUN update-ca-certificates
 
 WORKDIR /usr/local/app/
