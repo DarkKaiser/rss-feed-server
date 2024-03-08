@@ -34,7 +34,7 @@ COPY ./secrets/${APP_NAME}.운영.json /docker-entrypoint/dist/${APP_NAME}.json
 USER root
 COPY ./secrets/SsangbongES/Sectigo_RSA_Domain_Validation_Secure_Server_CA.crt /usr/local/share/ca-certificates/
 RUN chmod 644 /usr/local/share/ca-certificates/Sectigo_RSA_Domain_Validation_Secure_Server_CA.crt
-RUN update-ca-certificates
+# RUN update-ca-certificates
 
 WORKDIR /usr/local/app/
 
