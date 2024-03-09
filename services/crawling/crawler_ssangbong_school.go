@@ -332,7 +332,16 @@ func (c *ssangbongSchoolCrawler) crawlingArticleContent(article *model.RssFeedPr
 		return
 	}
 
-	article.Content = utils.TrimMultiLine(acSelection.Text())
+	acSelection.Children().Each(func(i int, s *goquery.Selection) {
+		content := utils.TrimMultiLine(s.Text())
+		if content != "" {
+			if article.Content != "" {
+				article.Content += "\r\n"
+			}
+
+			article.Content += content
+		}
+	})
 
 	// 내용에 이미지 태그가 포함되어 있다면 모두 추출한다.
 	acSelection.Find("div.bbs_ViewA > div.bbsV_cont img").Each(func(i int, s *goquery.Selection) {
