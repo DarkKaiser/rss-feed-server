@@ -11,7 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/html"
 	"golang.org/x/text/encoding"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -19,9 +19,7 @@ import (
 
 var errNotSupportedCrawler = errors.New("지원하지 않는 Crawler입니다")
 
-//
 // supportedCrawlers
-//
 type newCrawlerFunc func(string, *g.ProviderConfig, *model.RssFeedProviderStore) cron.Job
 
 // 지원되는 Crawler 목록
@@ -40,9 +38,7 @@ func findConfigFromSupportedCrawler(site g.RssFeedProviderSite) (*supportedCrawl
 	return nil, errNotSupportedCrawler
 }
 
-//
 // crawler
-//
 const emptyBoardIDKey = "#empty#"
 
 type crawlingArticlesFunc func() ([]*model.RssFeedProviderArticle, map[string]string, string, error)
@@ -133,7 +129,7 @@ func (c *crawler) Run() {
 	}
 }
 
-//noinspection GoUnhandledErrorResult
+// noinspection GoUnhandledErrorResult
 func (c *crawler) getWebPageDocument(url, title string, decoder *encoding.Decoder) (*goquery.Document, string, error) {
 	res, err := http.Get(url)
 	if err != nil {
@@ -156,7 +152,7 @@ SUCCEED:
 	}
 	defer res.Body.Close()
 
-	bodyBytes, err := ioutil.ReadAll(res.Body)
+	bodyBytes, err := io.ReadAll(res.Body)
 	if err != nil {
 		if strings.Contains(err.Error(), "unexpected EOF") && len(bodyBytes) != 0 {
 			goto pars

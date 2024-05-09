@@ -121,7 +121,7 @@
 					}
 				},
 				"crawling_scheduler": {
-					"time_spec": "15,35,55 * * * *"
+					"time_spec": "1 * * * *"
 				}
 			},
 			{
@@ -200,7 +200,7 @@
 					}
 				},
 				"crawling_scheduler": {
-					"time_spec": "16,36,56 * * * *"
+					"time_spec": "1 * * * *"
 				}
 			},
 			{
@@ -267,7 +267,7 @@
 					}
 				},
 				"crawling_scheduler": {
-					"time_spec": "17,37,57 * * * *"
+					"time_spec": "1 * * * *"
 				}
 			},
 			{
@@ -321,7 +321,7 @@
 					}
 				},
 				"crawling_scheduler": {
-					"time_spec": "18,38,58 * * * *"
+					"time_spec": "1 * * * *"
 				}
 			},
 			{
