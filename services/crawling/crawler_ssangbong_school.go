@@ -1,6 +1,7 @@
 package crawling
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
@@ -9,6 +10,8 @@ import (
 	"github.com/darkkaiser/rss-feed-server/utils"
 	"github.com/robfig/cron/v3"
 	log "github.com/sirupsen/logrus"
+	"io"
+	"net/http"
 	"regexp"
 	"strings"
 	"time"
@@ -105,7 +108,7 @@ func (c *ssangbongSchoolCrawler) crawlingArticles() ([]*model.RssFeedProviderArt
 		for pageNo := 1; pageNo <= c.crawlingMaxPageCount; pageNo++ {
 			ssangbongSchoolPageUrl := strings.ReplaceAll(fmt.Sprintf("%s%s&currPage=%d", c.siteUrl, boardTypeConfig.urlPath1, pageNo), ssangbongSchoolUrlPathReplaceStringWithBoardID, b.ID)
 
-			doc, errOccurred, err := c.getWebPageDocument(ssangbongSchoolPageUrl, fmt.Sprintf("%s('%s') %s 게시판", c.site, c.siteID, b.Name), nil)
+			doc, errOccurred, err := c.getWebPageDocumentWithPOST(ssangbongSchoolPageUrl, fmt.Sprintf("%s('%s') %s 게시판", c.site, c.siteID, b.Name))
 			if err != nil {
 				return nil, nil, errOccurred, err
 			}
@@ -305,7 +308,7 @@ func (c *ssangbongSchoolCrawler) extractArticle(boardID, boardType, urlDetailPat
 
 // noinspection GoUnhandledErrorResult
 func (c *ssangbongSchoolCrawler) crawlingArticleContent(article *model.RssFeedProviderArticle) {
-	doc, errOccurred, err := c.getWebPageDocument(article.Link, fmt.Sprintf("%s('%s') %s 게시판의 게시글('%s') 상세페이지", c.site, c.siteID, article.BoardName, article.ArticleID), nil)
+	doc, errOccurred, err := c.getWebPageDocumentWithPOST(article.Link, fmt.Sprintf("%s('%s') %s 게시판의 게시글('%s') 상세페이지", c.site, c.siteID, article.BoardName, article.ArticleID))
 	if err != nil {
 		log.Warnf("%s (error:%s)", errOccurred, err)
 		return
@@ -351,4 +354,46 @@ func (c *ssangbongSchoolCrawler) crawlingArticleContent(article *model.RssFeedPr
 			article.Content += fmt.Sprintf(`%s<img src="%s%s" alt="%s">`, "\r\n", c.siteUrl, src, alt)
 		}
 	})
+}
+
+func (c *ssangbongSchoolCrawler) getWebPageDocumentWithPOST(url, title string) (*goquery.Document, string, error) {
+	querySplitIndex := strings.Index(url, "?")
+	req, err := http.NewRequest("POST", url[:querySplitIndex], bytes.NewBufferString(url[querySplitIndex+1:]))
+	if err != nil {
+		return nil, fmt.Sprintf("%s 접근이 실패하였습니다.", title), err
+	}
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+	req.Header.Set("Accept-Encoding", "gzip, deflate, br, zstd")
+	req.Header.Set("Accept-Language", "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7")
+	req.Header.Set("Cache-Control", "max-age=0")
+	req.Header.Set("Connection", "keep-alive")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Host", strings.ReplaceAll(strings.ReplaceAll(c.siteUrl, "http://", ""), "https://", ""))
+	req.Header.Set("Origin", c.siteUrl)
+	req.Header.Set("Referer", url)
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Linux; Android 11.0; Surface Duo) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36")
+
+	client := &http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Sprintf("%s 접근이 실패하였습니다.", title), err
+	}
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Sprintf("%s 접근이 실패하였습니다.", title), fmt.Errorf("HTTP Response StatusCode %d", res.StatusCode)
+	}
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(res.Body)
+
+	resBodyBytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Sprintf("%s의 내용을 읽을 수 없습니다.", title), err
+	}
+
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(resBodyBytes)))
+	if err != nil {
+		return nil, fmt.Sprintf("%s의 HTML 파싱이 실패하였습니다.", title), err
+	}
+
+	return doc, "", nil
 }
