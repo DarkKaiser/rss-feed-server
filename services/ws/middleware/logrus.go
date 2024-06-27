@@ -39,6 +39,9 @@ func (l Logger) Level() log.Lvl {
 		return log.ERROR
 	case logrus.InfoLevel:
 		return log.INFO
+	case logrus.PanicLevel:
+	case logrus.FatalLevel:
+	case logrus.TraceLevel:
 	}
 
 	return log.OFF
@@ -54,6 +57,7 @@ func (l Logger) SetLevel(lvl log.Lvl) {
 		logrus.SetLevel(logrus.ErrorLevel)
 	case log.INFO:
 		logrus.SetLevel(logrus.InfoLevel)
+	case log.OFF:
 	}
 }
 

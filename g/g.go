@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/darkkaiser/rss-feed-server/utils"
 	log "github.com/sirupsen/logrus"
-	"io/ioutil"
+	"os"
 	"strings"
 )
 
@@ -19,7 +19,6 @@ const (
 type RssFeedProviderSite string
 
 const (
-	// RSS Feed 서비스 지원 사이트
 	RssFeedProviderSiteNaverCafe       RssFeedProviderSite = "NaverCafe"
 	RssFeedProviderSiteYeosuCityHall   RssFeedProviderSite = "YeosuCityHall"
 	RssFeedProviderSiteSsangbongSchool RssFeedProviderSite = "SsangbongSchool"
@@ -141,7 +140,7 @@ func (c *ProviderConfig) ContainsBoard(boardID string) bool {
 }
 
 func InitAppConfig() *AppConfig {
-	data, err := ioutil.ReadFile(appConfigFileName)
+	data, err := os.ReadFile(appConfigFileName)
 	utils.CheckErr(err)
 
 	var config AppConfig

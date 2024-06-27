@@ -14,7 +14,7 @@ import (
 	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/korean"
 	"html"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -372,7 +372,7 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.RssFeed
 	}
 	defer res.Body.Close()
 
-	bodyBytes, err := ioutil.ReadAll(res.Body)
+	bodyBytes, err := io.ReadAll(res.Body)
 	if err != nil {
 		log.Warnf("%s의 내용을 읽을 수 없습니다. (error:%s)", title, err)
 		return
@@ -410,7 +410,7 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.RssFeed
 	}
 	defer res2.Body.Close()
 
-	bodyBytes, err = ioutil.ReadAll(res2.Body)
+	bodyBytes, err = io.ReadAll(res2.Body)
 	if err != nil {
 		log.Warnf("%s의 내용을 읽을 수 없습니다. (error:%s)", title, err)
 		return

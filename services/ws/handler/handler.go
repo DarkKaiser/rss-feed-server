@@ -5,9 +5,6 @@ import (
 	"github.com/darkkaiser/rss-feed-server/model"
 )
 
-//
-// Handler
-//
 type Handler struct {
 	config *g.AppConfig
 

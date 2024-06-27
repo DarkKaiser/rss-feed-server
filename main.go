@@ -52,7 +52,7 @@ func main() {
 	fmt.Printf(banner, g.AppVersion)
 
 	// 데이터베이스를 초기화한다.
-	db := db.New()
+	sqlDb := db.New()
 	defer func(db *sql.DB) {
 		err := db.Close()
 		if err != nil {
@@ -62,10 +62,10 @@ func main() {
 
 			notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 		}
-	}(db)
+	}(sqlDb)
 
 	// RSS Feed Store를 초기화한다.
-	rssFeedProviderStore := model.NewRssFeedProviderStore(config, db)
+	rssFeedProviderStore := model.NewRssFeedProviderStore(config, sqlDb)
 
 	// 서비스를 생성하고 초기화한다.
 	webService := ws.NewService(config, rssFeedProviderStore)
