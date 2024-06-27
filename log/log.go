@@ -5,7 +5,7 @@ import (
 	"github.com/darkkaiser/rss-feed-server/utils"
 	log "github.com/sirupsen/logrus"
 	"io"
-	"io/ioutil"
+	"io/fs"
 	"math"
 	"os"
 	"runtime"
@@ -69,9 +69,17 @@ func Init(debug bool, appName string, checkDaysAgo float64) io.Closer {
 func cleanOutOfLogFiles(appName string, checkDaysAgo float64) {
 	var logDirPath = fmt.Sprintf("%s%s", logDirParentPath, logDirName)
 
-	fiList, err := ioutil.ReadDir(logDirPath)
+	deList, err := os.ReadDir(logDirPath)
 	if err != nil {
 		return
+	}
+	fiList := make([]fs.FileInfo, 0, len(deList))
+	for _, de := range deList {
+		fi, err := de.Info()
+		if err != nil {
+			return
+		}
+		fiList = append(fiList, fi)
 	}
 
 	t := time.Now()

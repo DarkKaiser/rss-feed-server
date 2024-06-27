@@ -2,6 +2,7 @@ package model
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"github.com/darkkaiser/rss-feed-server/g"
 	"github.com/darkkaiser/rss-feed-server/notifyapi"
@@ -73,7 +74,7 @@ func (p *RssFeedProviderStore) init(config *g.AppConfig) error {
 	return nil
 }
 
-//noinspection GoUnhandledErrorResult
+// noinspection GoUnhandledErrorResult
 func (p *RssFeedProviderStore) createTables() error {
 	//
 	// rss_provider 테이블
@@ -198,7 +199,7 @@ func (p *RssFeedProviderStore) createTables() error {
 	return nil
 }
 
-//noinspection GoUnhandledErrorResult
+// noinspection GoUnhandledErrorResult
 func (p *RssFeedProviderStore) insertRssFeedProvider(id, site, sId, sName, sDescription, sUrl string) error {
 	stmt, err := p.db.Prepare(`
 		INSERT OR REPLACE
@@ -216,7 +217,7 @@ func (p *RssFeedProviderStore) insertRssFeedProvider(id, site, sId, sName, sDesc
 	return nil
 }
 
-//noinspection GoUnhandledErrorResult
+// noinspection GoUnhandledErrorResult
 func (p *RssFeedProviderStore) insertRssFeedProviderBoard(providerID, id, name string) error {
 	stmt, err := p.db.Prepare("INSERT OR REPLACE INTO rss_provider_board (p_id, id, name) VALUES (?, ?, ?)")
 	if err != nil {
@@ -230,7 +231,7 @@ func (p *RssFeedProviderStore) insertRssFeedProviderBoard(providerID, id, name s
 	return nil
 }
 
-//noinspection GoUnhandledErrorResult
+// noinspection GoUnhandledErrorResult
 func (p *RssFeedProviderStore) InsertArticles(providerID string, articles []*RssFeedProviderArticle) (int, error) {
 	stmt, err := p.db.Prepare(`
 		INSERT OR REPLACE
@@ -262,7 +263,7 @@ func (p *RssFeedProviderStore) InsertArticles(providerID string, articles []*Rss
 	return insertedCnt, nil
 }
 
-//noinspection GoUnhandledErrorResult
+// noinspection GoUnhandledErrorResult
 func (p *RssFeedProviderStore) Articles(providerID string, boardIDs []string, maxArticleCount uint) ([]*RssFeedProviderArticle, error) {
 	stmt, err := p.db.Prepare(fmt.Sprintf(`
 		SELECT a.b_id
@@ -313,7 +314,7 @@ func (p *RssFeedProviderStore) Articles(providerID string, boardIDs []string, ma
 	return articles, nil
 }
 
-//noinspection GoUnhandledErrorResult
+// noinspection GoUnhandledErrorResult
 func (p *RssFeedProviderStore) deleteOutOfDateArticle(providerID string, articleArchiveDate uint) error {
 	stmt, err := p.db.Prepare(fmt.Sprintf(`
 		DELETE 
@@ -332,7 +333,7 @@ func (p *RssFeedProviderStore) deleteOutOfDateArticle(providerID string, article
 	return nil
 }
 
-//noinspection GoUnhandledErrorResult,GoSnakeCaseUsage
+// noinspection GoUnhandledErrorResult,GoSnakeCaseUsage
 func (p *RssFeedProviderStore) LatestCrawledInfo(providerID, emptyOrBoardID string) (string, time.Time, error) {
 	var err error
 	var articleID sql.NullString
@@ -370,7 +371,7 @@ func (p *RssFeedProviderStore) LatestCrawledInfo(providerID, emptyOrBoardID stri
 	var latestCrawledArticleID string
 	var latestCrawledCreatedDate time.Time
 
-	if err != nil && err != sql.ErrNoRows {
+	if err != nil && errors.Is(err, sql.ErrNoRows) == false {
 		return "", latestCrawledCreatedDate, err
 	}
 
@@ -384,7 +385,7 @@ func (p *RssFeedProviderStore) LatestCrawledInfo(providerID, emptyOrBoardID stri
 	return latestCrawledArticleID, latestCrawledCreatedDate, nil
 }
 
-//noinspection GoUnhandledErrorResult,GoSnakeCaseUsage
+// noinspection GoUnhandledErrorResult,GoSnakeCaseUsage
 func (p *RssFeedProviderStore) UpdateLatestCrawledArticleID(providerID, emptyOrBoardID, latestCrawledArticleID string) error {
 	stmt, err := p.db.Prepare("INSERT OR REPLACE INTO rss_provider_site_crawled_data (p_id, b_id, latest_crawled_article_id) VALUES (?, ?, ?)")
 	if err != nil {

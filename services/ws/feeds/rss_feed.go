@@ -19,7 +19,7 @@ type CDATA2 struct {
 	Text string `xml:",cdata"`
 }
 
-// private wrapper around the RssFeed which gives us the <rss>...</rss> xml
+// RssFeedXml private wrapper around the RssFeed which gives us the <rss>...</rss> xml
 type RssFeedXml struct {
 	XMLName xml.Name `xml:"rss"`
 	Version string   `xml:"version,attr"`

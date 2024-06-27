@@ -3,6 +3,7 @@ package ws
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"github.com/darkkaiser/rss-feed-server/g"
 	"github.com/darkkaiser/rss-feed-server/model"
@@ -77,7 +78,7 @@ func (s *webService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 		}
 
 		// Start(), StartTLS() 함수는 항상 nil이 아닌 error를 반환한다.
-		if err == http.ErrServerClosed {
+		if errors.Is(err, http.ErrServerClosed) == true {
 			log.Debug("웹 서비스 > http 서버 중지됨")
 		} else {
 			m := "웹 서비스 > http 서버를 구성하는 중에 치명적인 오류가 발생하였습니다."
