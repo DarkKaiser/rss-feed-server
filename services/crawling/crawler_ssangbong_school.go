@@ -276,10 +276,10 @@ func (c *ssangbongSchoolCrawler) extractArticle(boardID, boardType, urlDetailPat
 
 		// 등록일
 		as = s.Find("a.selectNttInfo > p.txt > span.date")
-		if as.Length() != 1 {
+		if as.Length() != 2 {
 			return nil, errors.New("게시글에서 등록일 정보를 찾을 수 없습니다.")
 		}
-		var createdDateString = strings.TrimSpace(as.Text())
+		var createdDateString = strings.TrimSpace(as.Eq(0).Text())
 		if createdDateString == "" {
 			return nil, errors.New("게시글에서 등록일 파싱이 실패하였습니다.")
 		}
