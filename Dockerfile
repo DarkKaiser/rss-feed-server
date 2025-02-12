@@ -1,7 +1,7 @@
 # ------------------------------------------
 # 1. Build Image
 # ------------------------------------------
-FROM golang:1.20.5-bullseye AS builder
+FROM golang:1.23.4-bullseye AS builder
 
 ARG APP_NAME=rss-feed-server
 
