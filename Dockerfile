@@ -15,7 +15,7 @@ RUN /usr/sbin/update-ca-certificates
 
 ENV GO111MODULE=on
 
-RUN CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -a -ldflags="-s -w" -o ${APP_NAME} .
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -a -ldflags="-s -w" -o ${APP_NAME} ./cmd/rss-feed-server
 
 # ------------------------------------------
 # 2. Production Image
