@@ -19,7 +19,7 @@ func TestConfig_Validation(t *testing.T) {
 
 	c := &Config{
 		Url:           validUrl,
-		APIKey:        validAPIKey,
+		AppKey:        validAPIKey,
 		ApplicationID: validApplicationID,
 	}
 
@@ -35,12 +35,12 @@ func TestConfig_Validation(t *testing.T) {
 	c.Url = validUrl
 
 	for _, v := range []string{"", "   "} {
-		c.APIKey = v
+		c.AppKey = v
 		assert.False(c.validation())
 		assert.False(c.valid)
 	}
 
-	c.APIKey = validAPIKey
+	c.AppKey = validAPIKey
 
 	for _, v := range []string{"", "   "} {
 		c.ApplicationID = v
@@ -54,7 +54,7 @@ func TestInit(t *testing.T) {
 
 	c := &Config{
 		Url:           validUrl,
-		APIKey:        validAPIKey,
+		AppKey:        validAPIKey,
 		ApplicationID: validApplicationID,
 	}
 
@@ -73,14 +73,14 @@ func TestInit(t *testing.T) {
 	c.Url = validUrl
 
 	for _, v := range []string{"", "   "} {
-		c.APIKey = v
+		c.AppKey = v
 
 		Init(c)
 		assert.Same(c, config)
 		assert.False(config.valid)
 	}
 
-	c.APIKey = validAPIKey
+	c.AppKey = validAPIKey
 
 	for _, v := range []string{"", "   "} {
 		c.ApplicationID = v
@@ -98,7 +98,7 @@ func TestSend(t *testing.T) {
 		body := make([]byte, r.ContentLength)
 		_, _ = r.Body.Read(body)
 
-		assert.Equal("Bearer "+validAPIKey, r.Header.Get("Authorization"))
+		assert.Equal(validAPIKey, r.URL.Query().Get("app_key"))
 		assert.Equal(fmt.Sprintf(`{"application_id":"%s","message":"메시지","error_occurred":false}`, validApplicationID), string(body))
 	}))
 	defer ts.Close()
@@ -106,7 +106,7 @@ func TestSend(t *testing.T) {
 	// 정상적으로 초기화되었을 경우...
 	Init(&Config{
 		Url:           ts.URL,
-		APIKey:        validAPIKey,
+		AppKey:        validAPIKey,
 		ApplicationID: validApplicationID,
 	})
 
@@ -119,7 +119,7 @@ func TestSend(t *testing.T) {
 	// 유효하지 않은 설정값으로 초기화되었을 경우...
 	Init(&Config{
 		Url:           "",
-		APIKey:        validAPIKey,
+		AppKey:        validAPIKey,
 		ApplicationID: validApplicationID,
 	})
 

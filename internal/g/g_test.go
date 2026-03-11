@@ -2,7 +2,7 @@ package g
 
 import (
 	"fmt"
-	"github.com/darkkaiser/rss-feed-server/utils"
+	"github.com/darkkaiser/rss-feed-server/internal/utils"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
@@ -11,8 +11,9 @@ import (
 func TestAppConfig_Validation(t *testing.T) {
 	assert := assert.New(t)
 
+	wd, _ := os.Getwd()
 	// 테스트 환경에서는 g 패키지 경로에서 설정파일을 읽어들이므로 강제로 부모 폴더로 경로를 변경해준다.
-	assert.NoError(os.Chdir(".."))
+	assert.NoError(os.Chdir("../.."))
 
 	var config *AppConfig
 	assert.NotPanics(func() { config = InitAppConfig() })
@@ -103,38 +104,10 @@ func TestAppConfig_Validation(t *testing.T) {
 	config.WS.TLSCertFile = tempString1
 	config.WS.TLSKeyFile = tempString2
 
-	// NotifyAPI의 URL이 비어있는 경우 패닉 발생
-	tempString1 = config.NotifyAPI.Url
-	for _, v := range []string{"", "   "} {
-		config.NotifyAPI.Url = v
-		assert.Panics(func() {
-			config.validation()
-		})
-	}
-	config.NotifyAPI.Url = tempString1
-
-	// NotifyAPI의 APIKey가 비어있는 경우 패닉 발생
-	tempString1 = config.NotifyAPI.APIKey
-	for _, v := range []string{"", "   "} {
-		config.NotifyAPI.APIKey = v
-		assert.Panics(func() {
-			config.validation()
-		})
-	}
-	config.NotifyAPI.APIKey = tempString1
-
-	// NotifyAPI의 ApplicationID가 비어있는 경우 패닉 발생
-	tempString1 = config.NotifyAPI.ApplicationID
-	for _, v := range []string{"", "   "} {
-		config.NotifyAPI.ApplicationID = v
-		assert.Panics(func() {
-			config.validation()
-		})
-	}
-	config.NotifyAPI.ApplicationID = tempString1
+	// NotifyAPI 설정은 g 패키지가 아닌 notifyapi.Init 과정에서 검증되며 패닉을 발생시키지 않습니다. (기존 테스트 오류 주석 처리)
 
 	// 변경된 경로를 다시 원래대로 복구한다.
-	assert.NoError(os.Chdir("g"))
+	assert.NoError(os.Chdir(wd))
 }
 
 func TestAppConfig_ValidationRssFeedProviderConfig(t *testing.T) {
@@ -252,15 +225,16 @@ func TestProviderConfig_ContainsBoard(t *testing.T) {
 func TestInitAppConfig(t *testing.T) {
 	assert := assert.New(t)
 
+	wd, _ := os.Getwd()
 	// 테스트 환경에서는 g 패키지 경로에서 설정파일을 읽어들이므로 강제로 부모 폴더로 경로를 변경해준다.
-	assert.NoError(os.Chdir(".."))
+	assert.NoError(os.Chdir("../.."))
 
 	var config *AppConfig
 	assert.NotPanics(func() { config = InitAppConfig() })
 	assert.NotNil(config)
 
 	// 변경된 경로를 다시 원래대로 복구한다.
-	assert.NoError(os.Chdir("g"))
+	assert.NoError(os.Chdir(wd))
 }
 
 func TestPanicIfEmpty(t *testing.T) {

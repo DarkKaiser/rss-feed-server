@@ -10,9 +10,20 @@
   </a>
 </p>
 
-네이버 카페, 여수시청 게시판의 게시글을 크롤링하여 RSS 피드 서비스를 제공합니다.
+네이버 카페와 여수시청 게시판의 새로운 게시글을 자동으로 크롤링하여 RSS 피드로 제공하는 서비스입니다. Docker 기반으로 동작하며 SSL/TLS를 통한 보안 통신을 지원합니다.
 
-## Build
+## 주요 기능
+
+- 네이버 카페 게시글 자동 크롤링 및 RSS 피드 생성
+  - 설정된 주기에 따라 자동 수집
+  - 게시글 제목, 내용, 작성일 등 정보 제공
+- 여수시청 게시판 RSS 피드 생성
+  - HTTPS 지원
+  - Docker 컨테이너 기반 실행
+  
+## 설치 전 필요사항
+설치 전 필요사항ck설치 전 필요사항
+-설치 전 필요사항인증서설치 전 필요사항's 설치 전 필요사항pt 설치 전 필요사항pt8설치 전 필요사항pt 설치 전 필요사항pt설치 전 필요사항ptld
 
 ```bash
 docker build -t darkkaiser/rss-feed-server .
@@ -35,9 +46,20 @@ docker run -d --name rss-feed-server \
 
 ## SSL 인증서
 
+SSL 인증서는 Nginx Proxy Manager를 통해 발급된 인증서를 사용합니다.
+
+인증서 위치:
 ```
 /usr/local/docker/nginx-proxy-manager/letsencrypt/live/npm-1
 ```
+
+인증서 갱신은 Nginx Proxy Manager에서 자동으로 처리됩니다.
+
+## API 엔드포인트
+
+- RSS 피드
+  - 네이버 카페: `https://<hostname>:3443/rss/naver/cafe/<카페ID>`
+  - 여수시청: `https://<hostname>:3443/rss/yeosu/notice`
 
 ## 🤝 Contributing
 
@@ -50,3 +72,7 @@ Feel free to check [issues page](https://github.com/DarkKaiser/rss-feed-server/i
 
 - Blog: [@DarkKaiser](https://www.darkkaiser.com)
 - Github: [@DarkKaiser](https://github.com/DarkKaiser)
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

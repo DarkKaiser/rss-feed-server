@@ -3,9 +3,9 @@ package handler
 import (
 	"encoding/xml"
 	"fmt"
-	"github.com/darkkaiser/rss-feed-server/g"
-	"github.com/darkkaiser/rss-feed-server/notifyapi"
-	"github.com/darkkaiser/rss-feed-server/services/ws/feeds"
+	"github.com/darkkaiser/rss-feed-server/internal/g"
+	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
+	"github.com/darkkaiser/rss-feed-server/internal/services/ws/feeds"
 	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"
 	"net/http"
