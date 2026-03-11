@@ -3,8 +3,8 @@ package db
 import (
 	"database/sql"
 	"fmt"
-	"github.com/darkkaiser/rss-feed-server/g"
-	"github.com/darkkaiser/rss-feed-server/notifyapi"
+	"github.com/darkkaiser/rss-feed-server/internal/g"
+	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
 	log "github.com/sirupsen/logrus"
 )
 

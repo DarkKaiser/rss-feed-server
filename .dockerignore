@@ -1,0 +1,67 @@
+# Git
+.git
+.gitignore
+.gitmodules
+.gitattributes
+
+# IDE
+.idea
+.vscode
+*.iml
+
+# 문서
+README.md
+LICENSE
+docs/
+
+# 로그 및 임시 파일
+logs/
+*.log
+coverage
+coverage.out
+*.tmp
+*.temp
+
+# 테스트 파일
+*_test.go
+integration_test.go
+testdata/
+
+# 빌드 결과물
+*.exe
+notify-server
+notify-server.exe
+dist/
+build/
+
+# 설정 파일 (secrets 제외)
+notify-server.json
+*.csv
+*.local.json
+*.dev.json
+
+# 스크립트
+*.sh
+!docker-entrypoint.sh
+
+# Jenkins 및 CI/CD
+Jenkinsfile
+.jenkins/
+.github/
+
+# Docker 관련
+.dockerignore
+docker-compose*.yml
+.docker/
+
+# 기타
+.DS_Store
+*.swp
+*.swo
+*~
+Thumbs.db
+.env
+.env.*
+!.env.example
+node_modules/
+

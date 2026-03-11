@@ -3,7 +3,7 @@ package g
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/darkkaiser/rss-feed-server/utils"
+	"github.com/darkkaiser/rss-feed-server/internal/utils"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"strings"

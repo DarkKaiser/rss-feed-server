@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"github.com/darkkaiser/rss-feed-server/g"
-	"github.com/darkkaiser/rss-feed-server/model"
+	"github.com/darkkaiser/rss-feed-server/internal/g"
+	"github.com/darkkaiser/rss-feed-server/internal/model"
 )
 
 type Handler struct {
