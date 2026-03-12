@@ -4,20 +4,22 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/darkkaiser/rss-feed-server/internal/config"
-	"github.com/darkkaiser/rss-feed-server/internal/db"
-	_log_ "github.com/darkkaiser/rss-feed-server/internal/log"
-	"github.com/darkkaiser/rss-feed-server/internal/model"
-	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
-	"github.com/darkkaiser/rss-feed-server/internal/services"
-	"github.com/darkkaiser/rss-feed-server/internal/services/crawling"
-	"github.com/darkkaiser/rss-feed-server/internal/services/ws"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
 	"runtime"
 	"sync"
 	"syscall"
+
+	"github.com/darkkaiser/rss-feed-server/internal/config"
+	"github.com/darkkaiser/rss-feed-server/internal/db"
+	_log_ "github.com/darkkaiser/rss-feed-server/internal/log"
+	"github.com/darkkaiser/rss-feed-server/internal/model"
+	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
+	"github.com/darkkaiser/rss-feed-server/internal/pkg/version"
+	"github.com/darkkaiser/rss-feed-server/internal/services"
+	"github.com/darkkaiser/rss-feed-server/internal/services/crawling"
+	"github.com/darkkaiser/rss-feed-server/internal/services/ws"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -26,7 +28,7 @@ const (
  |  _ \ / ___| / ___|  |  ___| ___   ___   __| | / ___|  _ __ __   __
  | |_) |\___ \ \___ \  | |_   / _ \ / _ \ / _| | \___ \ | '__|\ \ / /
  |  _ <  ___) | ___) | |  _| |  __/|  __/| (_| |  ___) || |    \ V /
- |_| \_\|____/ |____/  |_|    \___| \___| \__,_| |____/ |_|     \_/ v%s
+ |_| \_\|____/ |____/  |_|    \___| \___| \__,_| |____/ |_|     \_/ %s
                                                    developed by DarkKaiser
 ---------------------------------------------------------------------------
 `
@@ -49,7 +51,7 @@ func main() {
 	})
 
 	// 아스키아트 출력(https://ko.rakko.tools/tools/68/, 폰트:standard)
-	fmt.Printf(banner, config.AppVersion)
+	fmt.Printf(banner, version.Version())
 
 	// 데이터베이스를 초기화한다.
 	sqlDb := db.New()
