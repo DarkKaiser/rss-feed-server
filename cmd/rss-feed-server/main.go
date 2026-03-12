@@ -35,6 +35,13 @@ const (
 )
 
 func main() {
+	if err := run(); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	runtime.GOMAXPROCS(runtime.NumCPU()) // 모든 CPU 사용
 
 	// 환경설정 정보를 읽어들인다.
@@ -93,4 +100,6 @@ func main() {
 	log.Info("Shutdown signal received")
 	cancel()                 // Signal cancellation to context.Context
 	serviceStopWaiter.Wait() // Block here until are workers are done
+
+	return nil
 }
