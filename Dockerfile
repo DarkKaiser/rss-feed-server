@@ -29,6 +29,12 @@ COPY --chmod=644 ./secrets/CA/Sectigo_RSA_Domain_Validation_Secure_Server_CA.crt
 # [CA 인증서 등록 2/2] 복사된 인증서를 시스템 통합 인증서 파일(/etc/ssl/certs/ca-certificates.crt)에 병합하여 활성화
 RUN /usr/sbin/update-ca-certificates
 
+# 빌드 도구 설치, Swagger 문서 및 코드 생성
+RUN go install golang.org/x/tools/cmd/stringer@v0.42.0 && \
+    go install github.com/swaggo/swag/cmd/swag@v1.16.6 && \
+    go generate ./... && \
+    swag init -g cmd/rss-feed-server/main.go
+
 # 테스트 실행 (빌드 전 품질 검증)
 RUN go test ./... -v -coverprofile=coverage.out
 
