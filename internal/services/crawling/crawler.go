@@ -8,7 +8,7 @@ import (
 	"github.com/darkkaiser/rss-feed-server/internal/model"
 	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
 	"github.com/robfig/cron/v3"
-	log "github.com/sirupsen/logrus"
+	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"golang.org/x/net/html"
 	"golang.org/x/text/encoding"
 	"io"
@@ -62,11 +62,11 @@ type crawler struct {
 }
 
 func (c *crawler) Run() {
-	log.Debugf("%s('%s')의 크롤링 작업을 시작합니다.", c.site, c.siteID)
+	applog.Debugf("%s('%s')의 크롤링 작업을 시작합니다.", c.site, c.siteID)
 
 	articles, latestCrawledArticleIDsByBoard, errOccurred, err := c.crawlingArticlesFn()
 	if err != nil {
-		log.Errorf("%s (error:%s)", errOccurred, err)
+		applog.Errorf("%s (error:%s)", errOccurred, err)
 
 		notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", errOccurred, err), true)
 
@@ -75,13 +75,13 @@ func (c *crawler) Run() {
 
 	if articles != nil {
 		if len(articles) > 0 {
-			log.Debugf("%s('%s')의 크롤링 작업 결과로 %d건의 신규 게시글이 추출되었습니다. 신규 게시글을 DB에 추가합니다.", c.site, c.siteID, len(articles))
+			applog.Debugf("%s('%s')의 크롤링 작업 결과로 %d건의 신규 게시글이 추출되었습니다. 신규 게시글을 DB에 추가합니다.", c.site, c.siteID, len(articles))
 
 			insertedCnt, err := c.rssFeedProviderStore.InsertArticles(c.rssFeedProviderID, articles)
 			if err != nil {
 				m := fmt.Sprintf("%s('%s')의 신규 게시글을 DB에 추가하는 중에 오류가 발생하여 크롤링 작업이 실패하였습니다.", c.site, c.siteID)
 
-				log.Errorf("%s (error:%s)", m, err)
+				applog.Errorf("%s (error:%s)", m, err)
 
 				notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 
@@ -96,16 +96,16 @@ func (c *crawler) Run() {
 				if err = c.rssFeedProviderStore.UpdateLatestCrawledArticleID(c.rssFeedProviderID, boardID, articleID); err != nil {
 					m := fmt.Sprintf("%s('%s')의 크롤링 된 최근 게시글 ID의 DB 갱신이 실패하였습니다.", c.site, c.siteID)
 
-					log.Errorf("%s (error:%s)", m, err)
+					applog.Errorf("%s (error:%s)", m, err)
 
 					notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 				}
 			}
 
 			if len(articles) != insertedCnt {
-				log.Warnf("%s('%s')의 크롤링 작업을 종료합니다. 전체 %d건 중에서 %d건의 신규 게시글이 DB에 추가되었습니다.", c.site, c.siteID, len(articles), insertedCnt)
+				applog.Warnf("%s('%s')의 크롤링 작업을 종료합니다. 전체 %d건 중에서 %d건의 신규 게시글이 DB에 추가되었습니다.", c.site, c.siteID, len(articles), insertedCnt)
 			} else {
-				log.Debugf("%s('%s')의 크롤링 작업을 종료합니다. %d건의 신규 게시글이 DB에 추가되었습니다.", c.site, c.siteID, len(articles))
+				applog.Debugf("%s('%s')의 크롤링 작업을 종료합니다. %d건의 신규 게시글이 DB에 추가되었습니다.", c.site, c.siteID, len(articles))
 			}
 		} else {
 			for boardID, articleID := range latestCrawledArticleIDsByBoard {
@@ -116,16 +116,16 @@ func (c *crawler) Run() {
 				if err = c.rssFeedProviderStore.UpdateLatestCrawledArticleID(c.rssFeedProviderID, boardID, articleID); err != nil {
 					m := fmt.Sprintf("%s('%s')의 크롤링 된 최근 게시글 ID의 DB 갱신이 실패하였습니다.", c.site, c.siteID)
 
-					log.Errorf("%s (error:%s)", m, err)
+					applog.Errorf("%s (error:%s)", m, err)
 
 					notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 				}
 			}
 
-			log.Debugf("%s('%s')의 크롤링 작업을 종료합니다. 신규 게시글이 존재하지 않습니다.", c.site, c.siteID)
+			applog.Debugf("%s('%s')의 크롤링 작업을 종료합니다. 신규 게시글이 존재하지 않습니다.", c.site, c.siteID)
 		}
 	} else {
-		log.Warnf("%s('%s')의 크롤링 작업을 종료합니다. 서버의 일시적인 오류로 인하여 신규 게시글 추출이 실패하였습니다.", c.site, c.siteID)
+		applog.Warnf("%s('%s')의 크롤링 작업을 종료합니다. 서버의 일시적인 오류로 인하여 신규 게시글 추출이 실패하였습니다.", c.site, c.siteID)
 	}
 }
 

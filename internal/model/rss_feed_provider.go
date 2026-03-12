@@ -7,7 +7,7 @@ import (
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
 	_ "github.com/mattn/go-sqlite3"
-	log "github.com/sirupsen/logrus"
+	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"strings"
 	"time"
 )
@@ -42,7 +42,7 @@ func NewRssFeedProviderStore(config *config.AppConfig, db *sql.DB) *RssFeedProvi
 
 		notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 
-		log.Panicf("%s (error:%s)", m, err)
+		applog.Panicf("%s (error:%s)", m, err)
 	}
 
 	return p
@@ -249,7 +249,7 @@ func (p *RssFeedProviderStore) InsertArticles(providerID string, articles []*Rss
 		if _, err := stmt.Exec(providerID, article.BoardID, article.ArticleID, article.Title, article.Content, article.Link, article.Author, article.CreatedDate.UTC().Format("2006-01-02 15:04:05")); err != nil {
 			m := fmt.Sprintf("RSS Feed DB에 게시글 등록이 실패하였습니다. (p_id:%s)", providerID)
 
-			log.Errorf("%s (게시글정보:%s) (error:%s)", m, article, err)
+			applog.Errorf("%s (게시글정보:%s) (error:%s)", m, article, err)
 
 			// 너무 많은 알림 메시지가 발송될 수 있으므로, 동시에 입력되는 게시글 중 최초 오류건에 대해서만 알림 메시지를 보낸다.
 			if sentNotifyMessage == false {

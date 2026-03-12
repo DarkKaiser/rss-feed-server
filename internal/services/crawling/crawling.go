@@ -8,7 +8,7 @@ import (
 	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
 	"github.com/darkkaiser/rss-feed-server/internal/services"
 	"github.com/robfig/cron/v3"
-	log "github.com/sirupsen/logrus"
+	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"sync"
 )
 
@@ -28,7 +28,7 @@ func NewService(config *config.AppConfig, rssFeedProviderStore *model.RssFeedPro
 	return &crawlingService{
 		config: config,
 
-		cron: cron.New(cron.WithLogger(cron.VerbosePrintfLogger(log.StandardLogger()))),
+		cron: cron.New(cron.WithLogger(cron.VerbosePrintfLogger(applog.StandardLogger()))),
 
 		rssFeedProviderStore: rssFeedProviderStore,
 
@@ -41,12 +41,12 @@ func (s *crawlingService) Run(serviceStopCtx context.Context, serviceStopWaiter 
 	s.runningMu.Lock()
 	defer s.runningMu.Unlock()
 
-	log.Debug("크롤링 서비스 시작중...")
+	applog.Debug("크롤링 서비스 시작중...")
 
 	if s.running == true {
 		defer serviceStopWaiter.Done()
 
-		log.Warn("크롤링 서비스가 이미 시작됨!!!")
+		applog.Warn("크롤링 서비스가 이미 시작됨!!!")
 
 		return
 	}
@@ -59,7 +59,7 @@ func (s *crawlingService) Run(serviceStopCtx context.Context, serviceStopWaiter 
 
 			notifyapi.Send(m, true)
 
-			log.Panic(m)
+			applog.Panic(m)
 
 			return
 		}
@@ -69,7 +69,7 @@ func (s *crawlingService) Run(serviceStopCtx context.Context, serviceStopWaiter 
 
 			notifyapi.Send(m, true)
 
-			log.Panic(m)
+			applog.Panic(m)
 		}
 	}
 
@@ -79,7 +79,7 @@ func (s *crawlingService) Run(serviceStopCtx context.Context, serviceStopWaiter 
 
 	s.running = true
 
-	log.Debug("크롤링 서비스 시작됨")
+	applog.Debug("크롤링 서비스 시작됨")
 }
 
 func (s *crawlingService) run0(serviceStopCtx context.Context, serviceStopWaiter *sync.WaitGroup) {
@@ -88,7 +88,7 @@ func (s *crawlingService) run0(serviceStopCtx context.Context, serviceStopWaiter
 	for {
 		select {
 		case <-serviceStopCtx.Done():
-			log.Debug("크롤링 서비스 중지중...")
+			applog.Debug("크롤링 서비스 중지중...")
 
 			s.runningMu.Lock()
 			{
@@ -100,7 +100,7 @@ func (s *crawlingService) run0(serviceStopCtx context.Context, serviceStopWaiter
 			}
 			s.runningMu.Unlock()
 
-			log.Debug("크롤링 서비스 중지됨")
+			applog.Debug("크롤링 서비스 중지됨")
 
 			return
 		}

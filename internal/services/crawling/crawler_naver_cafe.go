@@ -10,7 +10,7 @@ import (
 	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
 	"github.com/darkkaiser/rss-feed-server/internal/utils"
 	"github.com/robfig/cron/v3"
-	log "github.com/sirupsen/logrus"
+	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/korean"
 	"html"
@@ -34,7 +34,7 @@ func init() {
 
 				notifyapi.Send(m, true)
 
-				log.Panic(m)
+				applog.Panic(m)
 			}
 
 			crawler := &naverCafeCrawler{
@@ -60,7 +60,7 @@ func init() {
 
 			crawler.crawlingArticlesFn = crawler.crawlingArticles
 
-			log.Debug(fmt.Sprintf("%s('%s') Crawler가 생성되었습니다.", crawler.site, crawler.siteID))
+			applog.Debug(fmt.Sprintf("%s('%s') Crawler가 생성되었습니다.", crawler.site, crawler.siteID))
 
 			return crawler
 		},
@@ -355,7 +355,7 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.RssFeed
 
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s", c.siteUrl, article.ArticleID), nil)
 	if err != nil {
-		log.Warnf("%s 접근이 실패하였습니다. (error:%s)", title, err)
+		applog.Warnf("%s 접근이 실패하였습니다. (error:%s)", title, err)
 		return
 	}
 	req.Header.Add("referer", "https://search.naver.com/")
@@ -363,29 +363,29 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.RssFeed
 	client := &http.Client{}
 	res, err := client.Do(req)
 	if err != nil {
-		log.Warnf("%s 접근이 실패하였습니다. (error:%s)", title, err)
+		applog.Warnf("%s 접근이 실패하였습니다. (error:%s)", title, err)
 		return
 	}
 	if res.StatusCode != http.StatusOK {
-		log.Warnf("%s 접근이 실패하였습니다. (HTTP 상태코드:%d)", title, res.StatusCode)
+		applog.Warnf("%s 접근이 실패하였습니다. (HTTP 상태코드:%d)", title, res.StatusCode)
 		return
 	}
 	defer res.Body.Close()
 
 	bodyBytes, err := io.ReadAll(res.Body)
 	if err != nil {
-		log.Warnf("%s의 내용을 읽을 수 없습니다. (error:%s)", title, err)
+		applog.Warnf("%s의 내용을 읽을 수 없습니다. (error:%s)", title, err)
 		return
 	}
 	bodyString, err := euckrDecoder.String(string(bodyBytes))
 	if err != nil {
-		log.Warnf("%s의 문자열 디코딩이 실패하였습니다. (error:%s)", title, err)
+		applog.Warnf("%s의 문자열 디코딩이 실패하였습니다. (error:%s)", title, err)
 		return
 	}
 
 	pos := strings.Index(bodyString, "&art=")
 	if pos == -1 {
-		log.Warnf("%s의 art 쿼리 문자열을 찾을 수 없습니다.", title)
+		applog.Warnf("%s의 art 쿼리 문자열을 찾을 수 없습니다.", title)
 		return
 	}
 	artValue := bodyString[pos+5:]
@@ -398,21 +398,21 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.RssFeed
 
 	res2, err := http.Get(fmt.Sprintf("https://apis.naver.com/cafe-web/cafe-articleapi/v2/cafes/%s/articles/%s?art=%s&useCafeId=true&requestFrom=A", c.siteClubID, article.ArticleID, artValue))
 	if err != nil {
-		log.Warnf("%s 접근이 실패하였습니다. (error:%s)", title, err)
+		applog.Warnf("%s 접근이 실패하였습니다. (error:%s)", title, err)
 		return
 	}
 	if res2.StatusCode != http.StatusOK {
 		// 특정 게시글은 StatusBadRequest(401)가 반환되는 경우가 있음!!!
 		// 이 경우는 해당 게시글이 네이버 로그인을 하지 않으면 외부에서(네이버 검색 서비스) 접근이 되지 않도록
 		// 작성자가 설정하였기 때문에 그런 것 같음!!!
-		log.Warnf("%s 접근이 실패하였습니다. (HTTP 상태코드:%d)", title, res2.StatusCode)
+		applog.Warnf("%s 접근이 실패하였습니다. (HTTP 상태코드:%d)", title, res2.StatusCode)
 		return
 	}
 	defer res2.Body.Close()
 
 	bodyBytes, err = io.ReadAll(res2.Body)
 	if err != nil {
-		log.Warnf("%s의 내용을 읽을 수 없습니다. (error:%s)", title, err)
+		applog.Warnf("%s의 내용을 읽을 수 없습니다. (error:%s)", title, err)
 		return
 	}
 
@@ -421,7 +421,7 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.RssFeed
 	if err != nil {
 		m := fmt.Sprintf("%s 응답 데이터의 JSON 변환이 실패하였습니다.", title)
 
-		log.Warnf("%s (error:%s)", m, err)
+		applog.Warnf("%s (error:%s)", m, err)
 
 		notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), false)
 
@@ -441,7 +441,7 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.RssFeed
 			} else {
 				m := fmt.Sprintf("%s 응답 데이터에서 알 수 없는 LINK ContentElement Layout('%s')이 입력되었습니다.", title, element.JSON.Layout)
 
-				log.Warn(m)
+				applog.Warn(m)
 
 				notifyapi.Send(m, false)
 			}
@@ -453,7 +453,7 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.RssFeed
 		default:
 			m := fmt.Sprintf("%s 응답 데이터에서 알 수 없는 ContentElement Type('%s')이 입력되었습니다.", title, element.Type)
 
-			log.Warn(m)
+			applog.Warn(m)
 
 			notifyapi.Send(m, false)
 		}
@@ -472,7 +472,7 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.RssFeed
 func (c *naverCafeCrawler) crawlingArticleContentUsingLink(article *model.RssFeedProviderArticle, euckrDecoder *encoding.Decoder) {
 	doc, errOccurred, err := c.getWebPageDocument(article.Link, fmt.Sprintf("%s('%s > %s') 게시글('%s')의 상세페이지", c.site, c.siteID, article.BoardName, article.ArticleID), euckrDecoder)
 	if err != nil {
-		log.Warnf("%s (error:%s)", errOccurred, err)
+		applog.Warnf("%s (error:%s)", errOccurred, err)
 		return
 	}
 
@@ -501,7 +501,7 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingNaverSearch(article *model
 
 	doc, errOccurred, err := c.getWebPageDocument(searchUrl, fmt.Sprintf("%s('%s > %s') 게시글('%s')의 네이버 검색페이지", c.site, c.siteID, article.BoardName, article.ArticleID), nil)
 	if err != nil {
-		log.Warnf("%s (error:%s)", errOccurred, err)
+		applog.Warnf("%s (error:%s)", errOccurred, err)
 		return
 	}
 

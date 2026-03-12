@@ -8,7 +8,7 @@ import (
 	"github.com/darkkaiser/rss-feed-server/internal/model"
 	"github.com/darkkaiser/rss-feed-server/internal/utils"
 	"github.com/robfig/cron/v3"
-	log "github.com/sirupsen/logrus"
+	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"net/url"
 	"regexp"
 	"strings"
@@ -63,7 +63,7 @@ func init() {
 
 			crawler.crawlingArticlesFn = crawler.crawlingArticles
 
-			log.Debug(fmt.Sprintf("%s('%s') Crawler가 생성되었습니다.", crawler.site, crawler.siteID))
+			applog.Debug(fmt.Sprintf("%s('%s') Crawler가 생성되었습니다.", crawler.site, crawler.siteID))
 
 			return crawler
 		},
@@ -471,13 +471,13 @@ func (c *yeosuCityHallCrawler) extractArticle(boardType string, s *goquery.Selec
 func (c *yeosuCityHallCrawler) crawlingArticleContent(article *model.RssFeedProviderArticle) {
 	doc, errOccurred, err := c.getWebPageDocument(article.Link, fmt.Sprintf("%s('%s') %s 게시판의 게시글('%s') 상세페이지", c.site, c.siteID, article.BoardName, article.ArticleID), nil)
 	if err != nil {
-		log.Warnf("%s (error:%s)", errOccurred, err)
+		applog.Warnf("%s (error:%s)", errOccurred, err)
 		return
 	}
 
 	ysSelection := doc.Find("div.contbox > div.viewbox")
 	if ysSelection.Length() == 0 {
-		log.Warnf("게시글('%s')에서 내용 정보를 찾을 수 없습니다.", article.ArticleID)
+		applog.Warnf("게시글('%s')에서 내용 정보를 찾을 수 없습니다.", article.ArticleID)
 		return
 	}
 

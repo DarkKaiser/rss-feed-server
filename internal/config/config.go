@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/darkkaiser/rss-feed-server/internal/utils"
-	log "github.com/sirupsen/logrus"
+	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"os"
 	"strings"
 )
@@ -86,7 +86,7 @@ func (c *AppConfig) validation() {
 
 			clubID, ok := p.Config.Data["club_id"].(string)
 			if ok == false {
-				log.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' %s의 ClubID가 입력되지 않았거나 타입이 유효하지 않습니다.", appConfigFileName, p.Config.ID, site)
+				applog.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' %s의 ClubID가 입력되지 않았거나 타입이 유효하지 않습니다.", appConfigFileName, p.Config.ID, site)
 			}
 			panicIfEmpty(clubID, fmt.Sprintf("%s 파일의 내용이 유효하지 않습니다. '%s' %s의 ClubID가 입력되지 않았습니다.", appConfigFileName, p.Config.ID, site))
 			panicIfContains(providerSiteNaverCafeClubIDs, clubID, fmt.Sprintf("%s의 ClubID('%s')가 중복되었습니다.", site, clubID))
@@ -99,7 +99,7 @@ func (c *AppConfig) validation() {
 			c.validationRssFeedProviderConfig("쌍봉초등학교 홈페이지", p.Config, &providerSiteSsangbongSchoolIDs)
 
 		default:
-			log.Panicf("%s 파일의 내용이 유효하지 않습니다. 지원하지 않는 RSS Feed Provider Site('%s')입니다.", appConfigFileName, p.Site)
+			applog.Panicf("%s 파일의 내용이 유효하지 않습니다. 지원하지 않는 RSS Feed Provider Site('%s')입니다.", appConfigFileName, p.Site)
 		}
 	}
 
@@ -154,12 +154,12 @@ func InitAppConfig() *AppConfig {
 
 func panicIfEmpty(value, message string) {
 	if strings.TrimSpace(value) == "" {
-		log.Panicf("%s 파일의 내용이 유효하지 않습니다. %s", appConfigFileName, message)
+		applog.Panicf("%s 파일의 내용이 유효하지 않습니다. %s", appConfigFileName, message)
 	}
 }
 
 func panicIfContains(s []string, e, message string) {
 	if utils.Contains(s, e) == true {
-		log.Panicf("%s 파일의 내용이 유효하지 않습니다. %s", appConfigFileName, message)
+		applog.Panicf("%s 파일의 내용이 유효하지 않습니다. %s", appConfigFileName, message)
 	}
 }
