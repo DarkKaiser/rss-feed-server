@@ -1,7 +1,7 @@
 # ------------------------------------------
 # 1. Build Image
 # ------------------------------------------
-FROM golang:1.24.0-alpine AS builder
+FROM golang:1.24.0-bullseye AS builder
 
 ARG APP_NAME=rss-feed-server
 
@@ -9,12 +9,9 @@ WORKDIR /go/src/app/
 
 COPY . .
 
-# Alpine: CGO 빌드를 위한 C 툴체인 및 CA 인증서 패키지 설치
-RUN apk add --no-cache gcc musl-dev ca-certificates
-
 # 신뢰하는 인증기관 추가하기
 COPY --chmod=644 ./secrets/CA/Sectigo_RSA_Domain_Validation_Secure_Server_CA.crt /usr/local/share/ca-certificates/
-RUN update-ca-certificates
+RUN /usr/sbin/update-ca-certificates
 
 ENV GO111MODULE=on
 
