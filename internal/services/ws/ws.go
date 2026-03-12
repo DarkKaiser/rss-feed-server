@@ -5,7 +5,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"github.com/darkkaiser/rss-feed-server/internal/g"
+	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/model"
 	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
 	"github.com/darkkaiser/rss-feed-server/internal/services"
@@ -25,7 +25,7 @@ var (
 
 // webService
 type webService struct {
-	config *g.AppConfig
+	config *config.AppConfig
 
 	handler *handler.Handler
 
@@ -33,7 +33,7 @@ type webService struct {
 	runningMu sync.Mutex
 }
 
-func NewService(config *g.AppConfig, rssFeedProviderStore *model.RssFeedProviderStore) services.Service {
+func NewService(config *config.AppConfig, rssFeedProviderStore *model.RssFeedProviderStore) services.Service {
 	return &webService{
 		config: config,
 

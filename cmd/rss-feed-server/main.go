@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/db"
-	"github.com/darkkaiser/rss-feed-server/internal/g"
 	_log_ "github.com/darkkaiser/rss-feed-server/internal/log"
 	"github.com/darkkaiser/rss-feed-server/internal/model"
 	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
@@ -36,20 +36,20 @@ func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU()) // 모든 CPU 사용
 
 	// 환경설정 정보를 읽어들인다.
-	config := g.InitAppConfig()
+	appConfig := config.InitAppConfig()
 
 	// 로그를 초기화하고, 일정 시간이 지난 로그 파일을 모두 삭제한다.
-	_log_.Init(config.Debug, g.AppName, 30.)
+	_log_.Init(appConfig.Debug, config.AppName, 30.)
 
 	// NotifyAPI를 초기화한다.
 	notifyapi.Init(&notifyapi.Config{
-		Url:           config.NotifyAPI.Url,
-		AppKey:        config.NotifyAPI.AppKey,
-		ApplicationID: config.NotifyAPI.ApplicationID,
+		Url:           appConfig.NotifyAPI.Url,
+		AppKey:        appConfig.NotifyAPI.AppKey,
+		ApplicationID: appConfig.NotifyAPI.ApplicationID,
 	})
 
 	// 아스키아트 출력(https://ko.rakko.tools/tools/68/, 폰트:standard)
-	fmt.Printf(banner, g.AppVersion)
+	fmt.Printf(banner, config.AppVersion)
 
 	// 데이터베이스를 초기화한다.
 	sqlDb := db.New()
@@ -65,11 +65,11 @@ func main() {
 	}(sqlDb)
 
 	// RSS Feed Store를 초기화한다.
-	rssFeedProviderStore := model.NewRssFeedProviderStore(config, sqlDb)
+	rssFeedProviderStore := model.NewRssFeedProviderStore(appConfig, sqlDb)
 
 	// 서비스를 생성하고 초기화한다.
-	webService := ws.NewService(config, rssFeedProviderStore)
-	crawlingService := crawling.NewService(config, rssFeedProviderStore)
+	webService := ws.NewService(appConfig, rssFeedProviderStore)
+	crawlingService := crawling.NewService(appConfig, rssFeedProviderStore)
 
 	// Set up cancellation context and waitgroup
 	serviceStopCtx, cancel := context.WithCancel(context.Background())

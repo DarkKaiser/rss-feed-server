@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/darkkaiser/rss-feed-server/internal/g"
+	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
 	_ "github.com/mattn/go-sqlite3"
 	log "github.com/sirupsen/logrus"
@@ -32,7 +32,7 @@ type RssFeedProviderStore struct {
 	db *sql.DB
 }
 
-func NewRssFeedProviderStore(config *g.AppConfig, db *sql.DB) *RssFeedProviderStore {
+func NewRssFeedProviderStore(config *config.AppConfig, db *sql.DB) *RssFeedProviderStore {
 	p := &RssFeedProviderStore{
 		db: db,
 	}
@@ -48,7 +48,7 @@ func NewRssFeedProviderStore(config *g.AppConfig, db *sql.DB) *RssFeedProviderSt
 	return p
 }
 
-func (p *RssFeedProviderStore) init(config *g.AppConfig) error {
+func (p *RssFeedProviderStore) init(config *config.AppConfig) error {
 	if err := p.createTables(); err != nil {
 		return err
 	}

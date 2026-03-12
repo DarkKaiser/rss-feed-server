@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
-	"github.com/darkkaiser/rss-feed-server/internal/g"
+	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/model"
 	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
 	"github.com/darkkaiser/rss-feed-server/internal/utils"
@@ -24,8 +24,8 @@ import (
 )
 
 func init() {
-	supportedCrawlers[g.RssFeedProviderSiteNaverCafe] = &supportedCrawlerConfig{
-		newCrawlerFn: func(rssFeedProviderID string, config *g.ProviderConfig, rssFeedProviderStore *model.RssFeedProviderStore) cron.Job {
+	supportedCrawlers[config.RssFeedProviderSiteNaverCafe] = &supportedCrawlerConfig{
+		newCrawlerFn: func(rssFeedProviderID string, config *config.ProviderConfig, rssFeedProviderStore *model.RssFeedProviderStore) cron.Job {
 			site := "네이버 카페"
 
 			data := naverCafeCrawlerConfigData{}
