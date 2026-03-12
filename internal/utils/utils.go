@@ -2,14 +2,14 @@ package utils
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
+	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"regexp"
 	"strings"
 )
 
 func CheckErr(err error) {
 	if err != nil {
-		log.Fatal(err)
+		applog.Fatal(err)
 	}
 }
 

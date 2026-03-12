@@ -5,7 +5,7 @@ import (
 	_middleware_ "github.com/darkkaiser/rss-feed-server/internal/services/ws/middleware"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	log "github.com/sirupsen/logrus"
+	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"html/template"
 	"io"
 	"net/http"
@@ -27,7 +27,7 @@ func New(views embed.FS) *echo.Echo {
 
 	// echo에서 출력되는 로그를 Logrus Logger로 출력되도록 한다.
 	// echo Logger의 인터페이스를 래핑한 객체를 이용하여 Logrus Logger로 보낸다.
-	e.Logger = _middleware_.Logger{Logger: log.StandardLogger()}
+	e.Logger = _middleware_.Logger{Logger: applog.StandardLogger()}
 	e.Use(_middleware_.LogrusLogger())
 	// echo 기본 로그출력 구문, 필요치 않음!!!
 	/*

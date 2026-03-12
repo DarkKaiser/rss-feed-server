@@ -9,7 +9,7 @@ import (
 	"github.com/darkkaiser/rss-feed-server/internal/model"
 	"github.com/darkkaiser/rss-feed-server/internal/utils"
 	"github.com/robfig/cron/v3"
-	log "github.com/sirupsen/logrus"
+	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"io"
 	"net/http"
 	"regexp"
@@ -59,7 +59,7 @@ func init() {
 
 			crawler.crawlingArticlesFn = crawler.crawlingArticles
 
-			log.Debug(fmt.Sprintf("%s('%s') Crawler가 생성되었습니다.", crawler.site, crawler.siteID))
+			applog.Debug(fmt.Sprintf("%s('%s') Crawler가 생성되었습니다.", crawler.site, crawler.siteID))
 
 			return crawler
 		},
@@ -310,7 +310,7 @@ func (c *ssangbongSchoolCrawler) extractArticle(boardID, boardType, urlDetailPat
 func (c *ssangbongSchoolCrawler) crawlingArticleContent(article *model.RssFeedProviderArticle) {
 	doc, errOccurred, err := c.getWebPageDocumentWithPOST(article.Link, fmt.Sprintf("%s('%s') %s 게시판의 게시글('%s') 상세페이지", c.site, c.siteID, article.BoardName, article.ArticleID))
 	if err != nil {
-		log.Warnf("%s (error:%s)", errOccurred, err)
+		applog.Warnf("%s (error:%s)", errOccurred, err)
 		return
 	}
 
@@ -318,11 +318,11 @@ func (c *ssangbongSchoolCrawler) crawlingArticleContent(article *model.RssFeedPr
 	if article.Author == "" {
 		acSelection := doc.Find("div.bbs_ViewA > ul.bbsV_data > li")
 		if acSelection.Length() != 3 {
-			log.Warnf("게시글('%s')에서 작성자 파싱이 실패하였습니다.", article.ArticleID)
+			applog.Warnf("게시글('%s')에서 작성자 파싱이 실패하였습니다.", article.ArticleID)
 		} else {
 			author := strings.TrimSpace(acSelection.Eq(0).Text())
 			if strings.HasPrefix(author, "작성자") == false {
-				log.Warnf("게시글('%s')에서 작성자 파싱이 실패하였습니다.", article.ArticleID)
+				applog.Warnf("게시글('%s')에서 작성자 파싱이 실패하였습니다.", article.ArticleID)
 			} else {
 				article.Author = strings.TrimSpace(strings.Replace(author, "작성자", "", -1))
 			}
@@ -331,7 +331,7 @@ func (c *ssangbongSchoolCrawler) crawlingArticleContent(article *model.RssFeedPr
 
 	acSelection := doc.Find("div.bbs_ViewA > div.bbsV_cont")
 	if acSelection.Length() == 0 {
-		log.Warnf("게시글('%s')에서 내용 정보를 찾을 수 없습니다.", article.ArticleID)
+		applog.Warnf("게시글('%s')에서 내용 정보를 찾을 수 없습니다.", article.ArticleID)
 		return
 	}
 

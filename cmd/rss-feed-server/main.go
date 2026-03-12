@@ -10,16 +10,15 @@ import (
 	"sync"
 	"syscall"
 
+	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/db"
-	_log_ "github.com/darkkaiser/rss-feed-server/internal/log"
 	"github.com/darkkaiser/rss-feed-server/internal/model"
 	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
 	"github.com/darkkaiser/rss-feed-server/internal/pkg/version"
 	"github.com/darkkaiser/rss-feed-server/internal/services"
 	"github.com/darkkaiser/rss-feed-server/internal/services/crawling"
 	"github.com/darkkaiser/rss-feed-server/internal/services/ws"
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -35,13 +34,35 @@ const (
 )
 
 func main() {
+	if err := run(); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	runtime.GOMAXPROCS(runtime.NumCPU()) // 모든 CPU 사용
 
 	// 환경설정 정보를 읽어들인다.
 	appConfig := config.InitAppConfig()
 
-	// 로그를 초기화하고, 일정 시간이 지난 로그 파일을 모두 삭제한다.
-	_log_.Init(appConfig.Debug, config.AppName, 30.)
+	// 2. 로그 시스템 초기화
+	// 환경설정(Debug 모드 여부)에 따라 개발용 또는 운영용 로거를 구성합니다.
+	// 초기화된 클로저(appLogCloser)는 함수 종료 시 반드시 호출하여 버퍼에 남은 로그를 플러시해야 합니다.
+	var logOpts applog.Options
+	if appConfig.Debug {
+		logOpts = applog.NewDevelopmentOptions(config.AppName)
+	} else {
+		logOpts = applog.NewProductionOptions(config.AppName)
+	}
+	// 로그 파일 경로 단축을 위해 프로젝트 모듈 경로 주입
+	logOpts.CallerPathPrefix = "github.com/darkkaiser/rss-feed-server"
+
+	appLogCloser, err := applog.Setup(logOpts)
+	if err != nil {
+		return fmt.Errorf("로그 시스템을 초기화하는 중 치명적인 오류가 발생했습니다: %w", err)
+	}
+	defer appLogCloser.Close()
 
 	// NotifyAPI를 초기화한다.
 	notifyapi.Init(&notifyapi.Config{
@@ -60,7 +81,7 @@ func main() {
 		if err != nil {
 			m := "DB를 닫는 중에 오류가 발생하였습니다."
 
-			log.Errorf("%s (error:%s)", m, err)
+			applog.Errorf("%s (error:%s)", m, err)
 
 			notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 		}
@@ -90,7 +111,9 @@ func main() {
 	<-termC // Blocks here until interrupted
 
 	// Handle shutdown
-	log.Info("Shutdown signal received")
+	applog.Info("Shutdown signal received")
 	cancel()                 // Signal cancellation to context.Context
 	serviceStopWaiter.Wait() // Block here until are workers are done
+
+	return nil
 }

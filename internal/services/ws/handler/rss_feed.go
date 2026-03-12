@@ -7,7 +7,7 @@ import (
 	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
 	"github.com/darkkaiser/rss-feed-server/internal/services/ws/feeds"
 	"github.com/labstack/echo/v4"
-	log "github.com/sirupsen/logrus"
+	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"net/http"
 	"strings"
 	"time"
@@ -41,7 +41,7 @@ func (h *Handler) GetRssFeedHandler(c echo.Context) error {
 			if err != nil {
 				m := fmt.Sprintf("DB에서 게시글을 읽어오는 중에 오류가 발생하였습니다. (p_id:%s)", p.ID)
 
-				log.Errorf("%s (error:%s)", m, err)
+				applog.Errorf("%s (error:%s)", m, err)
 
 				notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 
@@ -69,7 +69,7 @@ func (h *Handler) GetRssFeedHandler(c echo.Context) error {
 			if err != nil {
 				m := fmt.Sprintf("RSS Feed 객체를 XML로 변환하는 중에 오류가 발생하였습니다. (ID:%s)", id)
 
-				log.Errorf("%s (error:%s)", m, err)
+				applog.Errorf("%s (error:%s)", m, err)
 
 				notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 

@@ -12,7 +12,7 @@ import (
 	"github.com/darkkaiser/rss-feed-server/internal/services/ws/handler"
 	"github.com/darkkaiser/rss-feed-server/internal/services/ws/router"
 	"github.com/labstack/echo/v4"
-	log "github.com/sirupsen/logrus"
+	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"net/http"
 	"sync"
 	"time"
@@ -48,12 +48,12 @@ func (s *webService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 	s.runningMu.Lock()
 	defer s.runningMu.Unlock()
 
-	log.Debug("웹 서비스 시작중...")
+	applog.Debug("웹 서비스 시작중...")
 
 	if s.running == true {
 		defer serviceStopWaiter.Done()
 
-		log.Warn("웹 서비스가 이미 시작됨!!!")
+		applog.Warn("웹 서비스가 이미 시작됨!!!")
 
 		return
 	}
@@ -68,7 +68,7 @@ func (s *webService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 	}
 
 	go func(listenPort int) {
-		log.Debugf("웹 서비스 > http 서버(:%d) 시작됨", listenPort)
+		applog.Debugf("웹 서비스 > http 서버(:%d) 시작됨", listenPort)
 
 		var err error
 		if s.config.WS.TLSServer == true {
@@ -79,11 +79,11 @@ func (s *webService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 
 		// Start(), StartTLS() 함수는 항상 nil이 아닌 error를 반환한다.
 		if errors.Is(err, http.ErrServerClosed) == true {
-			log.Debug("웹 서비스 > http 서버 중지됨")
+			applog.Debug("웹 서비스 > http 서버 중지됨")
 		} else {
 			m := "웹 서비스 > http 서버를 구성하는 중에 치명적인 오류가 발생하였습니다."
 
-			log.Errorf("%s (error:%s)", m, err)
+			applog.Errorf("%s (error:%s)", m, err)
 
 			notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 		}
@@ -94,7 +94,7 @@ func (s *webService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 
 		select {
 		case <-serviceStopCtx.Done():
-			log.Debug("웹 서비스 중지중...")
+			applog.Debug("웹 서비스 중지중...")
 
 			s.runningMu.Lock()
 			{
@@ -105,7 +105,7 @@ func (s *webService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 				if err := e.Shutdown(ctx); err != nil {
 					m := "웹 서비스를 중지하는 중에 오류가 발생하였습니다."
 
-					log.Errorf("%s (error:%s)", m, err)
+					applog.Errorf("%s (error:%s)", m, err)
 
 					notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 				}
@@ -114,11 +114,11 @@ func (s *webService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 			}
 			s.runningMu.Unlock()
 
-			log.Debug("웹 서비스 중지됨")
+			applog.Debug("웹 서비스 중지됨")
 		}
 	}()
 
 	s.running = true
 
-	log.Debug("웹 서비스 시작됨")
+	applog.Debug("웹 서비스 시작됨")
 }

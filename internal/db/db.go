@@ -3,9 +3,11 @@ package db
 import (
 	"database/sql"
 	"fmt"
+
+	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
-	log "github.com/sirupsen/logrus"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 func New() *sql.DB {
@@ -15,7 +17,7 @@ func New() *sql.DB {
 
 		notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
 
-		log.Panicf("%s (error:%s)", m, err)
+		applog.Panicf("%s (error:%s)", m, err)
 	}
 
 	return db

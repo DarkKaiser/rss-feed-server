@@ -3,14 +3,14 @@ package middleware
 import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
-	"github.com/sirupsen/logrus"
+	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"io"
 	"strconv"
 	"time"
 )
 
 type Logger struct {
-	*logrus.Logger
+	*applog.Logger
 }
 
 func (l Logger) Output() io.Writer {
@@ -18,7 +18,7 @@ func (l Logger) Output() io.Writer {
 }
 
 func (l Logger) SetOutput(w io.Writer) {
-	logrus.SetOutput(w)
+	applog.SetOutput(w)
 }
 
 func (l Logger) Prefix() string {
@@ -31,17 +31,20 @@ func (l Logger) SetPrefix(string) {
 
 func (l Logger) Level() log.Lvl {
 	switch l.Logger.Level {
-	case logrus.DebugLevel:
+	case applog.DebugLevel:
 		return log.DEBUG
-	case logrus.WarnLevel:
+	case applog.WarnLevel:
 		return log.WARN
-	case logrus.ErrorLevel:
+	case applog.ErrorLevel:
 		return log.ERROR
-	case logrus.InfoLevel:
+	case applog.InfoLevel:
 		return log.INFO
-	case logrus.PanicLevel:
-	case logrus.FatalLevel:
-	case logrus.TraceLevel:
+	case applog.PanicLevel:
+		return log.OFF
+	case applog.FatalLevel:
+		return log.OFF
+	case applog.TraceLevel:
+		return log.OFF
 	}
 
 	return log.OFF
@@ -50,14 +53,13 @@ func (l Logger) Level() log.Lvl {
 func (l Logger) SetLevel(lvl log.Lvl) {
 	switch lvl {
 	case log.DEBUG:
-		logrus.SetLevel(logrus.DebugLevel)
+		applog.SetLevel(applog.DebugLevel)
 	case log.WARN:
-		logrus.SetLevel(logrus.WarnLevel)
+		applog.SetLevel(applog.WarnLevel)
 	case log.ERROR:
-		logrus.SetLevel(logrus.ErrorLevel)
+		applog.SetLevel(applog.ErrorLevel)
 	case log.INFO:
-		logrus.SetLevel(logrus.InfoLevel)
-	case log.OFF:
+		applog.SetLevel(applog.InfoLevel)
 	}
 }
 
@@ -66,87 +68,87 @@ func (l Logger) SetHeader(string) {
 }
 
 func (l Logger) Print(i ...interface{}) {
-	logrus.Print(i...)
+	applog.Info(i...)
 }
 
 func (l Logger) Printf(format string, args ...interface{}) {
-	logrus.Printf(format, args...)
+	applog.Infof(format, args...)
 }
 
 func (l Logger) Printj(j log.JSON) {
-	logrus.WithFields(logrus.Fields(j)).Print()
+	applog.WithFields(applog.Fields(j)).Print()
 }
 
 func (l Logger) Debug(i ...interface{}) {
-	logrus.Debug(i...)
+	applog.Debug(i...)
 }
 
 func (l Logger) Debugf(format string, args ...interface{}) {
-	logrus.Debugf(format, args...)
+	applog.Debugf(format, args...)
 }
 
 func (l Logger) Debugj(j log.JSON) {
-	logrus.WithFields(logrus.Fields(j)).Debug()
+	applog.WithFields(applog.Fields(j)).Debug()
 }
 
 func (l Logger) Info(i ...interface{}) {
-	logrus.Info(i...)
+	applog.Info(i...)
 }
 
 func (l Logger) Infof(format string, args ...interface{}) {
-	logrus.Infof(format, args...)
+	applog.Infof(format, args...)
 }
 
 func (l Logger) Infoj(j log.JSON) {
-	logrus.WithFields(logrus.Fields(j)).Info()
+	applog.WithFields(applog.Fields(j)).Info()
 }
 
 func (l Logger) Warn(i ...interface{}) {
-	logrus.Warn(i...)
+	applog.Warn(i...)
 }
 
 func (l Logger) Warnf(format string, args ...interface{}) {
-	logrus.Warnf(format, args...)
+	applog.Warnf(format, args...)
 }
 
 func (l Logger) Warnj(j log.JSON) {
-	logrus.WithFields(logrus.Fields(j)).Warn()
+	applog.WithFields(applog.Fields(j)).Warn()
 }
 
 func (l Logger) Error(i ...interface{}) {
-	logrus.Error(i...)
+	applog.Error(i...)
 }
 
 func (l Logger) Errorf(format string, args ...interface{}) {
-	logrus.Errorf(format, args...)
+	applog.Errorf(format, args...)
 }
 
 func (l Logger) Errorj(j log.JSON) {
-	logrus.WithFields(logrus.Fields(j)).Error()
+	applog.WithFields(applog.Fields(j)).Error()
 }
 
 func (l Logger) Fatal(i ...interface{}) {
-	logrus.Fatal(i...)
+	applog.Fatal(i...)
 }
 
 func (l Logger) Fatalf(format string, args ...interface{}) {
-	logrus.Fatalf(format, args...)
+	applog.Fatalf(format, args...)
 }
 
 func (l Logger) Fatalj(j log.JSON) {
-	logrus.WithFields(logrus.Fields(j)).Fatal()
+	applog.WithFields(applog.Fields(j)).Fatal()
 }
 
 func (l Logger) Panic(i ...interface{}) {
-	logrus.Panic(i...)
+	applog.Panic(i...)
 }
 
 func (l Logger) Panicf(format string, args ...interface{}) {
-	logrus.Panicf(format, args...)
+	applog.Panicf(format, args...)
 }
 
 func (l Logger) Panicj(j log.JSON) {
-	logrus.WithFields(logrus.Fields(j)).Panic()
+	applog.WithFields(applog.Fields(j)).Panic()
 }
 
 func logrusMiddlewareHandler(c echo.Context, next echo.HandlerFunc) error {
@@ -168,7 +170,7 @@ func logrusMiddlewareHandler(c echo.Context, next echo.HandlerFunc) error {
 		bytesIn = "0"
 	}
 
-	logrus.WithFields(map[string]interface{}{
+	applog.WithFields(map[string]interface{}{
 		"time_rfc3339":  time.Now().Format(time.RFC3339),
 		"remote_ip":     c.RealIP(),
 		"host":          req.Host,
