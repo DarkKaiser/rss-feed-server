@@ -7,8 +7,8 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/model"
-	"github.com/darkkaiser/rss-feed-server/internal/utils"
 	"github.com/robfig/cron/v3"
+	"github.com/darkkaiser/notify-server/pkg/strutil"
 	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"io"
 	"net/http"
@@ -336,7 +336,7 @@ func (c *ssangbongSchoolCrawler) crawlingArticleContent(article *model.RssFeedPr
 	}
 
 	acSelection.Children().Each(func(i int, s *goquery.Selection) {
-		content := utils.TrimMultiLine(s.Text())
+		content := strutil.NormalizeMultiline(s.Text())
 		if content != "" {
 			if article.Content != "" {
 				article.Content += "\r\n"
