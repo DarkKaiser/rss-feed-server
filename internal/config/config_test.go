@@ -1,4 +1,4 @@
-package g
+package config
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ func TestAppConfig_Validation(t *testing.T) {
 	assert := assert.New(t)
 
 	wd, _ := os.Getwd()
-	// 테스트 환경에서는 g 패키지 경로에서 설정파일을 읽어들이므로 강제로 부모 폴더로 경로를 변경해준다.
+	// 테스트 환경에서는 config 패키지 경로에서 설정파일을 읽어들이므로 강제로 부모 폴더로 경로를 변경해준다.
 	assert.NoError(os.Chdir("../.."))
 
 	var config *AppConfig
@@ -104,7 +104,7 @@ func TestAppConfig_Validation(t *testing.T) {
 	config.WS.TLSCertFile = tempString1
 	config.WS.TLSKeyFile = tempString2
 
-	// NotifyAPI 설정은 g 패키지가 아닌 notifyapi.Init 과정에서 검증되며 패닉을 발생시키지 않습니다. (기존 테스트 오류 주석 처리)
+	// NotifyAPI 설정은 config 패키지가 아닌 notifyapi.Init 과정에서 검증되며 패닉을 발생시키지 않습니다. (기존 테스트 오류 주석 처리)
 
 	// 변경된 경로를 다시 원래대로 복구한다.
 	assert.NoError(os.Chdir(wd))
@@ -226,7 +226,7 @@ func TestInitAppConfig(t *testing.T) {
 	assert := assert.New(t)
 
 	wd, _ := os.Getwd()
-	// 테스트 환경에서는 g 패키지 경로에서 설정파일을 읽어들이므로 강제로 부모 폴더로 경로를 변경해준다.
+	// 테스트 환경에서는 config 패키지 경로에서 설정파일을 읽어들이므로 강제로 부모 폴더로 경로를 변경해준다.
 	assert.NoError(os.Chdir("../.."))
 
 	var config *AppConfig

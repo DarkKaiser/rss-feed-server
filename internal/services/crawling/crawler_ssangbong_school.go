@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
-	"github.com/darkkaiser/rss-feed-server/internal/g"
+	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/model"
 	"github.com/darkkaiser/rss-feed-server/internal/utils"
 	"github.com/robfig/cron/v3"
@@ -36,8 +36,8 @@ type ssangbongSchoolCrawlerBoardTypeConfig struct {
 const ssangbongSchoolUrlPathReplaceStringWithBoardID = "#{board_id}"
 
 func init() {
-	supportedCrawlers[g.RssFeedProviderSiteSsangbongSchool] = &supportedCrawlerConfig{
-		newCrawlerFn: func(rssFeedProviderID string, config *g.ProviderConfig, rssFeedProviderStore *model.RssFeedProviderStore) cron.Job {
+	supportedCrawlers[config.RssFeedProviderSiteSsangbongSchool] = &supportedCrawlerConfig{
+		newCrawlerFn: func(rssFeedProviderID string, config *config.ProviderConfig, rssFeedProviderStore *model.RssFeedProviderStore) cron.Job {
 			site := "쌍봉초등학교 홈페이지"
 
 			crawler := &ssangbongSchoolCrawler{

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
-	"github.com/darkkaiser/rss-feed-server/internal/g"
+	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/model"
 	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
 	"github.com/robfig/cron/v3"
@@ -20,16 +20,16 @@ import (
 var errNotSupportedCrawler = errors.New("지원하지 않는 Crawler입니다")
 
 // supportedCrawlers
-type newCrawlerFunc func(string, *g.ProviderConfig, *model.RssFeedProviderStore) cron.Job
+type newCrawlerFunc func(string, *config.ProviderConfig, *model.RssFeedProviderStore) cron.Job
 
 // 지원되는 Crawler 목록
-var supportedCrawlers = make(map[g.RssFeedProviderSite]*supportedCrawlerConfig)
+var supportedCrawlers = make(map[config.RssFeedProviderSite]*supportedCrawlerConfig)
 
 type supportedCrawlerConfig struct {
 	newCrawlerFn newCrawlerFunc
 }
 
-func findConfigFromSupportedCrawler(site g.RssFeedProviderSite) (*supportedCrawlerConfig, error) {
+func findConfigFromSupportedCrawler(site config.RssFeedProviderSite) (*supportedCrawlerConfig, error) {
 	crawlerConfig, exists := supportedCrawlers[site]
 	if exists == true {
 		return crawlerConfig, nil
@@ -44,7 +44,7 @@ const emptyBoardIDKey = "#empty#"
 type crawlingArticlesFunc func() ([]*model.RssFeedProviderArticle, map[string]string, string, error)
 
 type crawler struct {
-	config *g.ProviderConfig
+	config *config.ProviderConfig
 
 	rssFeedProviderID    string
 	rssFeedProviderStore *model.RssFeedProviderStore

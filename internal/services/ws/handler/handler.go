@@ -1,17 +1,17 @@
 package handler
 
 import (
-	"github.com/darkkaiser/rss-feed-server/internal/g"
+	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/model"
 )
 
 type Handler struct {
-	config *g.AppConfig
+	config *config.AppConfig
 
 	rssFeedProviderStore *model.RssFeedProviderStore
 }
 
-func NewHandler(config *g.AppConfig, rssFeedProviderStore *model.RssFeedProviderStore) *Handler {
+func NewHandler(config *config.AppConfig, rssFeedProviderStore *model.RssFeedProviderStore) *Handler {
 	return &Handler{
 		config: config,
 

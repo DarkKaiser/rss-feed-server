@@ -3,7 +3,7 @@ package crawling
 import (
 	"context"
 	"fmt"
-	"github.com/darkkaiser/rss-feed-server/internal/g"
+	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/model"
 	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
 	"github.com/darkkaiser/rss-feed-server/internal/services"
@@ -12,11 +12,9 @@ import (
 	"sync"
 )
 
-//
 // crawlingService
-//
 type crawlingService struct {
-	config *g.AppConfig
+	config *config.AppConfig
 
 	cron *cron.Cron
 
@@ -26,7 +24,7 @@ type crawlingService struct {
 	runningMu sync.Mutex
 }
 
-func NewService(config *g.AppConfig, rssFeedProviderStore *model.RssFeedProviderStore) services.Service {
+func NewService(config *config.AppConfig, rssFeedProviderStore *model.RssFeedProviderStore) services.Service {
 	return &crawlingService{
 		config: config,
 
@@ -55,7 +53,7 @@ func (s *crawlingService) Run(serviceStopCtx context.Context, serviceStopWaiter 
 
 	// 크롤링 스케쥴러를 시작한다.
 	for _, p := range s.config.RssFeed.Providers {
-		crawlerConfig, err := findConfigFromSupportedCrawler(g.RssFeedProviderSite(p.Site))
+		crawlerConfig, err := findConfigFromSupportedCrawler(config.RssFeedProviderSite(p.Site))
 		if err != nil {
 			m := fmt.Sprintf("%s(ID:%s) 크롤링 작업의 스케쥴러 등록이 실패하였습니다. 구현된 Crawler가 존재하지 않습니다.", p.Site, p.ID)
 

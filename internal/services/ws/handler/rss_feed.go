@@ -3,7 +3,7 @@ package handler
 import (
 	"encoding/xml"
 	"fmt"
-	"github.com/darkkaiser/rss-feed-server/internal/g"
+	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
 	"github.com/darkkaiser/rss-feed-server/internal/services/ws/feeds"
 	"github.com/labstack/echo/v4"
@@ -58,7 +58,7 @@ func (h *Handler) GetRssFeedHandler(c echo.Context) error {
 				lastBuildDate = articles[0].CreatedDate
 			}
 
-			rssFeed := feeds.NewRssFeed(p.Config.Name, p.Config.Url, p.Config.Description, "ko", g.AppName, time.Now(), lastBuildDate)
+			rssFeed := feeds.NewRssFeed(p.Config.Name, p.Config.Url, p.Config.Description, "ko", config.AppName, time.Now(), lastBuildDate)
 			for _, article := range articles {
 				rssFeed.Items = append(rssFeed.Items,
 					feeds.NewRssFeedItem(article.Title, article.Link, strings.ReplaceAll(article.Content, "\r\n", "<br>"), article.Author, article.BoardName, article.CreatedDate),
