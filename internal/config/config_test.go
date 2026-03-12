@@ -2,10 +2,11 @@ package config
 
 import (
 	"fmt"
-	"github.com/darkkaiser/rss-feed-server/internal/utils"
-	"github.com/stretchr/testify/assert"
 	"os"
+	"slices"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestAppConfig_Validation(t *testing.T) {
@@ -158,7 +159,7 @@ func TestAppConfig_ValidationRssFeedProviderConfig(t *testing.T) {
 	})
 	// 유효성 검사를 마친 Provider Site의 ID는 등록되어져 있다.
 	assert.Equal(2, len(validatedProviderSiteIDs))
-	assert.True(utils.Contains(validatedProviderSiteIDs, providerConfig.ID))
+	assert.True(slices.Contains(validatedProviderSiteIDs, providerConfig.ID))
 	// 이미 유효성 검사를 마친 Provider Site의 ID가 또 전달되는 경우는 패닉 발생
 	assert.Panics(func() {
 		config.validationRssFeedProviderConfig(provider, &providerConfig, &validatedProviderSiteIDs)

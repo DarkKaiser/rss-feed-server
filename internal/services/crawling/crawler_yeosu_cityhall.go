@@ -6,8 +6,8 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/model"
-	"github.com/darkkaiser/rss-feed-server/internal/utils"
 	"github.com/robfig/cron/v3"
+	"github.com/darkkaiser/notify-server/pkg/strutil"
 	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"net/url"
 	"regexp"
@@ -481,7 +481,7 @@ func (c *yeosuCityHallCrawler) crawlingArticleContent(article *model.RssFeedProv
 		return
 	}
 
-	article.Content = utils.TrimMultiLine(ysSelection.Text())
+	article.Content = strutil.NormalizeMultiline(ysSelection.Text())
 
 	// 내용에 이미지 태그가 포함되어 있다면 모두 추출한다.
 	ysSelection.Find("img").Each(func(i int, s *goquery.Selection) {

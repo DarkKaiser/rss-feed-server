@@ -3,10 +3,11 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/darkkaiser/rss-feed-server/internal/utils"
-	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"os"
+	"slices"
 	"strings"
+
+	applog "github.com/darkkaiser/notify-server/pkg/log"
 )
 
 const (
@@ -141,11 +142,15 @@ func (c *ProviderConfig) ContainsBoard(boardID string) bool {
 
 func InitAppConfig() *AppConfig {
 	data, err := os.ReadFile(appConfigFileName)
-	utils.CheckErr(err)
+	if err != nil {
+		applog.Fatal(err)
+	}
 
 	var config AppConfig
 	err = json.Unmarshal(data, &config)
-	utils.CheckErr(err)
+	if err != nil {
+		applog.Fatal(err)
+	}
 
 	config.validation()
 
@@ -159,7 +164,7 @@ func panicIfEmpty(value, message string) {
 }
 
 func panicIfContains(s []string, e, message string) {
-	if utils.Contains(s, e) == true {
+	if slices.Contains(s, e) {
 		applog.Panicf("%s 파일의 내용이 유효하지 않습니다. %s", appConfigFileName, message)
 	}
 }
