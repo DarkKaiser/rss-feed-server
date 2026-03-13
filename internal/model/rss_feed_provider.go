@@ -4,12 +4,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
+
+	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
 	_ "github.com/mattn/go-sqlite3"
-	applog "github.com/darkkaiser/notify-server/pkg/log"
-	"strings"
-	"time"
 )
 
 type RssFeedProviderArticle struct {
@@ -55,7 +56,7 @@ func (p *RssFeedProviderStore) init(config *config.AppConfig) error {
 
 	for _, c := range config.RssFeed.Providers {
 		// 기초 데이터를 추가한다.
-		if err := p.insertRssFeedProvider(c.ID, c.Site, c.Config.ID, c.Config.Name, c.Config.Description, c.Config.Url); err != nil {
+		if err := p.insertRssFeedProvider(c.ID, c.Site, c.Config.ID, c.Config.Name, c.Config.Description, c.Config.URL); err != nil {
 			return err
 		}
 

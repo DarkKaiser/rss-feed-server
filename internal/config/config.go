@@ -1,170 +1,117 @@
 package config
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
-	"slices"
 	"strings"
 
-	applog "github.com/darkkaiser/notify-server/pkg/log"
+	apperrors "github.com/darkkaiser/rss-feed-server/internal/pkg/errors"
+	"github.com/go-viper/mapstructure/v2"
+	"github.com/knadh/koanf/parsers/json"
+	"github.com/knadh/koanf/providers/env"
+	"github.com/knadh/koanf/providers/file"
+	"github.com/knadh/koanf/providers/structs"
+	"github.com/knadh/koanf/v2"
 )
 
 const (
-	AppName    string = "rss-feed-server"
-	AppVersion string = "0.0.3"
+	// AppName 애플리케이션의 전역 고유 식별자입니다.
+	AppName string = "rss-feed-server"
 
-	appConfigFileName = AppName + ".json"
+	// DefaultFilename 애플리케이션 초기화 시 참조하는 기본 설정 파일명입니다.
+	// 실행 인자를 통해 명시적인 경로가 제공되지 않을 경우, 시스템은 이 파일을 탐색하여 구성을 로드합니다.
+	DefaultFilename = AppName + ".json"
+
+	// ------------------------------------------------------------------------------------------------
+	// RSS 피드 설정
+	// ------------------------------------------------------------------------------------------------
+
+	// DefaultMaxItemCount RSS 피드 수집 시 최대로 유지할 아이템(게시글) 개수의 기본값입니다.
+	DefaultMaxItemCount = 10
+
+	// ------------------------------------------------------------------------------------------------
+	// 웹 서비스 설정
+	// ------------------------------------------------------------------------------------------------
+
+	// DefaultListenPort 웹 서비스가 수신 대기할 기본 포트입니다.
+	DefaultListenPort = 8080
 )
 
-type RssFeedProviderSite string
-
-const (
-	RssFeedProviderSiteNaverCafe       RssFeedProviderSite = "NaverCafe"
-	RssFeedProviderSiteYeosuCityHall   RssFeedProviderSite = "YeosuCityHall"
-	RssFeedProviderSiteSsangbongSchool RssFeedProviderSite = "SsangbongSchool"
-)
-
-type AppConfig struct {
-	Debug   bool `json:"debug"`
-	RssFeed struct {
-		MaxItemCount uint `json:"max_item_count"`
-		Providers    []*struct {
-			ID                string          `json:"id"`
-			Site              string          `json:"site"`
-			Config            *ProviderConfig `json:"config"`
-			CrawlingScheduler struct {
-				TimeSpec string `json:"time_spec"`
-			} `json:"crawling_scheduler"`
-		} `json:"providers"`
-	} `json:"rss_feed"`
-	WS struct {
-		TLSServer   bool   `json:"tls_server"`
-		TLSCertFile string `json:"tls_cert_file"`
-		TLSKeyFile  string `json:"tls_key_file"`
-		ListenPort  int    `json:"listen_port"`
-	} `json:"ws"`
-	NotifyAPI struct {
-		Url           string `json:"url"`
-		AppKey        string `json:"app_key"`
-		ApplicationID string `json:"application_id"`
-	} `json:"notify_api"`
-}
-
-type ProviderConfig struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Url         string `jsin:"url"`
-	Boards      []*struct {
-		ID       string `json:"id"`
-		Name     string `json:"name"`
-		Type     string `json:"type"`
-		Category string `json:"category"`
-	} `json:"boards"`
-	ArticleArchiveDate uint                   `json:"article_archive_date"`
-	Data               map[string]interface{} `json:"data"`
-}
-
-func (c *AppConfig) validation() {
-	var providerIDs = make([]string, 0)
-	var providerSiteNaverCafeIDs = make([]string, 0)
-	var providerSiteNaverCafeClubIDs = make([]string, 0)
-	var providerSiteYeosuCityHallIDs = make([]string, 0)
-	var providerSiteSsangbongSchoolIDs = make([]string, 0)
-
-	for _, p := range c.RssFeed.Providers {
-		panicIfContains(providerIDs, p.ID, fmt.Sprintf("RSS Feed Provider의 ID('%s')가 중복되었습니다.", p.ID))
-		providerIDs = append(providerIDs, p.ID)
-
-		panicIfEmpty(p.Site, "RSS Feed Provider Site가 입력되지 않았습니다.")
-
-		switch RssFeedProviderSite(p.Site) {
-		case RssFeedProviderSiteNaverCafe:
-			site := "네이버 카페"
-
-			c.validationRssFeedProviderConfig(site, p.Config, &providerSiteNaverCafeIDs)
-
-			clubID, ok := p.Config.Data["club_id"].(string)
-			if ok == false {
-				applog.Panicf("%s 파일의 내용이 유효하지 않습니다. '%s' %s의 ClubID가 입력되지 않았거나 타입이 유효하지 않습니다.", appConfigFileName, p.Config.ID, site)
-			}
-			panicIfEmpty(clubID, fmt.Sprintf("%s 파일의 내용이 유효하지 않습니다. '%s' %s의 ClubID가 입력되지 않았습니다.", appConfigFileName, p.Config.ID, site))
-			panicIfContains(providerSiteNaverCafeClubIDs, clubID, fmt.Sprintf("%s의 ClubID('%s')가 중복되었습니다.", site, clubID))
-			providerSiteNaverCafeClubIDs = append(providerSiteNaverCafeClubIDs, clubID)
-
-		case RssFeedProviderSiteYeosuCityHall:
-			c.validationRssFeedProviderConfig("여수시청 홈페이지", p.Config, &providerSiteYeosuCityHallIDs)
-
-		case RssFeedProviderSiteSsangbongSchool:
-			c.validationRssFeedProviderConfig("쌍봉초등학교 홈페이지", p.Config, &providerSiteSsangbongSchoolIDs)
-
-		default:
-			applog.Panicf("%s 파일의 내용이 유효하지 않습니다. 지원하지 않는 RSS Feed Provider Site('%s')입니다.", appConfigFileName, p.Site)
-		}
-	}
-
-	if c.WS.TLSServer == true {
-		panicIfEmpty(c.WS.TLSCertFile, "웹서버의 Cert 파일 경로가 입력되지 않았습니다.")
-		panicIfEmpty(c.WS.TLSKeyFile, "웹서버의 Key 파일 경로가 입력되지 않았습니다.")
+// newDefaultConfig 애플리케이션의 모든 설정에 대한 '기본값'을 정의하고 초기화합니다.
+// 사용자 설정이 누락되더라도 안전하게 실행될 수 있도록 미리 값을 채워주는 역할을 합니다.
+func newDefaultConfig() AppConfig {
+	return AppConfig{
+		Debug: false,
+		RssFeed: RssFeedConfig{
+			MaxItemCount: DefaultMaxItemCount,
+		},
+		WS: WSConfig{
+			ListenPort: DefaultListenPort,
+		},
 	}
 }
 
-func (c *AppConfig) validationRssFeedProviderConfig(provider string, providerConfig *ProviderConfig, validatedProviderSiteIDs *[]string) {
-	panicIfContains(*validatedProviderSiteIDs, providerConfig.ID, fmt.Sprintf("%s의 ID('%s')가 중복되었습니다.", provider, providerConfig.ID))
-	*validatedProviderSiteIDs = append(*validatedProviderSiteIDs, providerConfig.ID)
-
-	panicIfEmpty(providerConfig.Name, fmt.Sprintf("%s(ID:%s)의 Name이 입력되지 않았습니다.", provider, providerConfig.ID))
-	panicIfEmpty(providerConfig.Url, fmt.Sprintf("%s(ID:%s)의 URL이 입력되지 않았습니다.", provider, providerConfig.ID))
-
-	if strings.HasSuffix(providerConfig.Url, "/") == true {
-		providerConfig.Url = providerConfig.Url[:len(providerConfig.Url)-1]
-	}
-
-	var boardIDs []string
-	for _, b := range providerConfig.Boards {
-		panicIfContains(boardIDs, b.ID, fmt.Sprintf("%s(ID:%s)의 게시판 ID('%s')가 중복되었습니다.", provider, providerConfig.ID, b.ID))
-		boardIDs = append(boardIDs, b.ID)
-
-		panicIfEmpty(b.Name, fmt.Sprintf("%s(ID:%s)의 게시판 Name이 입력되지 않았습니다.", provider, providerConfig.ID))
-	}
+// Load 기본 설정 파일을 읽어 애플리케이션 설정을 로드합니다.
+func Load() (*AppConfig, []string, error) {
+	return LoadWithFile(DefaultFilename)
 }
 
-func (c *ProviderConfig) ContainsBoard(boardID string) bool {
-	for _, board := range c.Boards {
-		if board.ID == boardID {
-			return true
-		}
-	}
+// LoadWithFile 지정된 경로의 설정 파일을 읽어 AppConfig 객체를 생성합니다.
+func LoadWithFile(filename string) (*AppConfig, []string, error) {
+	k := koanf.New(".")
 
-	return false
-}
-
-func InitAppConfig() *AppConfig {
-	data, err := os.ReadFile(appConfigFileName)
+	// 1. 기본값 로드
+	err := k.Load(structs.Provider(newDefaultConfig(), "json"), nil)
 	if err != nil {
-		applog.Fatal(err)
+		return nil, nil, apperrors.Wrap(err, apperrors.System, "기본값 로드 중 오류가 발생하였습니다")
 	}
 
-	var config AppConfig
-	err = json.Unmarshal(data, &config)
-	if err != nil {
-		applog.Fatal(err)
+	// 2. 설정 파일 로드 (기본값 덮어쓰기)
+	if err := k.Load(file.Provider(filename), json.Parser()); err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil, apperrors.Wrap(err, apperrors.System, fmt.Sprintf("설정 파일을 찾을 수 없습니다: '%s'", filename))
+		}
+		return nil, nil, apperrors.Wrap(err, apperrors.InvalidInput, fmt.Sprintf("설정 파일 로드 중 오류가 발생하였습니다: '%s'", filename))
 	}
 
-	config.validation()
+	// 3. 환경 변수 로드 (JSON 설정 덮어쓰기)
+	//  - 접두사: RSSFEED_
+	//  - 구분자: 이중 언더스코어(__)를 점(.)으로 변환 (계층 구조 표현)
+	//  - 예: RSSFEED_HTTP_RETRY__MAX_RETRIES -> http_retry.max_retries
+	if err := k.Load(env.Provider("RSSFEED_", ".", normalizeEnvKey), nil); err != nil {
+		return nil, nil, apperrors.Wrap(err, apperrors.System, "환경 변수 로드 중 오류가 발생하였습니다")
+	}
 
-	return &config
+	// 4. 구조체 언마샬링
+	unmarshalConf := koanf.UnmarshalConf{
+		Tag: "json",
+		DecoderConfig: &mapstructure.DecoderConfig{
+			ErrorUnused:      false, // 파일에 존재하지만 구조체에 없는 필드가 있어도 무시함 (운영 환경 안정성)
+			WeaklyTypedInput: true,
+			DecodeHook: mapstructure.ComposeDecodeHookFunc(
+				mapstructure.StringToTimeDurationHookFunc(),
+			),
+		},
+	}
+
+	var appConfig AppConfig
+	if err := k.UnmarshalWithConf("", &appConfig, unmarshalConf); err != nil {
+		return nil, nil, apperrors.Wrap(err, apperrors.System, "설정값을 구조체에 매핑하지 못하였습니다. 데이터 타입(숫자/문자 등)을 확인해주세요")
+	}
+
+	// 5. 유효성 검사 수행
+	if err := appConfig.validate(newValidator()); err != nil {
+		return nil, nil, apperrors.Wrap(err, apperrors.InvalidInput, fmt.Sprintf("설정 파일('%s')의 유효성 검증에 실패하였습니다", filename))
+	}
+
+	// 6. 권장 설정 검사 (유효성 검사 통과 후 수행)
+	warnings := appConfig.lint()
+
+	return &appConfig, warnings, nil
 }
 
-func panicIfEmpty(value, message string) {
-	if strings.TrimSpace(value) == "" {
-		applog.Panicf("%s 파일의 내용이 유효하지 않습니다. %s", appConfigFileName, message)
-	}
-}
-
-func panicIfContains(s []string, e, message string) {
-	if slices.Contains(s, e) {
-		applog.Panicf("%s 파일의 내용이 유효하지 않습니다. %s", appConfigFileName, message)
-	}
+// normalizeEnvKey 환경 변수 키를 내부 설정 구조체에 매핑하기 위해 표준화된 키 형식으로 변환합니다.
+func normalizeEnvKey(key string) string {
+	key = strings.ToLower(strings.TrimPrefix(key, "RSSFEED_"))
+	return strings.ReplaceAll(key, "__", ".")
 }

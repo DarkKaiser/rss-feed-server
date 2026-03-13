@@ -4,15 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
-	"github.com/darkkaiser/rss-feed-server/internal/config"
-	"github.com/darkkaiser/rss-feed-server/internal/model"
-	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
-	"github.com/robfig/cron/v3"
-	"github.com/darkkaiser/notify-server/pkg/strutil"
-	applog "github.com/darkkaiser/notify-server/pkg/log"
-	"golang.org/x/text/encoding"
-	"golang.org/x/text/encoding/korean"
 	"html"
 	"io"
 	"net/http"
@@ -21,11 +12,21 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/PuerkitoBio/goquery"
+	applog "github.com/darkkaiser/notify-server/pkg/log"
+	"github.com/darkkaiser/notify-server/pkg/strutil"
+	"github.com/darkkaiser/rss-feed-server/internal/config"
+	"github.com/darkkaiser/rss-feed-server/internal/model"
+	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
+	"github.com/robfig/cron/v3"
+	"golang.org/x/text/encoding"
+	"golang.org/x/text/encoding/korean"
 )
 
 func init() {
-	supportedCrawlers[config.RssFeedProviderSiteNaverCafe] = &supportedCrawlerConfig{
-		newCrawlerFn: func(rssFeedProviderID string, config *config.ProviderConfig, rssFeedProviderStore *model.RssFeedProviderStore) cron.Job {
+	supportedCrawlers[config.ProviderSiteNaverCafe] = &supportedCrawlerConfig{
+		newCrawlerFn: func(rssFeedProviderID string, config *config.ProviderDetailConfig, rssFeedProviderStore *model.RssFeedProviderStore) cron.Job {
 			site := "네이버 카페"
 
 			data := naverCafeCrawlerConfigData{}
@@ -48,7 +49,7 @@ func init() {
 					siteID:          config.ID,
 					siteName:        config.Name,
 					siteDescription: config.Description,
-					siteUrl:         config.Url,
+					siteUrl:         config.URL,
 
 					crawlingMaxPageCount: 10,
 				},
@@ -272,7 +273,7 @@ func (c *naverCafeCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 			}
 
 			// 추출해야 할 게시판인지 확인한다.
-			if c.config.ContainsBoard(boardID) == false {
+			if c.config.HasBoard(boardID) == false {
 				return true
 			}
 
