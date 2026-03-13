@@ -108,7 +108,7 @@ func run() error {
 	// @@@@@
 	// NotifyAPI를 초기화한다.
 	notifyapi.Init(&notifyapi.Config{
-		Url:           appConfig.NotifyAPI.Url,
+		URL:           appConfig.NotifyAPI.URL,
 		AppKey:        appConfig.NotifyAPI.AppKey,
 		ApplicationID: appConfig.NotifyAPI.ApplicationID,
 	})

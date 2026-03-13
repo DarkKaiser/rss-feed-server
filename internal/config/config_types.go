@@ -119,7 +119,6 @@ func (c *ProviderConfig) validate(v *validator.Validate, seenClubIDs map[string]
 		return apperrors.Newf(apperrors.InvalidInput, "RSS 피드 공급자(ID: %s)에 지원하지 않는 사이트('%s')가 설정되었습니다", c.ID, c.Site)
 	}
 
-	// @@@@@
 	// Scheduler 구조체 검증
 	if err := checkStruct(v, c.Scheduler, fmt.Sprintf("RSS 피드 공급자(ID: %s, Site: %s) 스케줄러", c.ID, c.Site)); err != nil {
 		return err
@@ -182,8 +181,7 @@ func (c *BoardConfig) validate(v *validator.Validate, providerID, providerName s
 	return nil
 }
 
-// @@@@@
-// SchedulerConfig 스케줄링 설정을 정의하는 구조체 (cron 타입이므로 string 그대로 보존 가능)
+// SchedulerConfig 스케줄링 설정을 정의하는 구조체
 type SchedulerConfig struct {
 	TimeSpec string `json:"time_spec" validate:"required"`
 }
@@ -217,7 +215,7 @@ func (c *WSConfig) lint() []string {
 
 // NotifyAPIConfig 알림 발송을 위한 REST API 클라이언트 설정 구조체
 type NotifyAPIConfig struct {
-	Url           string `json:"url"`
+	URL           string `json:"url"`
 	AppKey        string `json:"app_key"`
 	ApplicationID string `json:"application_id"`
 }

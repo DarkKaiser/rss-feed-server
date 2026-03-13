@@ -4,15 +4,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"net/http"
 	"strings"
+
+	applog "github.com/darkkaiser/notify-server/pkg/log"
 )
 
 type Config struct {
 	valid bool
 
-	Url           string
+	URL           string
 	AppKey        string
 	ApplicationID string
 }
@@ -20,11 +21,11 @@ type Config struct {
 func (c *Config) validation() bool {
 	c.valid = false
 
-	if strings.TrimSpace(c.Url) == "" {
+	if strings.TrimSpace(c.URL) == "" {
 		applog.Warn("NotifyAPI의 Url이 입력되지 않았습니다. NotifyAPI를 사용할 수 없습니다.")
 		return false
 	}
-	if strings.HasPrefix(c.Url, "http://") == false && strings.HasPrefix(c.Url, "https://") == false {
+	if strings.HasPrefix(c.URL, "http://") == false && strings.HasPrefix(c.URL, "https://") == false {
 		applog.Warn("유효하지 않은 NotifyAPI의 Url이 입력되었습니다. NotifyAPI를 사용할 수 없습니다.")
 		return false
 	}
@@ -76,7 +77,7 @@ func Send(message string, errorOccurred bool) bool {
 		return false
 	}
 	reqBody := bytes.NewBuffer(data)
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s?app_key=%s", config.Url, config.AppKey), reqBody)
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s?app_key=%s", config.URL, config.AppKey), reqBody)
 	if err != nil {
 		applog.Errorf("NotifyAPI 호출이 실패하였습니다. (error:%s)", err)
 		return false
