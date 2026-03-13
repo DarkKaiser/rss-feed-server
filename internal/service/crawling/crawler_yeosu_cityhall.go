@@ -3,16 +3,17 @@ package crawling
 import (
 	"errors"
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
-	"github.com/darkkaiser/rss-feed-server/internal/config"
-	"github.com/darkkaiser/rss-feed-server/internal/model"
-	"github.com/robfig/cron/v3"
-	"github.com/darkkaiser/notify-server/pkg/strutil"
-	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"net/url"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/PuerkitoBio/goquery"
+	applog "github.com/darkkaiser/notify-server/pkg/log"
+	"github.com/darkkaiser/notify-server/pkg/strutil"
+	"github.com/darkkaiser/rss-feed-server/internal/config"
+	"github.com/darkkaiser/rss-feed-server/internal/model"
+	"github.com/robfig/cron/v3"
 )
 
 const (
@@ -40,8 +41,8 @@ type yeosuCityHallCrawlerBoardTypeConfig struct {
 const yeosuCityHallUrlPathReplaceStringWithBoardID = "#{board_id}"
 
 func init() {
-	supportedCrawlers[config.RssFeedProviderSiteYeosuCityHall] = &supportedCrawlerConfig{
-		newCrawlerFn: func(rssFeedProviderID string, config *config.ProviderConfig, rssFeedProviderStore *model.RssFeedProviderStore) cron.Job {
+	supportedCrawlers[config.ProviderSiteYeosuCityHall] = &supportedCrawlerConfig{
+		newCrawlerFn: func(rssFeedProviderID string, config *config.ProviderDetailConfig, rssFeedProviderStore *model.RssFeedProviderStore) cron.Job {
 			site := "여수시청 홈페이지"
 
 			crawler := &yeosuCityHallCrawler{
@@ -55,7 +56,7 @@ func init() {
 					siteID:          config.ID,
 					siteName:        config.Name,
 					siteDescription: config.Description,
-					siteUrl:         config.Url,
+					siteUrl:         config.URL,
 
 					crawlingMaxPageCount: 3,
 				},
@@ -500,7 +501,7 @@ func (c *yeosuCityHallCrawler) crawlingArticleContent(article *model.RssFeedProv
 					article.Content += fmt.Sprintf(`%s<img src="%s%s" alt="%s" style="%s">`, "\r\n", urlPath, src[1:], alt, style)
 				}
 			} else {
-				article.Content += fmt.Sprintf(`%s<img src="%s%s" alt="%s" style="%s">`, "\r\n", c.config.Url, src, alt, style)
+				article.Content += fmt.Sprintf(`%s<img src="%s%s" alt="%s" style="%s">`, "\r\n", c.config.URL, src, alt, style)
 			}
 		}
 	})

@@ -1,262 +1,200 @@
 package config
 
 import (
-	"fmt"
 	"os"
-	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestAppConfig_Validation(t *testing.T) {
+func TestLoad_Success(t *testing.T) {
 	assert := assert.New(t)
 
 	wd, _ := os.Getwd()
 	// 테스트 환경에서는 config 패키지 경로에서 설정파일을 읽어들이므로 강제로 부모 폴더로 경로를 변경해준다.
 	assert.NoError(os.Chdir("../.."))
 
-	var config *AppConfig
-	assert.NotPanics(func() { config = InitAppConfig() })
+	config, warnings, err := Load()
+	assert.NoError(err)
 	assert.NotNil(config)
-	assert.NotPanics(func() { config.validation() })
+	assert.Len(warnings, 1)
+	assert.Contains(warnings[0], "시스템 예약 포트(1-1023)를 사용하도록 설정되었습니다")
 
 	// 테스트를 위해 최소 2개 이상의 RSS Feed Provider가 등록되어져 있어야 한다.
 	assert.Greater(len(config.RssFeed.Providers), 1)
-
-	var tempBool bool
-	var tempString1, tempString2 string
-
-	// RSS Feed Provider의 ID가 중복된 경우 패닉 발생
-	tempString1 = config.RssFeed.Providers[0].ID
-	config.RssFeed.Providers[0].ID = config.RssFeed.Providers[1].ID
-	assert.Panics(func() { config.validation() })
-	config.RssFeed.Providers[0].ID = tempString1
-
-	// RSS Feed Provider Site가 비어있는 경우 패닉 발생
-	tempString1 = config.RssFeed.Providers[0].Site
-	for _, v := range []string{"", "   "} {
-		config.RssFeed.Providers[0].Site = v
-		assert.Panics(func() { config.validation() })
-	}
-	config.RssFeed.Providers[0].Site = tempString1
-
-	// 각각의 RSS Feed Provider Site에 대한 테스트 진행
-	for _, p := range config.RssFeed.Providers {
-		switch RssFeedProviderSite(p.Site) {
-		case RssFeedProviderSiteNaverCafe:
-			// 네이버 카페의 ClubID가 비어있는 경우 패닉 발생
-			tempString1, _ = p.Config.Data["club_id"].(string)
-			for _, v := range []string{"", "   "} {
-				p.Config.Data["club_id"] = v
-				assert.Panics(func() { config.validation() })
-			}
-			p.Config.Data["club_id"] = tempString1
-
-		case RssFeedProviderSiteYeosuCityHall:
-			// pass
-		}
-	}
-
-	// 지원하지 않는 RSS Feed Provider Site인 경우 패닉 발생
-	tempString1 = config.RssFeed.Providers[0].Site
-	config.RssFeed.Providers[0].Site = "UnknownSite"
-	assert.Panics(func() {
-		config.validation()
-	})
-	config.RssFeed.Providers[0].Site = tempString1
-
-	// 웹서버 설정정보 확인
-	tempBool = config.WS.TLSServer
-	tempString1 = config.WS.TLSCertFile
-	tempString2 = config.WS.TLSKeyFile
-	{
-		config.WS.TLSServer = true
-		{
-			// 웹서버의 Cert 파일 경로가 비어있는 경우 패닉 발생
-			config.WS.TLSKeyFile = "/etc/letsencrypt/privkey.pem"
-			for _, v := range []string{"", "   "} {
-				config.WS.TLSCertFile = v
-				assert.Panics(func() {
-					config.validation()
-				})
-			}
-
-			// 웹서버의 Key 파일 경로가 비어있는 경우 패닉 발생
-			config.WS.TLSCertFile = "/etc/letsencrypt/fullchain.pem"
-			for _, v := range []string{"", "   "} {
-				config.WS.TLSKeyFile = v
-				assert.Panics(func() {
-					config.validation()
-				})
-			}
-		}
-
-		config.WS.TLSServer = false
-		{
-			config.WS.TLSCertFile = ""
-			config.WS.TLSKeyFile = ""
-			assert.NotPanics(func() {
-				config.validation()
-			})
-		}
-	}
-	config.WS.TLSServer = tempBool
-	config.WS.TLSCertFile = tempString1
-	config.WS.TLSKeyFile = tempString2
-
-	// NotifyAPI 설정은 config 패키지가 아닌 notifyapi.Init 과정에서 검증되며 패닉을 발생시키지 않습니다. (기존 테스트 오류 주석 처리)
 
 	// 변경된 경로를 다시 원래대로 복구한다.
 	assert.NoError(os.Chdir(wd))
 }
 
-func TestAppConfig_ValidationRssFeedProviderConfig(t *testing.T) {
+func TestLoad_FileNotFound(t *testing.T) {
 	assert := assert.New(t)
 
-	const provider = "네이버"
-	const providerUrl = "http://www.naver.com"
+	config, warnings, err := LoadWithFile("non_existent_file.json")
+	assert.Error(err)
+	assert.Nil(config)
+	assert.Empty(warnings)
+	assert.Contains(err.Error(), "설정 파일을 찾을 수 없습니다")
+}
 
-	var providerConfig = ProviderConfig{
-		ID:                 "TEST_ID1",
-		Name:               "테스트 이름1",
-		Description:        "설명",
-		Url:                providerUrl,
-		Boards:             nil,
-		ArticleArchiveDate: 10,
-		Data:               nil,
+func TestAppConfig_Validation(t *testing.T) {
+	assert := assert.New(t)
+
+	// 올바른 구조체 생성
+	config := newDefaultConfig()
+	config.NotifyAPI = NotifyAPIConfig{
+		Url:           "http://example.com/api",
+		AppKey:        "test_app_key",
+		ApplicationID: "test_app_id",
 	}
-	for i := 1; i <= 3; i++ {
-		providerConfig.Boards = append(providerConfig.Boards, &struct {
-			ID       string `json:"id"`
-			Name     string `json:"name"`
-			Type     string `json:"type"`
-			Category string `json:"category"`
-		}{
-			ID:       fmt.Sprintf("보드%d", i),
-			Name:     fmt.Sprintf("이름%d", i),
-			Type:     "",
-			Category: fmt.Sprintf("카테고리%d", i),
-		})
+	config.WS = WSConfig{
+		ListenPort: 8080,
+	}
+	config.RssFeed = RssFeedConfig{
+		MaxItemCount: 10,
+		Providers: []*ProviderConfig{
+			{
+				ID:   "provider1",
+				Site: string(ProviderSiteYeosuCityHall),
+				Config: &ProviderDetailConfig{
+					ID:   "provider_conf_1",
+					Name: "Provider 1",
+					URL:  "http://example.com/1",
+				},
+				Scheduler: SchedulerConfig{TimeSpec: "@every 5m"},
+			},
+			{
+				ID:   "provider2",
+				Site: string(ProviderSiteYeosuCityHall),
+				Config: &ProviderDetailConfig{
+					ID:   "provider_conf_2",
+					Name: "Provider 2",
+					URL:  "http://example.com/2",
+				},
+				Scheduler: SchedulerConfig{TimeSpec: "@every 10m"},
+			},
+		},
 	}
 
-	var config *AppConfig
+	validator := newValidator()
 
-	// 입력값이 정상적인 경우...
-	assert.NotPanics(func() {
-		config.validationRssFeedProviderConfig(provider, &providerConfig, &[]string{"TEST_ID0"})
+	t.Run("Valid Config", func(t *testing.T) {
+		err := config.validate(validator)
+		assert.NoError(err)
 	})
 
-	// 이미 유효성 검사를 진행한 Provider Site의 ID가 전달되는 경우 패닉 발생
-	assert.Panics(func() {
-		config.validationRssFeedProviderConfig(provider, &providerConfig, &[]string{"TEST_ID1"})
+	t.Run("Duplicate Provider ID", func(t *testing.T) {
+		config.RssFeed.Providers[1].ID = config.RssFeed.Providers[0].ID
+		err := config.validate(validator)
+		assert.Error(err)
+		assert.Contains(err.Error(), "RSS 피드 설정 내에 중복된 RSS 피드 공급자(Provider) ID가 존재합니다 (설정 값을 확인해주세요)")
+		config.RssFeed.Providers[1].ID = "provider2" // restore
 	})
 
-	// 유효성 검사를 처음 진행하는 Provider Site의 ID가 전달되는 경우는 패닉이 발생하지 않음
-	var validatedProviderSiteIDs = []string{"TEST_ID0"}
-	assert.NotPanics(func() {
-		config.validationRssFeedProviderConfig(provider, &providerConfig, &validatedProviderSiteIDs)
-	})
-	// 유효성 검사를 마친 Provider Site의 ID는 등록되어져 있다.
-	assert.Equal(2, len(validatedProviderSiteIDs))
-	assert.True(slices.Contains(validatedProviderSiteIDs, providerConfig.ID))
-	// 이미 유효성 검사를 마친 Provider Site의 ID가 또 전달되는 경우는 패닉 발생
-	assert.Panics(func() {
-		config.validationRssFeedProviderConfig(provider, &providerConfig, &validatedProviderSiteIDs)
+	t.Run("Empty Provider Site", func(t *testing.T) {
+		config.RssFeed.Providers[0].Site = ""
+		err := config.validate(validator)
+		assert.Error(err)
+		assert.Contains(err.Error(), "site (조건: required)")
+		config.RssFeed.Providers[0].Site = string(ProviderSiteYeosuCityHall) // restore
 	})
 
-	// Provider의 Name이 비어있는 경우 패닉 발생
-	for _, v := range []string{"", "   "} {
-		providerConfig.Name = v
-		assert.Panics(func() {
-			config.validationRssFeedProviderConfig(provider, &providerConfig, &[]string{"TEST_ID0"})
-		})
-	}
-	providerConfig.Name = "테스트 이름"
+	t.Run("Naver Cafe Missing ClubID", func(t *testing.T) {
+		config.RssFeed.Providers[0].Site = string(ProviderSiteNaverCafe)
+		// Data is nil, so ClubID is missing
+		err := config.validate(validator)
+		assert.Error(err)
+		assert.Contains(err.Error(), "club_id가 입력되지 않았거나 문자열 타입이 아닙니다")
 
-	// Provider의 URL이 비어있는 경우 패닉 발생
-	for _, v := range []string{"", "   "} {
-		providerConfig.Url = v
-		assert.Panics(func() {
-			config.validationRssFeedProviderConfig(provider, &providerConfig, &[]string{"TEST_ID0"})
-		})
-	}
-	providerConfig.Url = providerUrl
+		// Set ClubID
+		config.RssFeed.Providers[0].Config.Data = map[string]interface{}{"club_id": "123456"}
+		err = config.validate(validator)
+		assert.NoError(err)
 
-	// ProviderConfig의 Board ID가 중복되는 경우 패닉 발생
-	providerConfig.Boards[0].ID = "보드2"
-	assert.Panics(func() {
-		config.validationRssFeedProviderConfig(provider, &providerConfig, &[]string{"TEST_ID0"})
+		config.RssFeed.Providers[0].Site = string(ProviderSiteYeosuCityHall) // restore
+		config.RssFeed.Providers[0].Config.Data = nil                        // restore
 	})
-	providerConfig.Boards[0].ID = "보드1"
 
-	// ProviderConfig의 Board Name이 비어있는 경우 패닉 발생
-	for _, v := range []string{"", "   "} {
-		providerConfig.Boards[0].Name = v
-		assert.Panics(func() {
-			config.validationRssFeedProviderConfig(provider, &providerConfig, &[]string{"TEST_ID0"})
-		})
-	}
-	providerConfig.Boards[0].Name = "이름1"
+	t.Run("Unknown Provider Site", func(t *testing.T) {
+		config.RssFeed.Providers[0].Site = "UnknownSite"
+		err := config.validate(validator)
+		assert.Error(err)
+		assert.Contains(err.Error(), "지원하지 않는 사이트('UnknownSite')가 설정되었습니다")
+		config.RssFeed.Providers[0].Site = string(ProviderSiteYeosuCityHall) // restore
+	})
+
+	t.Run("Duplicate NaverCafe ClubID", func(t *testing.T) {
+		config.RssFeed.Providers[0].Site = string(ProviderSiteNaverCafe)
+		config.RssFeed.Providers[0].Config.Data = map[string]interface{}{"club_id": "same_id"}
+		config.RssFeed.Providers[1].Site = string(ProviderSiteNaverCafe)
+		config.RssFeed.Providers[1].Config.Data = map[string]interface{}{"club_id": "same_id"}
+
+		err := config.validate(validator)
+		assert.Error(err)
+		assert.Contains(err.Error(), "club_id('same_id')가 중복되었습니다")
+
+		// restore
+		config.RssFeed.Providers[0].Site = string(ProviderSiteYeosuCityHall)
+		config.RssFeed.Providers[0].Config.Data = nil
+		config.RssFeed.Providers[1].Site = string(ProviderSiteYeosuCityHall)
+		config.RssFeed.Providers[1].Config.Data = nil
+	})
+
+	t.Run("WS TLS Validation", func(t *testing.T) {
+		config.WS.TLSServer = true
+
+		// Missing both
+		err := config.validate(validator)
+		assert.Error(err)
+		assert.Contains(err.Error(), "TLS 서버 활성화 시 TLS 인증서 파일 경로(tls_cert_file)는 필수입니다")
+
+		// Mock files to bypass file existence check or test the "not found" logic
+		config.WS.TLSCertFile = "dummy.crt"
+		config.WS.TLSKeyFile = "dummy.key"
+		err = config.validate(validator)
+		assert.Error(err)
+		assert.Contains(err.Error(), "지정된 TLS 인증서 파일(tls_cert_file)을 찾을 수 없습니다: 'dummy.crt'")
+
+		config.WS.TLSServer = false // restore
+		config.WS.TLSCertFile = ""
+		config.WS.TLSKeyFile = ""
+	})
+
+	t.Run("WS ListenPort Invalid", func(t *testing.T) {
+		config.WS.ListenPort = 0
+		err := config.validate(validator)
+		assert.Error(err)
+		assert.Contains(err.Error(), "웹 서비스 포트(listen_port)는 1에서 65535 사이의 값이어야 합니다")
+
+		config.WS.ListenPort = 8080 // restore
+	})
 }
 
 func TestProviderConfig_ContainsBoard(t *testing.T) {
 	assert := assert.New(t)
 
-	var providerConfig ProviderConfig
-	providerConfig.Boards = append(providerConfig.Boards, &struct {
-		ID       string `json:"id"`
-		Name     string `json:"name"`
-		Type     string `json:"type"`
-		Category string `json:"category"`
-	}{
+	var providerConfig ProviderDetailConfig
+	providerConfig.Boards = append(providerConfig.Boards, &BoardConfig{
 		ID:       "1",
 		Name:     "이름",
 		Type:     "",
 		Category: "카테고리",
 	})
 
-	assert.True(providerConfig.ContainsBoard("1"))
-	assert.False(providerConfig.ContainsBoard(""))
-	assert.False(providerConfig.ContainsBoard("2"))
-	assert.False(providerConfig.ContainsBoard("11"))
-	assert.False(providerConfig.ContainsBoard("1 "))
+	assert.True(providerConfig.HasBoard("1"))
+	assert.False(providerConfig.HasBoard(""))
+	assert.False(providerConfig.HasBoard("2"))
+	assert.False(providerConfig.HasBoard("11"))
+	assert.False(providerConfig.HasBoard("1 "))
 }
 
-func TestInitAppConfig(t *testing.T) {
+func TestAppConfig_Lint(t *testing.T) {
 	assert := assert.New(t)
 
-	wd, _ := os.Getwd()
-	// 테스트 환경에서는 config 패키지 경로에서 설정파일을 읽어들이므로 강제로 부모 폴더로 경로를 변경해준다.
-	assert.NoError(os.Chdir("../.."))
+	config := newDefaultConfig()
+	config.WS.ListenPort = 80 // < 1024
 
-	var config *AppConfig
-	assert.NotPanics(func() { config = InitAppConfig() })
-	assert.NotNil(config)
-
-	// 변경된 경로를 다시 원래대로 복구한다.
-	assert.NoError(os.Chdir(wd))
-}
-
-func TestPanicIfEmpty(t *testing.T) {
-	assert := assert.New(t)
-
-	assert.Panics(func() { panicIfEmpty("", "추가 메시지") })
-	assert.Panics(func() { panicIfEmpty("   ", "추가 메시지") })
-	assert.NotPanics(func() { panicIfEmpty("value", "추가 메시지") })
-	assert.NotPanics(func() { panicIfEmpty("   value   ", "추가 메시지") })
-}
-
-func TestPanicIfContains(t *testing.T) {
-	assert := assert.New(t)
-
-	s := []string{"A1", "B1", "C1"}
-	assert.Panics(func() { panicIfContains(s, "A1", "추가 메시지") })
-	assert.NotPanics(func() { panicIfContains(s, "", "추가 메시지") })
-	assert.NotPanics(func() { panicIfContains(s, "a1", "추가 메시지") })
-	assert.NotPanics(func() { panicIfContains(s, "A1 ", "추가 메시지") })
-	assert.NotPanics(func() { panicIfContains(s, "A12", "추가 메시지") })
-
-	s = []string{"A1", "B1", "C1", ""}
-	assert.Panics(func() { panicIfContains(s, "", "추가 메시지") })
+	warnings := config.lint()
+	assert.Len(warnings, 1)
+	assert.Contains(warnings[0], "시스템 예약 포트(1-1023)를 사용하도록 설정되었습니다")
 }

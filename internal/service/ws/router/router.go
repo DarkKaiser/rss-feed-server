@@ -2,7 +2,7 @@ package router
 
 import (
 	"embed"
-	_middleware_ "github.com/darkkaiser/rss-feed-server/internal/services/ws/middleware"
+	_middleware_ "github.com/darkkaiser/rss-feed-server/internal/service/ws/middleware"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	applog "github.com/darkkaiser/notify-server/pkg/log"

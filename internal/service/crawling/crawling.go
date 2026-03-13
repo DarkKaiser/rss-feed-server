@@ -3,13 +3,15 @@ package crawling
 import (
 	"context"
 	"fmt"
+	"sync"
+
+	applog "github.com/darkkaiser/notify-server/pkg/log"
+	"github.com/darkkaiser/notify-server/pkg/cronx"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/model"
 	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
-	"github.com/darkkaiser/rss-feed-server/internal/services"
+	"github.com/darkkaiser/rss-feed-server/internal/service"
 	"github.com/robfig/cron/v3"
-	applog "github.com/darkkaiser/notify-server/pkg/log"
-	"sync"
 )
 
 // crawlingService
@@ -24,11 +26,18 @@ type crawlingService struct {
 	runningMu sync.Mutex
 }
 
-func NewService(config *config.AppConfig, rssFeedProviderStore *model.RssFeedProviderStore) services.Service {
+func NewService(config *config.AppConfig, rssFeedProviderStore *model.RssFeedProviderStore) service.Service {
 	return &crawlingService{
 		config: config,
 
-		cron: cron.New(cron.WithLogger(cron.VerbosePrintfLogger(applog.StandardLogger()))),
+		cron: cron.New(
+			cron.WithParser(cronx.StandardParser()),
+			cron.WithLogger(cron.VerbosePrintfLogger(applog.StandardLogger())),
+			cron.WithChain(
+				cron.Recover(cron.VerbosePrintfLogger(applog.StandardLogger())),
+				cron.SkipIfStillRunning(cron.VerbosePrintfLogger(applog.StandardLogger())),
+			),
+		),
 
 		rssFeedProviderStore: rssFeedProviderStore,
 
@@ -37,23 +46,24 @@ func NewService(config *config.AppConfig, rssFeedProviderStore *model.RssFeedPro
 	}
 }
 
-func (s *crawlingService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync.WaitGroup) {
+func (s *crawlingService) Start(serviceStopCtx context.Context, serviceStopWG *sync.WaitGroup) error {
 	s.runningMu.Lock()
 	defer s.runningMu.Unlock()
 
 	applog.Debug("크롤링 서비스 시작중...")
 
 	if s.running == true {
-		defer serviceStopWaiter.Done()
+		defer serviceStopWG.Done()
 
 		applog.Warn("크롤링 서비스가 이미 시작됨!!!")
 
-		return
+		// @@@@@
+		return nil
 	}
 
 	// 크롤링 스케쥴러를 시작한다.
 	for _, p := range s.config.RssFeed.Providers {
-		crawlerConfig, err := findConfigFromSupportedCrawler(config.RssFeedProviderSite(p.Site))
+		crawlerConfig, err := findConfigFromSupportedCrawler(config.ProviderSite(p.Site))
 		if err != nil {
 			m := fmt.Sprintf("%s(ID:%s) 크롤링 작업의 스케쥴러 등록이 실패하였습니다. 구현된 Crawler가 존재하지 않습니다.", p.Site, p.ID)
 
@@ -61,10 +71,11 @@ func (s *crawlingService) Run(serviceStopCtx context.Context, serviceStopWaiter 
 
 			applog.Panic(m)
 
-			return
+			// @@@@@
+			return nil
 		}
 
-		if _, err := s.cron.AddJob(p.CrawlingScheduler.TimeSpec, crawlerConfig.newCrawlerFn(p.ID, p.Config, s.rssFeedProviderStore)); err != nil {
+		if _, err := s.cron.AddJob(p.Scheduler.TimeSpec, crawlerConfig.newCrawlerFn(p.ID, p.Config, s.rssFeedProviderStore)); err != nil {
 			m := fmt.Sprintf("%s(ID:%s) 크롤링 작업의 스케쥴러 등록이 실패하였습니다. (error:%s)", p.Site, p.ID, err)
 
 			notifyapi.Send(m, true)
@@ -75,11 +86,13 @@ func (s *crawlingService) Run(serviceStopCtx context.Context, serviceStopWaiter 
 
 	s.cron.Start()
 
-	go s.run0(serviceStopCtx, serviceStopWaiter)
+	go s.run0(serviceStopCtx, serviceStopWG)
 
 	s.running = true
 
 	applog.Debug("크롤링 서비스 시작됨")
+
+	return nil
 }
 
 func (s *crawlingService) run0(serviceStopCtx context.Context, serviceStopWaiter *sync.WaitGroup) {

@@ -4,17 +4,18 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
-	"github.com/darkkaiser/rss-feed-server/internal/config"
-	"github.com/darkkaiser/rss-feed-server/internal/model"
-	"github.com/robfig/cron/v3"
-	"github.com/darkkaiser/notify-server/pkg/strutil"
-	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"io"
 	"net/http"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/PuerkitoBio/goquery"
+	applog "github.com/darkkaiser/notify-server/pkg/log"
+	"github.com/darkkaiser/notify-server/pkg/strutil"
+	"github.com/darkkaiser/rss-feed-server/internal/config"
+	"github.com/darkkaiser/rss-feed-server/internal/model"
+	"github.com/robfig/cron/v3"
 )
 
 const (
@@ -36,8 +37,8 @@ type ssangbongSchoolCrawlerBoardTypeConfig struct {
 const ssangbongSchoolUrlPathReplaceStringWithBoardID = "#{board_id}"
 
 func init() {
-	supportedCrawlers[config.RssFeedProviderSiteSsangbongSchool] = &supportedCrawlerConfig{
-		newCrawlerFn: func(rssFeedProviderID string, config *config.ProviderConfig, rssFeedProviderStore *model.RssFeedProviderStore) cron.Job {
+	supportedCrawlers[config.ProviderSiteSsangbongElementarySchool] = &supportedCrawlerConfig{
+		newCrawlerFn: func(rssFeedProviderID string, config *config.ProviderDetailConfig, rssFeedProviderStore *model.RssFeedProviderStore) cron.Job {
 			site := "쌍봉초등학교 홈페이지"
 
 			crawler := &ssangbongSchoolCrawler{
@@ -51,7 +52,7 @@ func init() {
 					siteID:          config.ID,
 					siteName:        config.Name,
 					siteDescription: config.Description,
-					siteUrl:         config.Url,
+					siteUrl:         config.URL,
 
 					crawlingMaxPageCount: 3,
 				},

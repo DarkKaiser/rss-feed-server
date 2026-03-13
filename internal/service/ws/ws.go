@@ -5,17 +5,18 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"github.com/darkkaiser/rss-feed-server/internal/config"
-	"github.com/darkkaiser/rss-feed-server/internal/model"
-	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
-	"github.com/darkkaiser/rss-feed-server/internal/services"
-	"github.com/darkkaiser/rss-feed-server/internal/services/ws/handler"
-	"github.com/darkkaiser/rss-feed-server/internal/services/ws/router"
-	"github.com/labstack/echo/v4"
-	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"net/http"
 	"sync"
 	"time"
+
+	applog "github.com/darkkaiser/notify-server/pkg/log"
+	"github.com/darkkaiser/rss-feed-server/internal/config"
+	"github.com/darkkaiser/rss-feed-server/internal/model"
+	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
+	"github.com/darkkaiser/rss-feed-server/internal/service"
+	"github.com/darkkaiser/rss-feed-server/internal/service/ws/handler"
+	"github.com/darkkaiser/rss-feed-server/internal/service/ws/router"
+	"github.com/labstack/echo/v4"
 )
 
 var (
@@ -33,7 +34,7 @@ type webService struct {
 	runningMu sync.Mutex
 }
 
-func NewService(config *config.AppConfig, rssFeedProviderStore *model.RssFeedProviderStore) services.Service {
+func NewService(config *config.AppConfig, rssFeedProviderStore *model.RssFeedProviderStore) service.Service {
 	return &webService{
 		config: config,
 
@@ -44,18 +45,19 @@ func NewService(config *config.AppConfig, rssFeedProviderStore *model.RssFeedPro
 	}
 }
 
-func (s *webService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync.WaitGroup) {
+func (s *webService) Start(serviceStopCtx context.Context, serviceStopWG *sync.WaitGroup) error {
 	s.runningMu.Lock()
 	defer s.runningMu.Unlock()
 
 	applog.Debug("웹 서비스 시작중...")
 
 	if s.running == true {
-		defer serviceStopWaiter.Done()
+		defer serviceStopWG.Done()
 
 		applog.Warn("웹 서비스가 이미 시작됨!!!")
 
-		return
+		// @@@@@
+		return nil
 	}
 
 	var e *echo.Echo
@@ -90,7 +92,7 @@ func (s *webService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 	}(s.config.WS.ListenPort)
 
 	go func() {
-		defer serviceStopWaiter.Done()
+		defer serviceStopWG.Done()
 
 		select {
 		case <-serviceStopCtx.Done():
@@ -121,4 +123,6 @@ func (s *webService) Run(serviceStopCtx context.Context, serviceStopWaiter *sync
 	s.running = true
 
 	applog.Debug("웹 서비스 시작됨")
+
+	return nil
 }

@@ -120,8 +120,8 @@
 						"club_id": "12303558"
 					}
 				},
-				"crawling_scheduler": {
-					"time_spec": "1 * * * *"
+				"scheduler": {
+					"time_spec": "0 1 * * * *"
 				}
 			},
 			{
@@ -199,8 +199,8 @@
 						"club_id": "19246017"
 					}
 				},
-				"crawling_scheduler": {
-					"time_spec": "1 * * * *"
+				"scheduler": {
+					"time_spec": "0 1 * * * *"
 				}
 			},
 			{
@@ -266,8 +266,8 @@
 						"club_id": "15346057"
 					}
 				},
-				"crawling_scheduler": {
-					"time_spec": "1 * * * *"
+				"scheduler": {
+					"time_spec": "0 1 * * * *"
 				}
 			},
 			{
@@ -320,15 +320,15 @@
 					"data": {
 					}
 				},
-				"crawling_scheduler": {
-					"time_spec": "1 * * * *"
+				"scheduler": {
+					"time_spec": "0 1 * * * *"
 				}
 			},
 			{
-				"id": "ssangbong-school-news",
-				"site": "SsangbongSchool",
+				"id": "ssangbong-elementary-school-news",
+				"site": "SsangbongElementarySchool",
 				"config": {
-					"id": "ssangbong-school-news",
+					"id": "ssangbong-elementary-school-news",
 					"name": "쌍봉초등학교",
 					"description": "쌍봉초등학교 관련 소식",
 					"url": "https://ys-ssangbong.es.jne.kr",
@@ -380,8 +380,8 @@
 					"data": {
 					}
 				},
-				"crawling_scheduler": {
-					"time_spec": "*/1 * * * *"
+				"scheduler": {
+					"time_spec": "0 */1 * * * *"
 				}
 			}
 		]

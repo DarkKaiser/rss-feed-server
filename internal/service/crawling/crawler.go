@@ -3,33 +3,34 @@ package crawling
 import (
 	"errors"
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
-	"github.com/darkkaiser/rss-feed-server/internal/config"
-	"github.com/darkkaiser/rss-feed-server/internal/model"
-	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
-	"github.com/robfig/cron/v3"
-	applog "github.com/darkkaiser/notify-server/pkg/log"
-	"golang.org/x/net/html"
-	"golang.org/x/text/encoding"
 	"io"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/PuerkitoBio/goquery"
+	applog "github.com/darkkaiser/notify-server/pkg/log"
+	"github.com/darkkaiser/rss-feed-server/internal/config"
+	"github.com/darkkaiser/rss-feed-server/internal/model"
+	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
+	"github.com/robfig/cron/v3"
+	"golang.org/x/net/html"
+	"golang.org/x/text/encoding"
 )
 
 var errNotSupportedCrawler = errors.New("지원하지 않는 Crawler입니다")
 
 // supportedCrawlers
-type newCrawlerFunc func(string, *config.ProviderConfig, *model.RssFeedProviderStore) cron.Job
+type newCrawlerFunc func(string, *config.ProviderDetailConfig, *model.RssFeedProviderStore) cron.Job
 
 // 지원되는 Crawler 목록
-var supportedCrawlers = make(map[config.RssFeedProviderSite]*supportedCrawlerConfig)
+var supportedCrawlers = make(map[config.ProviderSite]*supportedCrawlerConfig)
 
 type supportedCrawlerConfig struct {
 	newCrawlerFn newCrawlerFunc
 }
 
-func findConfigFromSupportedCrawler(site config.RssFeedProviderSite) (*supportedCrawlerConfig, error) {
+func findConfigFromSupportedCrawler(site config.ProviderSite) (*supportedCrawlerConfig, error) {
 	crawlerConfig, exists := supportedCrawlers[site]
 	if exists == true {
 		return crawlerConfig, nil
@@ -44,7 +45,7 @@ const emptyBoardIDKey = "#empty#"
 type crawlingArticlesFunc func() ([]*model.RssFeedProviderArticle, map[string]string, string, error)
 
 type crawler struct {
-	config *config.ProviderConfig
+	config *config.ProviderDetailConfig
 
 	rssFeedProviderID    string
 	rssFeedProviderStore *model.RssFeedProviderStore
