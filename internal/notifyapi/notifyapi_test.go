@@ -2,10 +2,11 @@ package notifyapi
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -18,7 +19,7 @@ func TestConfig_Validation(t *testing.T) {
 	assert := assert.New(t)
 
 	c := &Config{
-		Url:           validUrl,
+		URL:           validUrl,
 		AppKey:        validAPIKey,
 		ApplicationID: validApplicationID,
 	}
@@ -27,12 +28,12 @@ func TestConfig_Validation(t *testing.T) {
 	assert.True(c.valid)
 
 	for _, v := range []string{"", "   ", "ftp://", "HTTP://"} {
-		c.Url = v
+		c.URL = v
 		assert.False(c.validation())
 		assert.False(c.valid)
 	}
 
-	c.Url = validUrl
+	c.URL = validUrl
 
 	for _, v := range []string{"", "   "} {
 		c.AppKey = v
@@ -53,7 +54,7 @@ func TestInit(t *testing.T) {
 	assert := assert.New(t)
 
 	c := &Config{
-		Url:           validUrl,
+		URL:           validUrl,
 		AppKey:        validAPIKey,
 		ApplicationID: validApplicationID,
 	}
@@ -63,14 +64,14 @@ func TestInit(t *testing.T) {
 	assert.True(config.valid)
 
 	for _, v := range []string{"", "   ", "ftp://", "HTTP://"} {
-		c.Url = v
+		c.URL = v
 
 		Init(c)
 		assert.Same(c, config)
 		assert.False(config.valid)
 	}
 
-	c.Url = validUrl
+	c.URL = validUrl
 
 	for _, v := range []string{"", "   "} {
 		c.AppKey = v
@@ -105,7 +106,7 @@ func TestSend(t *testing.T) {
 
 	// 정상적으로 초기화되었을 경우...
 	Init(&Config{
-		Url:           ts.URL,
+		URL:           ts.URL,
 		AppKey:        validAPIKey,
 		ApplicationID: validApplicationID,
 	})
@@ -118,7 +119,7 @@ func TestSend(t *testing.T) {
 
 	// 유효하지 않은 설정값으로 초기화되었을 경우...
 	Init(&Config{
-		Url:           "",
+		URL:           "",
 		AppKey:        validAPIKey,
 		ApplicationID: validApplicationID,
 	})
