@@ -12,6 +12,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	applog "github.com/darkkaiser/notify-server/pkg/log"
+	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/notify-server/pkg/strutil"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/model"
@@ -38,7 +39,7 @@ const ssangbongSchoolUrlPathReplaceStringWithBoardID = "#{board_id}"
 
 func init() {
 	supportedCrawlers[config.ProviderSiteSsangbongElementarySchool] = &supportedCrawlerConfig{
-		newCrawlerFn: func(rssFeedProviderID string, config *config.ProviderDetailConfig, rssFeedProviderStore *model.RssFeedProviderStore) cron.Job {
+		newCrawlerFn: func(rssFeedProviderID string, config *config.ProviderDetailConfig, rssFeedProviderStore *model.RssFeedProviderStore, notifyClient *notify.Client) cron.Job {
 			site := "쌍봉초등학교 홈페이지"
 
 			crawler := &ssangbongSchoolCrawler{
@@ -47,6 +48,7 @@ func init() {
 
 					rssFeedProviderID:    rssFeedProviderID,
 					rssFeedProviderStore: rssFeedProviderStore,
+					notifyClient:         notifyClient,
 
 					site:            site,
 					siteID:          config.ID,

@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"sync"
 
-	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"github.com/darkkaiser/notify-server/pkg/cronx"
+	applog "github.com/darkkaiser/notify-server/pkg/log"
+	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/model"
-	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
 	"github.com/darkkaiser/rss-feed-server/internal/service"
 	"github.com/robfig/cron/v3"
 )
@@ -21,12 +21,13 @@ type crawlingService struct {
 	cron *cron.Cron
 
 	rssFeedProviderStore *model.RssFeedProviderStore
+	notifyClient         *notify.Client
 
 	running   bool
 	runningMu sync.Mutex
 }
 
-func NewService(config *config.AppConfig, rssFeedProviderStore *model.RssFeedProviderStore) service.Service {
+func NewService(config *config.AppConfig, rssFeedProviderStore *model.RssFeedProviderStore, notifyClient *notify.Client) service.Service {
 	return &crawlingService{
 		config: config,
 
@@ -40,6 +41,7 @@ func NewService(config *config.AppConfig, rssFeedProviderStore *model.RssFeedPro
 		),
 
 		rssFeedProviderStore: rssFeedProviderStore,
+		notifyClient:         notifyClient,
 
 		running:   false,
 		runningMu: sync.Mutex{},
@@ -67,7 +69,9 @@ func (s *crawlingService) Start(serviceStopCtx context.Context, serviceStopWG *s
 		if err != nil {
 			m := fmt.Sprintf("%s(ID:%s) 크롤링 작업의 스케쥴러 등록이 실패하였습니다. 구현된 Crawler가 존재하지 않습니다.", p.Site, p.ID)
 
-			notifyapi.Send(m, true)
+			if s.notifyClient != nil {
+				s.notifyClient.NotifyError(context.Background(), m)
+			}
 
 			applog.Panic(m)
 
@@ -75,10 +79,12 @@ func (s *crawlingService) Start(serviceStopCtx context.Context, serviceStopWG *s
 			return nil
 		}
 
-		if _, err := s.cron.AddJob(p.Scheduler.TimeSpec, crawlerConfig.newCrawlerFn(p.ID, p.Config, s.rssFeedProviderStore)); err != nil {
+		if _, err := s.cron.AddJob(p.Scheduler.TimeSpec, crawlerConfig.newCrawlerFn(p.ID, p.Config, s.rssFeedProviderStore, s.notifyClient)); err != nil {
 			m := fmt.Sprintf("%s(ID:%s) 크롤링 작업의 스케쥴러 등록이 실패하였습니다. (error:%s)", p.Site, p.ID, err)
 
-			notifyapi.Send(m, true)
+			if s.notifyClient != nil {
+				s.notifyClient.NotifyError(context.Background(), m)
+			}
 
 			applog.Panic(m)
 		}

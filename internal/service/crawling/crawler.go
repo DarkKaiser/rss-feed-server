@@ -1,6 +1,7 @@
 package crawling
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -10,9 +11,9 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	applog "github.com/darkkaiser/notify-server/pkg/log"
+	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/model"
-	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
 	"github.com/robfig/cron/v3"
 	"golang.org/x/net/html"
 	"golang.org/x/text/encoding"
@@ -21,7 +22,7 @@ import (
 var errNotSupportedCrawler = errors.New("지원하지 않는 Crawler입니다")
 
 // supportedCrawlers
-type newCrawlerFunc func(string, *config.ProviderDetailConfig, *model.RssFeedProviderStore) cron.Job
+type newCrawlerFunc func(string, *config.ProviderDetailConfig, *model.RssFeedProviderStore, *notify.Client) cron.Job
 
 // 지원되는 Crawler 목록
 var supportedCrawlers = make(map[config.ProviderSite]*supportedCrawlerConfig)
@@ -49,6 +50,7 @@ type crawler struct {
 
 	rssFeedProviderID    string
 	rssFeedProviderStore *model.RssFeedProviderStore
+	notifyClient         *notify.Client
 
 	site            string
 	siteID          string
@@ -69,7 +71,9 @@ func (c *crawler) Run() {
 	if err != nil {
 		applog.Errorf("%s (error:%s)", errOccurred, err)
 
-		notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", errOccurred, err), true)
+		if c.notifyClient != nil {
+			c.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", errOccurred, err))
+		}
 
 		return
 	}
@@ -84,7 +88,9 @@ func (c *crawler) Run() {
 
 				applog.Errorf("%s (error:%s)", m, err)
 
-				notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+				if c.notifyClient != nil {
+					c.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
+				}
 
 				return
 			}
@@ -99,7 +105,9 @@ func (c *crawler) Run() {
 
 					applog.Errorf("%s (error:%s)", m, err)
 
-					notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+					if c.notifyClient != nil {
+						c.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
+					}
 				}
 			}
 
@@ -119,7 +127,9 @@ func (c *crawler) Run() {
 
 					applog.Errorf("%s (error:%s)", m, err)
 
-					notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+					if c.notifyClient != nil {
+						c.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
+					}
 				}
 			}
 

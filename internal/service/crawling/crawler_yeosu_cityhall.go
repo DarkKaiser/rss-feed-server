@@ -10,6 +10,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	applog "github.com/darkkaiser/notify-server/pkg/log"
+	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/notify-server/pkg/strutil"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/model"
@@ -42,7 +43,7 @@ const yeosuCityHallUrlPathReplaceStringWithBoardID = "#{board_id}"
 
 func init() {
 	supportedCrawlers[config.ProviderSiteYeosuCityHall] = &supportedCrawlerConfig{
-		newCrawlerFn: func(rssFeedProviderID string, config *config.ProviderDetailConfig, rssFeedProviderStore *model.RssFeedProviderStore) cron.Job {
+		newCrawlerFn: func(rssFeedProviderID string, config *config.ProviderDetailConfig, rssFeedProviderStore *model.RssFeedProviderStore, notifyClient *notify.Client) cron.Job {
 			site := "여수시청 홈페이지"
 
 			crawler := &yeosuCityHallCrawler{
@@ -51,6 +52,7 @@ func init() {
 
 					rssFeedProviderID:    rssFeedProviderID,
 					rssFeedProviderStore: rssFeedProviderStore,
+					notifyClient:         notifyClient,
 
 					site:            site,
 					siteID:          config.ID,

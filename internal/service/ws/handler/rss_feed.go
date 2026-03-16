@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/xml"
 	"fmt"
 	"net/http"
@@ -9,7 +10,6 @@ import (
 
 	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
-	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
 	"github.com/darkkaiser/rss-feed-server/internal/service/ws/feeds"
 	"github.com/labstack/echo/v4"
 )
@@ -44,7 +44,9 @@ func (h *Handler) GetRssFeedHandler(c echo.Context) error {
 
 				applog.Errorf("%s (error:%s)", m, err)
 
-				notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+				if h.notifyClient != nil {
+					h.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
+				}
 
 				return echo.NewHTTPError(http.StatusInternalServerError, err)
 			}
@@ -72,7 +74,9 @@ func (h *Handler) GetRssFeedHandler(c echo.Context) error {
 
 				applog.Errorf("%s (error:%s)", m, err)
 
-				notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+				if h.notifyClient != nil {
+					h.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
+				}
 
 				return echo.NewHTTPError(http.StatusInternalServerError, err)
 			}

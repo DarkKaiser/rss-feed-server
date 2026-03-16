@@ -1,6 +1,7 @@
 package crawling
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,10 +16,10 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	applog "github.com/darkkaiser/notify-server/pkg/log"
+	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/notify-server/pkg/strutil"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/model"
-	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
 	"github.com/robfig/cron/v3"
 	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/korean"
@@ -26,14 +27,16 @@ import (
 
 func init() {
 	supportedCrawlers[config.ProviderSiteNaverCafe] = &supportedCrawlerConfig{
-		newCrawlerFn: func(rssFeedProviderID string, config *config.ProviderDetailConfig, rssFeedProviderStore *model.RssFeedProviderStore) cron.Job {
+		newCrawlerFn: func(rssFeedProviderID string, config *config.ProviderDetailConfig, rssFeedProviderStore *model.RssFeedProviderStore, notifyClient *notify.Client) cron.Job {
 			site := "네이버 카페"
 
 			data := naverCafeCrawlerConfigData{}
 			if err := data.fillFromMap(config.Data); err != nil {
 				m := fmt.Sprintf("작업 데이터가 유효하지 않아 %s('%s') Crawler 생성이 실패하였습니다. (error:%s)", site, config.ID, err)
 
-				notifyapi.Send(m, true)
+				if notifyClient != nil {
+					notifyClient.NotifyError(context.Background(), m)
+				}
 
 				applog.Panic(m)
 			}
@@ -44,6 +47,7 @@ func init() {
 
 					rssFeedProviderID:    rssFeedProviderID,
 					rssFeedProviderStore: rssFeedProviderStore,
+					notifyClient:         notifyClient,
 
 					site:            site,
 					siteID:          config.ID,
@@ -424,7 +428,9 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.RssFeed
 
 		applog.Warnf("%s (error:%s)", m, err)
 
-		notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), false)
+		if c.notifyClient != nil {
+			c.notifyClient.Notify(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
+		}
 
 		return
 	}
@@ -444,7 +450,9 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.RssFeed
 
 				applog.Warn(m)
 
-				notifyapi.Send(m, false)
+				if c.notifyClient != nil {
+					c.notifyClient.Notify(context.Background(), m)
+				}
 			}
 
 		case "STICKER":
@@ -456,7 +464,9 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.RssFeed
 
 			applog.Warn(m)
 
-			notifyapi.Send(m, false)
+			if c.notifyClient != nil {
+				c.notifyClient.Notify(context.Background(), m)
+			}
 		}
 	}
 

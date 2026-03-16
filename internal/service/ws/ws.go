@@ -10,9 +10,9 @@ import (
 	"time"
 
 	applog "github.com/darkkaiser/notify-server/pkg/log"
+	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/model"
-	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
 	"github.com/darkkaiser/rss-feed-server/internal/service"
 	"github.com/darkkaiser/rss-feed-server/internal/service/ws/handler"
 	"github.com/darkkaiser/rss-feed-server/internal/service/ws/router"
@@ -30,15 +30,19 @@ type webService struct {
 
 	handler *handler.Handler
 
+	notifyClient *notify.Client
+
 	running   bool
 	runningMu sync.Mutex
 }
 
-func NewService(config *config.AppConfig, rssFeedProviderStore *model.RssFeedProviderStore) service.Service {
+func NewService(config *config.AppConfig, rssFeedProviderStore *model.RssFeedProviderStore, notifyClient *notify.Client) service.Service {
 	return &webService{
 		config: config,
 
-		handler: handler.NewHandler(config, rssFeedProviderStore),
+		handler: handler.NewHandler(config, rssFeedProviderStore, notifyClient),
+
+		notifyClient: notifyClient,
 
 		running:   false,
 		runningMu: sync.Mutex{},
@@ -87,7 +91,9 @@ func (s *webService) Start(serviceStopCtx context.Context, serviceStopWG *sync.W
 
 			applog.Errorf("%s (error:%s)", m, err)
 
-			notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+			if s.notifyClient != nil {
+				s.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
+			}
 		}
 	}(s.config.WS.ListenPort)
 
@@ -109,7 +115,9 @@ func (s *webService) Start(serviceStopCtx context.Context, serviceStopWG *sync.W
 
 					applog.Errorf("%s (error:%s)", m, err)
 
-					notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+					if s.notifyClient != nil {
+						s.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
+					}
 				}
 
 				s.running = false
