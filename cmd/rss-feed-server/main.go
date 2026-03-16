@@ -11,10 +11,10 @@ import (
 	"time"
 
 	applog "github.com/darkkaiser/notify-server/pkg/log"
+	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/db"
 	"github.com/darkkaiser/rss-feed-server/internal/model"
-	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
 	"github.com/darkkaiser/rss-feed-server/internal/pkg/version"
 	"github.com/darkkaiser/rss-feed-server/internal/service"
 	"github.com/darkkaiser/rss-feed-server/internal/service/crawling"
@@ -106,16 +106,20 @@ func run() error {
 	}).Info("RSS Feed Server 초기화 프로세스를 시작합니다")
 
 	// @@@@@
-	// NotifyAPI를 초기화한다.
-	notifyapi.Init(&notifyapi.Config{
+	// NotifyClient 객체를 생성한다.
+	notifyClientConfig := &notify.Config{
 		URL:           appConfig.NotifyAPI.URL,
 		AppKey:        appConfig.NotifyAPI.AppKey,
 		ApplicationID: appConfig.NotifyAPI.ApplicationID,
-	})
+	}
+	notifyClient, err := notify.NewClient(notifyClientConfig)
+	if err != nil {
+		applog.WithComponent(component).Warnf("NotifyClient를 초기화하는 중에 오류가 발생했습니다: %s", err)
+	}
 
 	// @@@@@
 	// 데이터베이스를 초기화한다.
-	sqlDb := db.New()
+	sqlDb := db.New(notifyClient)
 	defer func(db *sql.DB) {
 		err := db.Close()
 		if err != nil {
@@ -123,18 +127,20 @@ func run() error {
 
 			applog.Errorf("%s (error:%s)", m, err)
 
-			notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+			if notifyClient != nil {
+				notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
+			}
 		}
 	}(sqlDb)
 
 	// @@@@@
 	// RSS Feed Store를 초기화한다.
-	rssFeedProviderStore := model.NewRssFeedProviderStore(appConfig, sqlDb)
+	rssFeedProviderStore := model.NewRssFeedProviderStore(appConfig, sqlDb, notifyClient)
 
 	// @@@@@
 	// 7. 서비스 객체 생성 및 연결
-	webService := ws.NewService(appConfig, rssFeedProviderStore)
-	crawlingService := crawling.NewService(appConfig, rssFeedProviderStore)
+	webService := ws.NewService(appConfig, rssFeedProviderStore, notifyClient)
+	crawlingService := crawling.NewService(appConfig, rssFeedProviderStore, notifyClient)
 
 	// 8. 서비스 생명주기 관리 컨텍스트 설정
 	// 전체 서비스의 종료 신호를 전파하는 Context(serviceStopCtx)와

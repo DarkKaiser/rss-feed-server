@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -8,8 +9,8 @@ import (
 	"time"
 
 	applog "github.com/darkkaiser/notify-server/pkg/log"
+	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
-	"github.com/darkkaiser/rss-feed-server/internal/notifyapi"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -30,18 +31,22 @@ func (a RssFeedProviderArticle) String() string {
 }
 
 type RssFeedProviderStore struct {
-	db *sql.DB
+	db           *sql.DB
+	notifyClient *notify.Client
 }
 
-func NewRssFeedProviderStore(config *config.AppConfig, db *sql.DB) *RssFeedProviderStore {
+func NewRssFeedProviderStore(config *config.AppConfig, db *sql.DB, notifyClient *notify.Client) *RssFeedProviderStore {
 	p := &RssFeedProviderStore{
-		db: db,
+		db:           db,
+		notifyClient: notifyClient,
 	}
 
 	if err := p.init(config); err != nil {
 		m := "RSS Feed DB를 초기화하는 중에 치명적인 오류가 발생하였습니다."
 
-		notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+		if p.notifyClient != nil {
+			p.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
+		}
 
 		applog.Panicf("%s (error:%s)", m, err)
 	}
@@ -253,8 +258,9 @@ func (p *RssFeedProviderStore) InsertArticles(providerID string, articles []*Rss
 			applog.Errorf("%s (게시글정보:%s) (error:%s)", m, article, err)
 
 			// 너무 많은 알림 메시지가 발송될 수 있으므로, 동시에 입력되는 게시글 중 최초 오류건에 대해서만 알림 메시지를 보낸다.
-			if sentNotifyMessage == false {
-				sentNotifyMessage = notifyapi.Send(fmt.Sprintf("%s\r\n\r\n%s", m, err), true)
+			if sentNotifyMessage == false && p.notifyClient != nil {
+				sentNotifyMessage = true
+				_ = p.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
 			}
 		} else {
 			insertedCnt += 1
