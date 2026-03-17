@@ -15,8 +15,8 @@ import (
 	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/notify-server/pkg/strutil"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
-	"github.com/darkkaiser/rss-feed-server/internal/model"
-	"github.com/darkkaiser/rss-feed-server/internal/store"
+	"github.com/darkkaiser/rss-feed-server/internal/feed"
+	"github.com/darkkaiser/rss-feed-server/internal/store/sqlite"
 	"github.com/robfig/cron/v3"
 )
 
@@ -40,7 +40,7 @@ const ssangbongSchoolUrlPathReplaceStringWithBoardID = "#{board_id}"
 
 func init() {
 	supportedCrawlers[config.ProviderSiteSsangbongElementarySchool] = &supportedCrawlerConfig{
-		newCrawlerFn: func(rssFeedProviderID string, config *config.ProviderDetailConfig, rssFeedProviderStore *store.RSSFeedStore, notifyClient *notify.Client) cron.Job {
+		newCrawlerFn: func(rssFeedProviderID string, config *config.ProviderDetailConfig, rssFeedProviderStore *sqlite.Store, notifyClient *notify.Client) cron.Job {
 			site := "쌍봉초등학교 홈페이지"
 
 			crawler := &ssangbongSchoolCrawler{
@@ -89,8 +89,8 @@ type ssangbongSchoolCrawler struct {
 }
 
 // noinspection GoErrorStringFormat,GoUnhandledErrorResult
-func (c *ssangbongSchoolCrawler) crawlingArticles() ([]*model.Article, map[string]string, string, error) {
-	var articles = make([]*model.Article, 0)
+func (c *ssangbongSchoolCrawler) crawlingArticles() ([]*feed.Article, map[string]string, string, error) {
+	var articles = make([]*feed.Article, 0)
 	var newLatestCrawledArticleIDsByBoard = make(map[string]string)
 
 	for _, b := range c.config.Boards {
@@ -99,7 +99,7 @@ func (c *ssangbongSchoolCrawler) crawlingArticles() ([]*model.Article, map[strin
 			return nil, nil, fmt.Sprintf("%s('%s')의 게시판 Type별 정보를 구하는 중에 오류가 발생하였습니다.", c.site, c.siteID), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
 		}
 
-		latestCrawledArticleID, latestCrawledCreatedDate, err := c.rssFeedProviderStore.LatestCrawledInfo(c.rssFeedProviderID, b.ID)
+		latestCrawledArticleID, latestCrawledCreatedDate, err := c.rssFeedProviderStore.GetLatestCrawledInfo(c.rssFeedProviderID, b.ID)
 		if err != nil {
 			return nil, nil, fmt.Sprintf("%s('%s') %s 게시판에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", c.site, c.siteID, b.Name), err
 		}
@@ -134,7 +134,7 @@ func (c *ssangbongSchoolCrawler) crawlingArticles() ([]*model.Article, map[strin
 
 			var foundAlreadyCrawledArticle = false
 			ssangbongSchoolSelection.EachWithBreak(func(i int, s *goquery.Selection) bool {
-				var article *model.Article
+				var article *feed.Article
 				if article, err = c.extractArticle(b.ID, b.Type, boardTypeConfig.urlPath2, s); err != nil {
 					return false
 				}
@@ -200,9 +200,9 @@ func (c *ssangbongSchoolCrawler) crawlingArticles() ([]*model.Article, map[strin
 }
 
 // noinspection GoErrorStringFormat
-func (c *ssangbongSchoolCrawler) extractArticle(boardID, boardType, urlDetailPathPath string, s *goquery.Selection) (*model.Article, error) {
+func (c *ssangbongSchoolCrawler) extractArticle(boardID, boardType, urlDetailPathPath string, s *goquery.Selection) (*feed.Article, error) {
 	var exists bool
-	var article = &model.Article{}
+	var article = &feed.Article{}
 
 	switch boardType {
 	case ssangbongSchoolCrawlerBoardTypeList1:
@@ -310,8 +310,7 @@ func (c *ssangbongSchoolCrawler) extractArticle(boardID, boardType, urlDetailPat
 	}
 }
 
-// noinspection GoUnhandledErrorResult
-func (c *ssangbongSchoolCrawler) crawlingArticleContent(article *model.Article) {
+func (c *ssangbongSchoolCrawler) crawlingArticleContent(article *feed.Article) {
 	doc, errOccurred, err := c.getWebPageDocumentWithPOST(article.Link, fmt.Sprintf("%s('%s') %s 게시판의 게시글('%s') 상세페이지", c.site, c.siteID, article.BoardName, article.ArticleID))
 	if err != nil {
 		applog.Warnf("%s (error:%s)", errOccurred, err)

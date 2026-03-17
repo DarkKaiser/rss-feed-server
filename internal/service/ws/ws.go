@@ -15,7 +15,7 @@ import (
 	"github.com/darkkaiser/rss-feed-server/internal/service"
 	"github.com/darkkaiser/rss-feed-server/internal/service/ws/handler"
 	"github.com/darkkaiser/rss-feed-server/internal/service/ws/router"
-	"github.com/darkkaiser/rss-feed-server/internal/store"
+	"github.com/darkkaiser/rss-feed-server/internal/store/sqlite"
 	"github.com/labstack/echo/v4"
 )
 
@@ -36,7 +36,7 @@ type webService struct {
 	runningMu sync.Mutex
 }
 
-func NewService(config *config.AppConfig, rssFeedProviderStore *store.RSSFeedStore, notifyClient *notify.Client) service.Service {
+func NewService(config *config.AppConfig, rssFeedProviderStore *sqlite.Store, notifyClient *notify.Client) service.Service {
 	return &webService{
 		config: config,
 

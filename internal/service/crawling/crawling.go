@@ -10,7 +10,7 @@ import (
 	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/service"
-	"github.com/darkkaiser/rss-feed-server/internal/store"
+	"github.com/darkkaiser/rss-feed-server/internal/store/sqlite"
 	"github.com/robfig/cron/v3"
 )
 
@@ -20,14 +20,14 @@ type crawlingService struct {
 
 	cron *cron.Cron
 
-	rssFeedProviderStore *store.RSSFeedStore
+	rssFeedProviderStore *sqlite.Store
 	notifyClient         *notify.Client
 
 	running   bool
 	runningMu sync.Mutex
 }
 
-func NewService(config *config.AppConfig, rssFeedProviderStore *store.RSSFeedStore, notifyClient *notify.Client) service.Service {
+func NewService(config *config.AppConfig, rssFeedProviderStore *sqlite.Store, notifyClient *notify.Client) service.Service {
 	return &crawlingService{
 		config: config,
 

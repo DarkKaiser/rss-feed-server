@@ -13,12 +13,11 @@ import (
 	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
-	"github.com/darkkaiser/rss-feed-server/internal/db"
 	"github.com/darkkaiser/rss-feed-server/internal/pkg/version"
 	"github.com/darkkaiser/rss-feed-server/internal/service"
 	"github.com/darkkaiser/rss-feed-server/internal/service/crawling"
 	"github.com/darkkaiser/rss-feed-server/internal/service/ws"
-	"github.com/darkkaiser/rss-feed-server/internal/store"
+	"github.com/darkkaiser/rss-feed-server/internal/store/sqlite"
 )
 
 // @@@@@ swagger 주석
@@ -116,9 +115,9 @@ func run() error {
 	}
 
 	// @@@@@
-	// 8. 데이터베이스를 초기화한다.
+	// 8. 데이터베이스 초기화
 	dsn := fmt.Sprintf("./%s.db", config.AppName)
-	sqlDB, err := db.Open(context.Background(), dsn)
+	sqlDB, err := sqlite.Open(context.Background(), dsn)
 	if err != nil {
 		m := "데이터베이스 초기화 중 치명적인 오류가 발생했습니다"
 		if notifyClient != nil {
@@ -140,7 +139,7 @@ func run() error {
 
 	// @@@@@
 	// 9. RSS Feed Store를 초기화한다.
-	rssFeedProviderStore, err := store.NewRSSFeed(appConfig, sqlDB)
+	rssFeedProviderStore, err := sqlite.New(sqlDB)
 	if err != nil {
 		m := "RSS Feed Store 생성 중 치명적인 오류가 발생했습니다"
 		if notifyClient != nil {

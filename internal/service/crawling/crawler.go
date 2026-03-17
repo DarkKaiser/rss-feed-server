@@ -13,8 +13,8 @@ import (
 	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
-	"github.com/darkkaiser/rss-feed-server/internal/model"
-	"github.com/darkkaiser/rss-feed-server/internal/store"
+	"github.com/darkkaiser/rss-feed-server/internal/feed"
+	"github.com/darkkaiser/rss-feed-server/internal/store/sqlite"
 	"github.com/robfig/cron/v3"
 	"golang.org/x/net/html"
 	"golang.org/x/text/encoding"
@@ -23,7 +23,7 @@ import (
 var errNotSupportedCrawler = errors.New("지원하지 않는 Crawler입니다")
 
 // newCrawlerFunc 크롤러 생성 함수 타입
-type newCrawlerFunc func(string, *config.ProviderDetailConfig, *store.RSSFeedStore, *notify.Client) cron.Job
+type newCrawlerFunc func(string, *config.ProviderDetailConfig, *sqlite.Store, *notify.Client) cron.Job
 
 // 지원되는 Crawler 목록
 var supportedCrawlers = make(map[config.ProviderSite]*supportedCrawlerConfig)
@@ -44,13 +44,13 @@ func findConfigFromSupportedCrawler(site config.ProviderSite) (*supportedCrawler
 // crawler
 const emptyBoardIDKey = "#empty#"
 
-type crawlingArticlesFunc func() ([]*model.Article, map[string]string, string, error)
+type crawlingArticlesFunc func() ([]*feed.Article, map[string]string, string, error)
 
 type crawler struct {
 	config *config.ProviderDetailConfig
 
 	rssFeedProviderID    string
-	rssFeedProviderStore *store.RSSFeedStore
+	rssFeedProviderStore *sqlite.Store
 	notifyClient         *notify.Client
 
 	site            string
