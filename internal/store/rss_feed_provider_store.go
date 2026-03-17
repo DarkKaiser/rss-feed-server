@@ -1,7 +1,6 @@
-package model
+package store
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -9,70 +8,48 @@ import (
 	"time"
 
 	applog "github.com/darkkaiser/notify-server/pkg/log"
-	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
+	"github.com/darkkaiser/rss-feed-server/internal/model"
 	_ "github.com/mattn/go-sqlite3"
 )
 
-type RssFeedProviderArticle struct {
-	BoardID     string
-	BoardName   string
-	BoardType   string
-	ArticleID   string
-	Title       string
-	Content     string
-	Link        string
-	Author      string
-	CreatedDate time.Time
-}
-
-func (a RssFeedProviderArticle) String() string {
-	return fmt.Sprintf("[%s, %s, %s, %s, %s, %s, %s, %s]", a.BoardID, a.BoardName, a.ArticleID, a.Title, a.Content, a.Link, a.Author, a.CreatedDate.Format("2006-10-02 15:04:05"))
-}
-
+// RssFeedProviderStore RSS Feed Provider의 DB 접근을 담당하는 Store
 type RssFeedProviderStore struct {
-	db           *sql.DB
-	notifyClient *notify.Client
+	db *sql.DB
 }
 
-func NewRssFeedProviderStore(config *config.AppConfig, db *sql.DB, notifyClient *notify.Client) *RssFeedProviderStore {
-	p := &RssFeedProviderStore{
-		db:           db,
-		notifyClient: notifyClient,
+// NewRssFeedProviderStore Store를 초기화하여 반환한다. 초기화 실패 시 애플리케이션을 즉시 종료한다.
+func NewRssFeedProviderStore(config *config.AppConfig, db *sql.DB) *RssFeedProviderStore {
+	s := &RssFeedProviderStore{
+		db: db,
 	}
 
-	if err := p.init(config); err != nil {
-		m := "RSS Feed DB를 초기화하는 중에 치명적인 오류가 발생하였습니다."
-
-		if p.notifyClient != nil {
-			p.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
-		}
-
-		applog.Panicf("%s (error:%s)", m, err)
+	if err := s.init(config); err != nil {
+		applog.Panicf("RSS Feed DB를 초기화하는 중에 치명적인 오류가 발생하였습니다. (error:%s)", err)
 	}
 
-	return p
+	return s
 }
 
-func (p *RssFeedProviderStore) init(config *config.AppConfig) error {
-	if err := p.createTables(); err != nil {
+func (s *RssFeedProviderStore) init(config *config.AppConfig) error {
+	if err := s.createTables(); err != nil {
 		return err
 	}
 
 	for _, c := range config.RssFeed.Providers {
 		// 기초 데이터를 추가한다.
-		if err := p.insertRssFeedProvider(c.ID, c.Site, c.Config.ID, c.Config.Name, c.Config.Description, c.Config.URL); err != nil {
+		if err := s.insertRssFeedProvider(c.ID, c.Site, c.Config.ID, c.Config.Name, c.Config.Description, c.Config.URL); err != nil {
 			return err
 		}
 
 		for _, b := range c.Config.Boards {
-			if err := p.insertRssFeedProviderBoard(c.ID, b.ID, b.Name); err != nil {
+			if err := s.insertRssFeedProviderBoard(c.ID, b.ID, b.Name); err != nil {
 				return err
 			}
 		}
 
 		// 일정 시간이 지난 게시글 자료를 모두 삭제한다.
-		if err := p.deleteOutOfDateArticle(c.ID, c.Config.ArticleArchiveDate); err != nil {
+		if err := s.deleteOutOfDateArticle(c.ID, c.Config.ArticleArchiveDate); err != nil {
 			return err
 		}
 	}
@@ -81,11 +58,11 @@ func (p *RssFeedProviderStore) init(config *config.AppConfig) error {
 }
 
 // noinspection GoUnhandledErrorResult
-func (p *RssFeedProviderStore) createTables() error {
+func (s *RssFeedProviderStore) createTables() error {
 	//
 	// rss_provider 테이블
 	//
-	stmt1, err := p.db.Prepare(`
+	stmt1, err := s.db.Prepare(`
 		CREATE TABLE IF NOT EXISTS rss_provider (
 			id 					VARCHAR( 50) PRIMARY KEY NOT NULL UNIQUE,
 			site 				VARCHAR( 50) NOT NULL,
@@ -103,7 +80,7 @@ func (p *RssFeedProviderStore) createTables() error {
 		return err
 	}
 
-	stmt2, err := p.db.Prepare(`
+	stmt2, err := s.db.Prepare(`
 		CREATE INDEX IF NOT EXISTS rss_provider_index01 ON rss_provider(s_id)
 	`)
 	if err != nil {
@@ -117,7 +94,7 @@ func (p *RssFeedProviderStore) createTables() error {
 	//
 	// rss_provider_board 테이블
 	//
-	stmt3, err := p.db.Prepare(`
+	stmt3, err := s.db.Prepare(`
 		CREATE TABLE IF NOT EXISTS rss_provider_board (
 			p_id 		VARCHAR( 50) NOT NULL,
 			id			VARCHAR( 50) NOT NULL,
@@ -134,7 +111,7 @@ func (p *RssFeedProviderStore) createTables() error {
 		return err
 	}
 
-	stmt4, err := p.db.Prepare(`
+	stmt4, err := s.db.Prepare(`
 		CREATE INDEX IF NOT EXISTS rss_provider_board_index01 ON rss_provider_board(p_id)
 	`)
 	if err != nil {
@@ -148,7 +125,7 @@ func (p *RssFeedProviderStore) createTables() error {
 	//
 	// rss_provider_article 테이블
 	//
-	stmt5, err := p.db.Prepare(`
+	stmt5, err := s.db.Prepare(`
 		CREATE TABLE IF NOT EXISTS rss_provider_article (
 			p_id 			VARCHAR( 50) NOT NULL,
 			b_id 			VARCHAR( 50) NOT NULL,
@@ -171,7 +148,7 @@ func (p *RssFeedProviderStore) createTables() error {
 		return err
 	}
 
-	stmt6, err := p.db.Prepare(`
+	stmt6, err := s.db.Prepare(`
 		CREATE INDEX IF NOT EXISTS rss_provider_article_index01 ON rss_provider_article(created_date)
 	`)
 	if err != nil {
@@ -185,7 +162,7 @@ func (p *RssFeedProviderStore) createTables() error {
 	//
 	// rss_provider_site_crawled_data 테이블
 	//
-	stmt7, err := p.db.Prepare(`
+	stmt7, err := s.db.Prepare(`
 		CREATE TABLE IF NOT EXISTS rss_provider_site_crawled_data (
 			p_id 						VARCHAR( 50) NOT NULL,
 			b_id 						VARCHAR( 50) NOT NULL,
@@ -206,8 +183,8 @@ func (p *RssFeedProviderStore) createTables() error {
 }
 
 // noinspection GoUnhandledErrorResult
-func (p *RssFeedProviderStore) insertRssFeedProvider(id, site, sId, sName, sDescription, sUrl string) error {
-	stmt, err := p.db.Prepare(`
+func (s *RssFeedProviderStore) insertRssFeedProvider(id, site, sID, sName, sDescription, sURL string) error {
+	stmt, err := s.db.Prepare(`
 		INSERT OR REPLACE
 		  INTO rss_provider (id, site, s_id, s_name, s_description, s_url) 
 	    VALUES (?, ?, ?, ?, ?, ?)
@@ -216,7 +193,7 @@ func (p *RssFeedProviderStore) insertRssFeedProvider(id, site, sId, sName, sDesc
 		return err
 	}
 	defer stmt.Close()
-	if _, err = stmt.Exec(id, site, sId, sName, sDescription, sUrl); err != nil {
+	if _, err = stmt.Exec(id, site, sID, sName, sDescription, sURL); err != nil {
 		return err
 	}
 
@@ -224,8 +201,8 @@ func (p *RssFeedProviderStore) insertRssFeedProvider(id, site, sId, sName, sDesc
 }
 
 // noinspection GoUnhandledErrorResult
-func (p *RssFeedProviderStore) insertRssFeedProviderBoard(providerID, id, name string) error {
-	stmt, err := p.db.Prepare("INSERT OR REPLACE INTO rss_provider_board (p_id, id, name) VALUES (?, ?, ?)")
+func (s *RssFeedProviderStore) insertRssFeedProviderBoard(providerID, id, name string) error {
+	stmt, err := s.db.Prepare("INSERT OR REPLACE INTO rss_provider_board (p_id, id, name) VALUES (?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -237,9 +214,12 @@ func (p *RssFeedProviderStore) insertRssFeedProviderBoard(providerID, id, name s
 	return nil
 }
 
+// InsertArticles 게시글 목록을 DB에 추가하고 실제로 삽입된 건수를 반환한다.
+// 개별 행 삽입 실패는 건너뛰고 계속 진행하며, 실패한 행은 에러 로그로 기록된다.
+//
 // noinspection GoUnhandledErrorResult
-func (p *RssFeedProviderStore) InsertArticles(providerID string, articles []*RssFeedProviderArticle) (int, error) {
-	stmt, err := p.db.Prepare(`
+func (s *RssFeedProviderStore) InsertArticles(providerID string, articles []*model.RssFeedProviderArticle) (int, error) {
+	stmt, err := s.db.Prepare(`
 		INSERT OR REPLACE
 		  INTO rss_provider_article (p_id, b_id, id, title, content, link, author, created_date)
 	    VALUES (?, ?, ?, ?, ?, ?, ?, datetime(?))
@@ -250,29 +230,34 @@ func (p *RssFeedProviderStore) InsertArticles(providerID string, articles []*Rss
 	defer stmt.Close()
 
 	var insertedCnt int
-	var sentNotifyMessage = false
 	for _, article := range articles {
 		if _, err := stmt.Exec(providerID, article.BoardID, article.ArticleID, article.Title, article.Content, article.Link, article.Author, article.CreatedDate.UTC().Format("2006-01-02 15:04:05")); err != nil {
-			m := fmt.Sprintf("RSS Feed DB에 게시글 등록이 실패하였습니다. (p_id:%s)", providerID)
-
-			applog.Errorf("%s (게시글정보:%s) (error:%s)", m, article, err)
-
+			applog.Errorf("RSS Feed DB에 게시글 등록이 실패하였습니다. (p_id:%s) (게시글정보:%s) (error:%s)", providerID, article, err)
+			// @@@@@ 알림은 삭제했음.
 			// 너무 많은 알림 메시지가 발송될 수 있으므로, 동시에 입력되는 게시글 중 최초 오류건에 대해서만 알림 메시지를 보낸다.
-			if sentNotifyMessage == false && p.notifyClient != nil {
-				sentNotifyMessage = true
-				_ = p.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
-			}
+			// if sentNotifyMessage == false && p.notifyClient != nil {
+			// 	sentNotifyMessage = true
+			// 	_ = p.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
+			// }
 		} else {
-			insertedCnt += 1
+			insertedCnt++
 		}
 	}
 
 	return insertedCnt, nil
 }
 
+// Articles 지정한 provider/board의 게시글 목록을 최신순으로 반환한다.
+//
 // noinspection GoUnhandledErrorResult
-func (p *RssFeedProviderStore) Articles(providerID string, boardIDs []string, maxArticleCount uint) ([]*RssFeedProviderArticle, error) {
-	stmt, err := p.db.Prepare(fmt.Sprintf(`
+func (s *RssFeedProviderStore) Articles(providerID string, boardIDs []string, maxArticleCount uint) ([]*model.RssFeedProviderArticle, error) {
+	// 플레이스홀더 (?, ?, ?) 생성
+	placeholders := make([]string, len(boardIDs))
+	for i := range boardIDs {
+		placeholders[i] = "?"
+	}
+
+	query := fmt.Sprintf(`
 		SELECT a.b_id
              , b.name b_name
 		     , a.id
@@ -288,27 +273,37 @@ func (p *RssFeedProviderStore) Articles(providerID string, boardIDs []string, ma
       ORDER BY a.created_date DESC
              , a.rowid DESC
          LIMIT ?
-	`, fmt.Sprintf("'%s'", strings.Join(boardIDs, "', '"))))
+	`, strings.Join(placeholders, ", "))
+
+	stmt, err := s.db.Prepare(query)
 	if err != nil {
 		return nil, err
 	}
 	defer stmt.Close()
 
-	rows, err := stmt.Query(providerID, maxArticleCount)
+	// 쿼리 파라미터 구성: providerID + boardIDs + maxArticleCount
+	args := make([]any, 0, 2+len(boardIDs))
+	args = append(args, providerID)
+	for _, id := range boardIDs {
+		args = append(args, id)
+	}
+	args = append(args, maxArticleCount)
+
+	rows, err := stmt.Query(args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	articles := make([]*RssFeedProviderArticle, 0)
+	articles := make([]*model.RssFeedProviderArticle, 0)
 
 	for rows.Next() {
 		var createdDate sql.NullTime
-		var article RssFeedProviderArticle
+		var article model.RssFeedProviderArticle
 		if err = rows.Scan(&article.BoardID, &article.BoardName, &article.ArticleID, &article.Title, &article.Content, &article.Link, &article.Author, &createdDate); err != nil {
 			return nil, err
 		}
-		if createdDate.Valid == true {
+		if createdDate.Valid {
 			article.CreatedDate = createdDate.Time.Local()
 		}
 
@@ -321,9 +316,11 @@ func (p *RssFeedProviderStore) Articles(providerID string, boardIDs []string, ma
 	return articles, nil
 }
 
+// deleteOutOfDateArticle 보관 기간이 지난 게시글을 삭제한다.
+//
 // noinspection GoUnhandledErrorResult
-func (p *RssFeedProviderStore) deleteOutOfDateArticle(providerID string, articleArchiveDate uint) error {
-	stmt, err := p.db.Prepare(fmt.Sprintf(`
+func (s *RssFeedProviderStore) deleteOutOfDateArticle(providerID string, articleArchiveDate uint) error {
+	stmt, err := s.db.Prepare(fmt.Sprintf(`
 		DELETE 
 		  FROM rss_provider_article
 		 WHERE p_id = ?
@@ -340,37 +337,39 @@ func (p *RssFeedProviderStore) deleteOutOfDateArticle(providerID string, article
 	return nil
 }
 
+// LatestCrawledInfo 마지막으로 크롤링한 게시글 ID와 작성일시를 반환한다.
+//
 // noinspection GoUnhandledErrorResult,GoSnakeCaseUsage
-func (p *RssFeedProviderStore) LatestCrawledInfo(providerID, emptyOrBoardID string) (string, time.Time, error) {
+func (s *RssFeedProviderStore) LatestCrawledInfo(providerID, emptyOrBoardID string) (string, time.Time, error) {
 	var err error
 	var articleID sql.NullString
 	var createdDate sql.NullTime
 
 	if emptyOrBoardID == "" {
-		err = p.db.QueryRow(`
+		err = s.db.QueryRow(`
 			 SELECT ( SELECT latest_crawled_article_id
-						FROM rss_provider_site_crawled_data
+					  	FROM rss_provider_site_crawled_data
 					   WHERE p_id = ?
-						 AND b_id = '' ),
+						AND b_id = '' ),
 					( SELECT created_date 
 						FROM rss_provider_article
 					   WHERE p_id = ?
 					ORDER BY created_date DESC
-						   , rowid DESC
+					   		, rowid DESC
 					   LIMIT 1 )
 		`, providerID, providerID).Scan(&articleID, &createdDate)
 	} else {
-		err = p.db.QueryRow(`
+		err = s.db.QueryRow(`
 			 SELECT ( SELECT latest_crawled_article_id
-						FROM rss_provider_site_crawled_data
+					  	FROM rss_provider_site_crawled_data
 					   WHERE p_id = ?
-						 AND b_id = ? ),
+						AND b_id = ? ),
 					( SELECT created_date 
 						FROM rss_provider_article
 					   WHERE p_id = ?
-						 AND b_id = ?
+						AND b_id = ?
 					ORDER BY created_date DESC
-						   , rowid DESC
+					   		, rowid DESC
 					   LIMIT 1 )
 		`, providerID, emptyOrBoardID, providerID, emptyOrBoardID).Scan(&articleID, &createdDate)
 	}
@@ -378,23 +377,25 @@ func (p *RssFeedProviderStore) LatestCrawledInfo(providerID, emptyOrBoardID stri
 	var latestCrawledArticleID string
 	var latestCrawledCreatedDate time.Time
 
-	if err != nil && errors.Is(err, sql.ErrNoRows) == false {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return "", latestCrawledCreatedDate, err
 	}
 
-	if articleID.Valid == true {
+	if articleID.Valid {
 		latestCrawledArticleID = articleID.String
 	}
-	if createdDate.Valid == true {
+	if createdDate.Valid {
 		latestCrawledCreatedDate = createdDate.Time.Local()
 	}
 
 	return latestCrawledArticleID, latestCrawledCreatedDate, nil
 }
 
+// UpdateLatestCrawledArticleID 마지막으로 크롤링한 게시글 ID를 갱신한다.
+//
 // noinspection GoUnhandledErrorResult,GoSnakeCaseUsage
-func (p *RssFeedProviderStore) UpdateLatestCrawledArticleID(providerID, emptyOrBoardID, latestCrawledArticleID string) error {
-	stmt, err := p.db.Prepare("INSERT OR REPLACE INTO rss_provider_site_crawled_data (p_id, b_id, latest_crawled_article_id) VALUES (?, ?, ?)")
+func (s *RssFeedProviderStore) UpdateLatestCrawledArticleID(providerID, emptyOrBoardID, latestCrawledArticleID string) error {
+	stmt, err := s.db.Prepare("INSERT OR REPLACE INTO rss_provider_site_crawled_data (p_id, b_id, latest_crawled_article_id) VALUES (?, ?, ?)")
 	if err != nil {
 		return err
 	}

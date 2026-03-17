@@ -20,6 +20,7 @@ import (
 	"github.com/darkkaiser/notify-server/pkg/strutil"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/model"
+	"github.com/darkkaiser/rss-feed-server/internal/store"
 	"github.com/robfig/cron/v3"
 	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/korean"
@@ -27,7 +28,7 @@ import (
 
 func init() {
 	supportedCrawlers[config.ProviderSiteNaverCafe] = &supportedCrawlerConfig{
-		newCrawlerFn: func(rssFeedProviderID string, config *config.ProviderDetailConfig, rssFeedProviderStore *model.RssFeedProviderStore, notifyClient *notify.Client) cron.Job {
+		newCrawlerFn: func(rssFeedProviderID string, config *config.ProviderDetailConfig, rssFeedProviderStore *store.RssFeedProviderStore, notifyClient *notify.Client) cron.Job {
 			site := "네이버 카페"
 
 			data := naverCafeCrawlerConfigData{}

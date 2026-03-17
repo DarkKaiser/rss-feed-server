@@ -5,23 +5,24 @@ import (
 	"database/sql"
 	"fmt"
 
-	applog "github.com/darkkaiser/notify-server/pkg/log"
-	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
-	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/mattn/go-sqlite3"
 )
 
-func New(notifyClient *notify.Client) *sql.DB {
-	db, err := sql.Open("sqlite3", fmt.Sprintf("./%s.db", config.AppName))
+// Open sqlite3 DB 연결을 열고 연결 유효성을 검증하여 반환한다.
+func Open(ctx context.Context) (*sql.DB, error) {
+	dsn := fmt.Sprintf("./%s.db", config.AppName)
+
+	db, err := sql.Open("sqlite3", dsn)
 	if err != nil {
-		m := "DB를 여는 중에 치명적인 오류가 발생하였습니다."
-
-		if notifyClient != nil {
-			notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
-		}
-
-		applog.Panicf("%s (error:%s)", m, err)
+		return nil, fmt.Errorf("DB를 여는 중에 오류가 발생하였습니다: %w", err)
 	}
 
-	return db
+	// sql.Open은 실제 커넥션을 생성하지 않으므로 PingContext로 연결 유효성을 검증한다.
+	if err = db.PingContext(ctx); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("DB 연결을 확인하는 중에 오류가 발생하였습니다: %w", err)
+	}
+
+	return db, nil
 }
