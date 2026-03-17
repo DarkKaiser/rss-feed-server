@@ -38,7 +38,7 @@ func (h *Handler) GetRssFeedHandler(c echo.Context) error {
 				boardIDs = append(boardIDs, b.ID)
 			}
 
-			articles, err := h.rssFeedProviderStore.Articles(p.ID, boardIDs, h.config.RssFeed.MaxItemCount)
+			articles, err := h.rssFeedProviderStore.GetArticles(p.ID, boardIDs, h.config.RssFeed.MaxItemCount)
 			if err != nil {
 				m := fmt.Sprintf("DB에서 게시글을 읽어오는 중에 오류가 발생하였습니다. (p_id:%s)", p.ID)
 
@@ -58,13 +58,13 @@ func (h *Handler) GetRssFeedHandler(c echo.Context) error {
 			// 가장 최근에 작성된 게시글의 작성시간을 구한다.
 			var lastBuildDate time.Time
 			if len(articles) > 0 {
-				lastBuildDate = articles[0].CreatedDate
+				lastBuildDate = articles[0].CreatedAt
 			}
 
 			rssFeed := feeds.NewRssFeed(p.Config.Name, p.Config.URL, p.Config.Description, "ko", config.AppName, time.Now(), lastBuildDate)
 			for _, article := range articles {
 				rssFeed.Items = append(rssFeed.Items,
-					feeds.NewRssFeedItem(article.Title, article.Link, strings.ReplaceAll(article.Content, "\r\n", "<br>"), article.Author, article.BoardName, article.CreatedDate),
+					feeds.NewRssFeedItem(article.Title, article.Link, strings.ReplaceAll(article.Content, "\r\n", "<br>"), article.Author, article.BoardName, article.CreatedAt),
 				)
 			}
 
