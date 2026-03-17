@@ -1,4 +1,4 @@
-package crawling
+package crawler
 
 import (
 	"context"
@@ -20,29 +20,29 @@ import (
 	"golang.org/x/text/encoding"
 )
 
-var errNotSupportedCrawler = errors.New("지원하지 않는 Crawler입니다")
+var ErrNotSupportedCrawler = errors.New("지원하지 않는 Crawler입니다")
 
-// newCrawlerFunc 크롤러 생성 함수 타입
-type newCrawlerFunc func(string, *config.ProviderDetailConfig, *sqlite.Store, *notify.Client) cron.Job
+// NewCrawlerFunc 크롤러 생성 함수 타입
+type NewCrawlerFunc func(string, *config.ProviderDetailConfig, *sqlite.Store, *notify.Client) cron.Job
 
-// 지원되는 Crawler 목록
-var supportedCrawlers = make(map[config.ProviderSite]*supportedCrawlerConfig)
+// SupportedCrawlers 지원되는 Crawler 목록
+var SupportedCrawlers = make(map[config.ProviderSite]*SupportedCrawlerConfig)
 
-type supportedCrawlerConfig struct {
-	newCrawlerFn newCrawlerFunc
+type SupportedCrawlerConfig struct {
+	NewCrawlerFn NewCrawlerFunc
 }
 
-func findConfigFromSupportedCrawler(site config.ProviderSite) (*supportedCrawlerConfig, error) {
-	crawlerConfig, exists := supportedCrawlers[site]
+func FindConfigFromSupportedCrawler(site config.ProviderSite) (*SupportedCrawlerConfig, error) {
+	crawlerConfig, exists := SupportedCrawlers[site]
 	if exists == true {
 		return crawlerConfig, nil
 	}
 
-	return nil, errNotSupportedCrawler
+	return nil, ErrNotSupportedCrawler
 }
 
 // crawler
-const emptyBoardIDKey = "#empty#"
+const EmptyBoardIDKey = "#empty#"
 
 type crawlingArticlesFunc func() ([]*feed.Article, map[string]string, string, error)
 
@@ -97,7 +97,7 @@ func (c *crawler) Run() {
 			}
 
 			for boardID, articleID := range latestCrawledArticleIDsByBoard {
-				if boardID == emptyBoardIDKey {
+				if boardID == EmptyBoardIDKey {
 					boardID = ""
 				}
 
@@ -119,7 +119,7 @@ func (c *crawler) Run() {
 			}
 		} else {
 			for boardID, articleID := range latestCrawledArticleIDsByBoard {
-				if boardID == emptyBoardIDKey {
+				if boardID == EmptyBoardIDKey {
 					boardID = ""
 				}
 

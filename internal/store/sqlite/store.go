@@ -13,13 +13,16 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+// @@@@@
 // Store RSS Feed Provider의 DB 접근을 담당하는 Store
 type Store struct {
 	db *sql.DB
 }
 
+// 컴파일 타임에 인터페이스 구현 여부를 검증합니다.
 var _ feed.Repository = (*Store)(nil)
 
+// @@@@@
 // New Store를 초기화하여 반환한다.
 func New(db *sql.DB) (*Store, error) {
 	s := &Store{
@@ -29,6 +32,7 @@ func New(db *sql.DB) (*Store, error) {
 	return s, nil
 }
 
+// @@@@@
 // Initialize RSS Feed DB를 초기화(테이블 생성 및 기초 데이터 추가)한다.
 func (s *Store) Initialize(cfg *config.AppConfig) error {
 	if err := s.createTables(); err != nil {
@@ -56,6 +60,7 @@ func (s *Store) Initialize(cfg *config.AppConfig) error {
 	return nil
 }
 
+// @@@@@
 // noinspection GoUnhandledErrorResult
 func (s *Store) createTables() error {
 	//
@@ -181,6 +186,7 @@ func (s *Store) createTables() error {
 	return nil
 }
 
+// @@@@@
 // noinspection GoUnhandledErrorResult
 func (s *Store) insertRSSFeedProvider(providerID, site, sourceID, sourceName, sourceDescription, sourceURL string) error {
 	stmt, err := s.db.Prepare(`
@@ -199,6 +205,7 @@ func (s *Store) insertRSSFeedProvider(providerID, site, sourceID, sourceName, so
 	return nil
 }
 
+// @@@@@
 // noinspection GoUnhandledErrorResult
 func (s *Store) insertRSSFeedProviderBoard(providerID, boardID, boardName string) error {
 	stmt, err := s.db.Prepare("INSERT OR REPLACE INTO rss_provider_board (p_id, id, name) VALUES (?, ?, ?)")
@@ -213,6 +220,7 @@ func (s *Store) insertRSSFeedProviderBoard(providerID, boardID, boardName string
 	return nil
 }
 
+// @@@@@
 // InsertArticles 게시글 목록을 DB에 추가하고 실제로 삽입된 건수를 반환한다.
 // 개별 행 삽입 실패는 건너뛰고 계속 진행하며, 실패한 행은 에러 로그로 기록된다.
 //
@@ -246,6 +254,7 @@ func (s *Store) InsertArticles(providerID string, articles []*feed.Article) (int
 	return insertedCnt, nil
 }
 
+// @@@@@
 // GetArticles 지정한 provider/board의 게시글 목록을 최신순으로 반환한다.
 //
 // noinspection GoUnhandledErrorResult
@@ -315,6 +324,7 @@ func (s *Store) GetArticles(providerID string, boardIDs []string, limit uint) ([
 	return articles, nil
 }
 
+// @@@@@
 // deleteOutOfDateArticles 보관 기간이 지난 게시글을 삭제한다.
 //
 // noinspection GoUnhandledErrorResult
@@ -336,6 +346,7 @@ func (s *Store) deleteOutOfDateArticles(providerID string, archiveDays uint) err
 	return nil
 }
 
+// @@@@@
 // GetLatestCrawledInfo 마지막으로 크롤링한 게시글 ID와 작성일시를 반환한다.
 //
 // noinspection GoUnhandledErrorResult,GoSnakeCaseUsage
@@ -390,6 +401,7 @@ func (s *Store) GetLatestCrawledInfo(providerID, boardID string) (string, time.T
 	return latestCrawledArticleID, latestCrawledCreatedDate, nil
 }
 
+// @@@@@
 // UpdateLatestCrawledArticleID 마지막으로 크롤링한 게시글 ID를 갱신한다.
 //
 // noinspection GoUnhandledErrorResult,GoSnakeCaseUsage

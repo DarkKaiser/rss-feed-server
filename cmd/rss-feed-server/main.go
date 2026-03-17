@@ -15,7 +15,7 @@ import (
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/pkg/version"
 	"github.com/darkkaiser/rss-feed-server/internal/service"
-	"github.com/darkkaiser/rss-feed-server/internal/service/crawling"
+	"github.com/darkkaiser/rss-feed-server/internal/service/crawl"
 	"github.com/darkkaiser/rss-feed-server/internal/service/ws"
 	"github.com/darkkaiser/rss-feed-server/internal/store/sqlite"
 )
@@ -114,52 +114,58 @@ func run() error {
 		return fmt.Errorf("NotifyClient를 초기화하는 중 치명적인 오류가 발생했습니다: %w", err)
 	}
 
-	// @@@@@
 	// 8. 데이터베이스 초기화
-	dsn := fmt.Sprintf("./%s.db", config.AppName)
-	sqlDB, err := sqlite.Open(context.Background(), dsn)
+	db, err := sqlite.Open(context.Background(), fmt.Sprintf("./%s.db", config.AppName))
 	if err != nil {
-		m := "데이터베이스 초기화 중 치명적인 오류가 발생했습니다"
+		m := "SQLite 데이터베이스 초기화 중 치명적인 오류가 발생했습니다"
+
 		if notifyClient != nil {
 			notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
 		}
+
 		return fmt.Errorf("%s: %w", m, err)
 	}
-	defer func(sqlDB *sql.DB) {
-		if err := sqlDB.Close(); err != nil {
-			m := "DB를 닫는 중에 오류가 발생하였습니다."
+	defer func(db *sql.DB) {
+		if err := db.Close(); err != nil {
+			m := "SQLite 데이터베이스 연결 해제 중에 오류가 발생하였습니다"
 
-			applog.Errorf("%s (error:%s)", m, err)
+			applog.WithComponentAndFields(component, applog.Fields{
+				"error": err,
+			}).Error(m)
 
 			if notifyClient != nil {
 				notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
 			}
 		}
-	}(sqlDB)
+	}(db)
 
-	// @@@@@
-	// 9. RSS Feed Store를 초기화한다.
-	rssFeedProviderStore, err := sqlite.New(sqlDB)
+	// 9. RSS Feed Store 초기화
+	store, err := sqlite.New(db)
 	if err != nil {
-		m := "RSS Feed Store 생성 중 치명적인 오류가 발생했습니다"
+		m := "RSS 피드 저장소 객체 생성 중 치명적인 오류가 발생했습니다"
+
 		if notifyClient != nil {
 			notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
 		}
+
 		return fmt.Errorf("%s: %w", m, err)
 	}
 
-	if err := rssFeedProviderStore.Initialize(appConfig); err != nil {
-		m := "RSS Feed Store 초기화 중 치명적인 오류가 발생했습니다"
+	// @@@@@ Initialize 함수명만 남음
+	if err := store.Initialize(appConfig); err != nil {
+		m := "RSS 피드 저장소 초기화 중 치명적인 오류가 발생했습니다"
+
 		if notifyClient != nil {
 			notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
 		}
+
 		return fmt.Errorf("%s: %w", m, err)
 	}
 
 	// @@@@@
 	// 10. 서비스 객체 생성 및 연결
-	webService := ws.NewService(appConfig, rssFeedProviderStore, notifyClient)
-	crawlingService := crawling.NewService(appConfig, rssFeedProviderStore, notifyClient)
+	webService := ws.NewService(appConfig, store, notifyClient)
+	crawlingService := crawl.NewService(appConfig, store, notifyClient)
 
 	// 11. 서비스 생명주기 관리 컨텍스트 설정
 	// 전체 서비스의 종료 신호를 전파하는 Context(serviceStopCtx)와
