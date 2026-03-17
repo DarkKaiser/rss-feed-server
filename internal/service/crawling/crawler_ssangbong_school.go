@@ -16,6 +16,7 @@ import (
 	"github.com/darkkaiser/notify-server/pkg/strutil"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/model"
+	"github.com/darkkaiser/rss-feed-server/internal/store"
 	"github.com/robfig/cron/v3"
 )
 
@@ -39,7 +40,7 @@ const ssangbongSchoolUrlPathReplaceStringWithBoardID = "#{board_id}"
 
 func init() {
 	supportedCrawlers[config.ProviderSiteSsangbongElementarySchool] = &supportedCrawlerConfig{
-		newCrawlerFn: func(rssFeedProviderID string, config *config.ProviderDetailConfig, rssFeedProviderStore *model.RssFeedProviderStore, notifyClient *notify.Client) cron.Job {
+		newCrawlerFn: func(rssFeedProviderID string, config *config.ProviderDetailConfig, rssFeedProviderStore *store.RssFeedProviderStore, notifyClient *notify.Client) cron.Job {
 			site := "쌍봉초등학교 홈페이지"
 
 			crawler := &ssangbongSchoolCrawler{

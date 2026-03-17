@@ -13,12 +13,12 @@ import (
 	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
-	"github.com/darkkaiser/rss-feed-server/internal/db"
-	"github.com/darkkaiser/rss-feed-server/internal/model"
 	"github.com/darkkaiser/rss-feed-server/internal/pkg/version"
 	"github.com/darkkaiser/rss-feed-server/internal/service"
 	"github.com/darkkaiser/rss-feed-server/internal/service/crawling"
 	"github.com/darkkaiser/rss-feed-server/internal/service/ws"
+	"github.com/darkkaiser/rss-feed-server/internal/db"
+	"github.com/darkkaiser/rss-feed-server/internal/store"
 )
 
 // @@@@@ swagger 주석
@@ -105,24 +105,28 @@ func run() error {
 		"arch":         buildInfo.Arch,
 	}).Info("RSS Feed Server 초기화 프로세스를 시작합니다")
 
-	// @@@@@
-	// NotifyClient 객체를 생성한다.
-	notifyClientConfig := &notify.Config{
+	// 7. 알림 서비스 클라이언트(NotifyClient) 초기화
+	notifyClient, err := notify.NewClient(&notify.Config{
 		URL:           appConfig.NotifyAPI.URL,
 		AppKey:        appConfig.NotifyAPI.AppKey,
 		ApplicationID: appConfig.NotifyAPI.ApplicationID,
-	}
-	notifyClient, err := notify.NewClient(notifyClientConfig)
+	})
 	if err != nil {
-		applog.WithComponent(component).Warnf("NotifyClient를 초기화하는 중에 오류가 발생했습니다: %s", err)
+		return fmt.Errorf("NotifyClient를 초기화하는 중 치명적인 오류가 발생했습니다: %w", err)
 	}
 
 	// @@@@@
-	// 데이터베이스를 초기화한다.
-	sqlDb := db.New(notifyClient)
+	// 8. 데이터베이스를 초기화한다.
+	db, err := db.Open(context.Background())
+	if err != nil {
+		m := "데이터베이스 초기화 중 치명적인 오류가 발생했습니다"
+		if notifyClient != nil {
+			notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
+		}
+		return fmt.Errorf("%s: %w", m, err)
+	}
 	defer func(db *sql.DB) {
-		err := db.Close()
-		if err != nil {
+		if err := db.Close(); err != nil {
 			m := "DB를 닫는 중에 오류가 발생하였습니다."
 
 			applog.Errorf("%s (error:%s)", m, err)
@@ -131,24 +135,24 @@ func run() error {
 				notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
 			}
 		}
-	}(sqlDb)
+	}(db)
 
 	// @@@@@
-	// RSS Feed Store를 초기화한다.
-	rssFeedProviderStore := model.NewRssFeedProviderStore(appConfig, sqlDb, notifyClient)
+	// 9. RSS Feed Store를 초기화한다.
+	rssFeedProviderStore := store.NewRssFeedProviderStore(appConfig, db)
 
 	// @@@@@
-	// 7. 서비스 객체 생성 및 연결
+	// 10. 서비스 객체 생성 및 연결
 	webService := ws.NewService(appConfig, rssFeedProviderStore, notifyClient)
 	crawlingService := crawling.NewService(appConfig, rssFeedProviderStore, notifyClient)
 
-	// 8. 서비스 생명주기 관리 컨텍스트 설정
+	// 11. 서비스 생명주기 관리 컨텍스트 설정
 	// 전체 서비스의 종료 신호를 전파하는 Context(serviceStopCtx)와
 	// 모든 서비스가 안전하게 종료될 때까지 대기하는 WaitGroup(serviceStopWG)을 초기화합니다.
 	serviceStopCtx, serviceStopCancel := context.WithCancel(context.Background())
 	serviceStopWG := &sync.WaitGroup{}
 
-	// 9. 서비스 병렬 기동
+	// 12. 서비스 병렬 기동
 	// 준비된 모든 서비스를 별도의 고루틴 또는 비동기 컨텍스트에서 시작합니다.
 	// 하나라도 초기화에 실패하면 즉시 전체 서버 구동을 중단하고 롤백(종료) 절차를 밟습니다.
 	services := []service.Service{webService, crawlingService}
@@ -161,7 +165,7 @@ func run() error {
 		}
 	}
 
-	// 10. OS 시그널 처리기 등록
+	// 13. OS 시그널 처리기 등록
 	// 운영체제로부터의 종료 신호(SIGTERM: 정상 종료, SIGINT: Ctrl+C)를 수신할 채널을 생성합니다.
 	// 이는 서버가 즉시 종료되지 않고, 진행 중인 작업을 마무리할 시간을 확보(Graceful Shutdown)하기 위함입니다.
 	termC := make(chan os.Signal, 1)
@@ -169,19 +173,19 @@ func run() error {
 
 	applog.WithComponent(component).Info("RSS Feed Server 초기화가 성공적으로 완료되었습니다 (Ready to Serve)")
 
-	// 11. 메인 루프 대기
+	// 14. 메인 루프 대기
 	// 종료 신호가 들어올 때까지 메인 고루틴을 블로킹 상태로 유지합니다.
 	sig := <-termC
 	applog.WithComponentAndFields(component, applog.Fields{
 		"signal": sig,
 	}).Info("종료 신호(Signal)를 수신했습니다. Graceful Shutdown 프로세스를 시작합니다")
 
-	// 12. 서비스 종료 전파
+	// 15. 서비스 종료 전파
 	// 취소 함수(serviceStopCancel)를 호출하여 `serviceStopCtx`를 대기하고 있는 모든 하위 서비스에 종료를 알립니다.
 	// 각 서비스는 이를 감지하고 리소스 정리, 연결 해제 등의 정리 작업을 수행해야 합니다.
 	serviceStopCancel()
 
-	// 13. 종료 타임아웃 프로세스
+	// 16. 종료 타임아웃 프로세스
 	// 서비스들이 무한정 종료되지 않는 상황(Deadlock 등)을 방지하기 위해 강제 종료 타임아웃(30초)을 설정합니다.
 	// `serviceStopCtx`는 이미 취소되었으므로, 타임아웃 카운트는 별도의 독립적인 Context(Background)에서 시작해야 합니다.
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), shutdownTimeout)
@@ -194,7 +198,7 @@ func run() error {
 		close(done)
 	}()
 
-	// 14. 종료 완료 대기 또는 강제 종료
+	// 17. 종료 완료 대기 또는 강제 종료
 	select {
 	case <-done:
 		applog.WithComponent(component).Info("모든 서비스가 리소스를 정리하고 정상적으로 종료되었습니다")
