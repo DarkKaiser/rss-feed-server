@@ -1,4 +1,4 @@
-package crawling
+package crawler
 
 import (
 	"context"
@@ -27,13 +27,13 @@ import (
 )
 
 func init() {
-	supportedCrawlers[config.ProviderSiteNaverCafe] = &supportedCrawlerConfig{
-		newCrawlerFn: func(rssFeedProviderID string, config *config.ProviderDetailConfig, rssFeedProviderStore *sqlite.Store, notifyClient *notify.Client) cron.Job {
+	SupportedCrawlers[config.ProviderSiteNaverCafe] = &SupportedCrawlerConfig{
+		NewCrawlerFn: func(rssFeedProviderID string, providerConfig *config.ProviderDetailConfig, rssFeedProviderStore *sqlite.Store, notifyClient *notify.Client) cron.Job {
 			site := "네이버 카페"
 
 			data := naverCafeCrawlerConfigData{}
-			if err := data.fillFromMap(config.Data); err != nil {
-				m := fmt.Sprintf("작업 데이터가 유효하지 않아 %s('%s') Crawler 생성이 실패하였습니다. (error:%s)", site, config.ID, err)
+			if err := data.fillFromMap(providerConfig.Data); err != nil {
+				m := fmt.Sprintf("작업 데이터가 유효하지 않아 %s('%s') Crawler 생성이 실패하였습니다. (error:%s)", site, providerConfig.ID, err)
 
 				if notifyClient != nil {
 					notifyClient.NotifyError(context.Background(), m)
@@ -42,19 +42,19 @@ func init() {
 				applog.Panic(m)
 			}
 
-			crawler := &naverCafeCrawler{
+			crawlerInstance := &naverCafeCrawler{
 				crawler: crawler{
-					config: config,
+					config: providerConfig,
 
 					rssFeedProviderID:    rssFeedProviderID,
 					rssFeedProviderStore: rssFeedProviderStore,
 					notifyClient:         notifyClient,
 
 					site:            site,
-					siteID:          config.ID,
-					siteName:        config.Name,
-					siteDescription: config.Description,
-					siteUrl:         config.URL,
+					siteID:          providerConfig.ID,
+					siteName:        providerConfig.Name,
+					siteDescription: providerConfig.Description,
+					siteUrl:         providerConfig.URL,
 
 					crawlingMaxPageCount: 10,
 				},
@@ -64,11 +64,11 @@ func init() {
 				crawlingDelayTimeMinutes: 40,
 			}
 
-			crawler.crawlingArticlesFn = crawler.crawlingArticles
+			crawlerInstance.crawlingArticlesFn = crawlerInstance.crawlingArticles
 
-			applog.Debug(fmt.Sprintf("%s('%s') Crawler가 생성되었습니다.", crawler.site, crawler.siteID))
+			applog.Debug(fmt.Sprintf("%s('%s') Crawler가 생성되었습니다.", crawlerInstance.site, crawlerInstance.siteID))
 
-			return crawler
+			return crawlerInstance
 		},
 	}
 }
@@ -334,7 +334,7 @@ func (c *naverCafeCrawler) crawlingArticles() ([]*feed.Article, map[string]strin
 	}
 
 	var newLatestCrawledArticleIDsByBoard = map[string]string{
-		emptyBoardIDKey: strconv.FormatInt(newLatestCrawledArticleID, 10),
+		EmptyBoardIDKey: strconv.FormatInt(newLatestCrawledArticleID, 10),
 	}
 
 	return articles, newLatestCrawledArticleIDsByBoard, "", nil

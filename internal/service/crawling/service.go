@@ -10,6 +10,7 @@ import (
 	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/service"
+	"github.com/darkkaiser/rss-feed-server/internal/service/crawling/crawler"
 	"github.com/darkkaiser/rss-feed-server/internal/store/sqlite"
 	"github.com/robfig/cron/v3"
 )
@@ -65,7 +66,7 @@ func (s *crawlingService) Start(serviceStopCtx context.Context, serviceStopWG *s
 
 	// 크롤링 스케쥴러를 시작한다.
 	for _, p := range s.config.RssFeed.Providers {
-		crawlerConfig, err := findConfigFromSupportedCrawler(config.ProviderSite(p.Site))
+		crawlerConfig, err := crawler.FindConfigFromSupportedCrawler(config.ProviderSite(p.Site))
 		if err != nil {
 			m := fmt.Sprintf("%s(ID:%s) 크롤링 작업의 스케쥴러 등록이 실패하였습니다. 구현된 Crawler가 존재하지 않습니다.", p.Site, p.ID)
 
@@ -79,7 +80,7 @@ func (s *crawlingService) Start(serviceStopCtx context.Context, serviceStopWG *s
 			return nil
 		}
 
-		if _, err := s.cron.AddJob(p.Scheduler.TimeSpec, crawlerConfig.newCrawlerFn(p.ID, p.Config, s.rssFeedProviderStore, s.notifyClient)); err != nil {
+		if _, err := s.cron.AddJob(p.Scheduler.TimeSpec, crawlerConfig.NewCrawlerFn(p.ID, p.Config, s.rssFeedProviderStore, s.notifyClient)); err != nil {
 			m := fmt.Sprintf("%s(ID:%s) 크롤링 작업의 스케쥴러 등록이 실패하였습니다. (error:%s)", p.Site, p.ID, err)
 
 			if s.notifyClient != nil {

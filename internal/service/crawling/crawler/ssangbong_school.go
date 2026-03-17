@@ -1,4 +1,4 @@
-package crawling
+package crawler
 
 import (
 	"bytes"
@@ -39,33 +39,33 @@ type ssangbongSchoolCrawlerBoardTypeConfig struct {
 const ssangbongSchoolUrlPathReplaceStringWithBoardID = "#{board_id}"
 
 func init() {
-	supportedCrawlers[config.ProviderSiteSsangbongElementarySchool] = &supportedCrawlerConfig{
-		newCrawlerFn: func(rssFeedProviderID string, config *config.ProviderDetailConfig, rssFeedProviderStore *sqlite.Store, notifyClient *notify.Client) cron.Job {
+	SupportedCrawlers[config.ProviderSiteSsangbongElementarySchool] = &SupportedCrawlerConfig{
+		NewCrawlerFn: func(rssFeedProviderID string, providerConfig *config.ProviderDetailConfig, rssFeedProviderStore *sqlite.Store, notifyClient *notify.Client) cron.Job {
 			site := "쌍봉초등학교 홈페이지"
 
-			crawler := &ssangbongSchoolCrawler{
+			crawlerInstance := &ssangbongSchoolCrawler{
 				crawler: crawler{
-					config: config,
+					config: providerConfig,
 
 					rssFeedProviderID:    rssFeedProviderID,
 					rssFeedProviderStore: rssFeedProviderStore,
 					notifyClient:         notifyClient,
 
 					site:            site,
-					siteID:          config.ID,
-					siteName:        config.Name,
-					siteDescription: config.Description,
-					siteUrl:         config.URL,
+					siteID:          providerConfig.ID,
+					siteName:        providerConfig.Name,
+					siteDescription: providerConfig.Description,
+					siteUrl:         providerConfig.URL,
 
 					crawlingMaxPageCount: 3,
 				},
 			}
 
-			crawler.crawlingArticlesFn = crawler.crawlingArticles
+			crawlerInstance.crawlingArticlesFn = crawlerInstance.crawlingArticles
 
-			applog.Debug(fmt.Sprintf("%s('%s') Crawler가 생성되었습니다.", crawler.site, crawler.siteID))
+			applog.Debug(fmt.Sprintf("%s('%s') Crawler가 생성되었습니다.", crawlerInstance.site, crawlerInstance.siteID))
 
-			return crawler
+			return crawlerInstance
 		},
 	}
 
