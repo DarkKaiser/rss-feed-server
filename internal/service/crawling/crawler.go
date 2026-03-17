@@ -23,7 +23,7 @@ import (
 var errNotSupportedCrawler = errors.New("지원하지 않는 Crawler입니다")
 
 // newCrawlerFunc 크롤러 생성 함수 타입
-type newCrawlerFunc func(string, *config.ProviderDetailConfig, *store.RssFeedProviderStore, *notify.Client) cron.Job
+type newCrawlerFunc func(string, *config.ProviderDetailConfig, *store.RSSFeedStore, *notify.Client) cron.Job
 
 // 지원되는 Crawler 목록
 var supportedCrawlers = make(map[config.ProviderSite]*supportedCrawlerConfig)
@@ -44,13 +44,13 @@ func findConfigFromSupportedCrawler(site config.ProviderSite) (*supportedCrawler
 // crawler
 const emptyBoardIDKey = "#empty#"
 
-type crawlingArticlesFunc func() ([]*model.RssFeedProviderArticle, map[string]string, string, error)
+type crawlingArticlesFunc func() ([]*model.Article, map[string]string, string, error)
 
 type crawler struct {
 	config *config.ProviderDetailConfig
 
 	rssFeedProviderID    string
-	rssFeedProviderStore *store.RssFeedProviderStore
+	rssFeedProviderStore *store.RSSFeedStore
 	notifyClient         *notify.Client
 
 	site            string

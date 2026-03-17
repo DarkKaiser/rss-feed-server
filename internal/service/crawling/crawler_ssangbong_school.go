@@ -40,7 +40,7 @@ const ssangbongSchoolUrlPathReplaceStringWithBoardID = "#{board_id}"
 
 func init() {
 	supportedCrawlers[config.ProviderSiteSsangbongElementarySchool] = &supportedCrawlerConfig{
-		newCrawlerFn: func(rssFeedProviderID string, config *config.ProviderDetailConfig, rssFeedProviderStore *store.RssFeedProviderStore, notifyClient *notify.Client) cron.Job {
+		newCrawlerFn: func(rssFeedProviderID string, config *config.ProviderDetailConfig, rssFeedProviderStore *store.RSSFeedStore, notifyClient *notify.Client) cron.Job {
 			site := "쌍봉초등학교 홈페이지"
 
 			crawler := &ssangbongSchoolCrawler{
@@ -89,8 +89,8 @@ type ssangbongSchoolCrawler struct {
 }
 
 // noinspection GoErrorStringFormat,GoUnhandledErrorResult
-func (c *ssangbongSchoolCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, map[string]string, string, error) {
-	var articles = make([]*model.RssFeedProviderArticle, 0)
+func (c *ssangbongSchoolCrawler) crawlingArticles() ([]*model.Article, map[string]string, string, error) {
+	var articles = make([]*model.Article, 0)
 	var newLatestCrawledArticleIDsByBoard = make(map[string]string)
 
 	for _, b := range c.config.Boards {
@@ -134,7 +134,7 @@ func (c *ssangbongSchoolCrawler) crawlingArticles() ([]*model.RssFeedProviderArt
 
 			var foundAlreadyCrawledArticle = false
 			ssangbongSchoolSelection.EachWithBreak(func(i int, s *goquery.Selection) bool {
-				var article *model.RssFeedProviderArticle
+				var article *model.Article
 				if article, err = c.extractArticle(b.ID, b.Type, boardTypeConfig.urlPath2, s); err != nil {
 					return false
 				}
@@ -152,7 +152,7 @@ func (c *ssangbongSchoolCrawler) crawlingArticles() ([]*model.RssFeedProviderArt
 					foundAlreadyCrawledArticle = true
 					return false
 				}
-				if latestCrawledCreatedDate.IsZero() == false && article.CreatedDate.Before(latestCrawledCreatedDate) == true {
+				if latestCrawledCreatedDate.IsZero() == false && article.CreatedAt.Before(latestCrawledCreatedDate) == true {
 					foundAlreadyCrawledArticle = true
 					return false
 				}
@@ -200,9 +200,9 @@ func (c *ssangbongSchoolCrawler) crawlingArticles() ([]*model.RssFeedProviderArt
 }
 
 // noinspection GoErrorStringFormat
-func (c *ssangbongSchoolCrawler) extractArticle(boardID, boardType, urlDetailPathPath string, s *goquery.Selection) (*model.RssFeedProviderArticle, error) {
+func (c *ssangbongSchoolCrawler) extractArticle(boardID, boardType, urlDetailPathPath string, s *goquery.Selection) (*model.Article, error) {
 	var exists bool
-	var article = &model.RssFeedProviderArticle{}
+	var article = &model.Article{}
 
 	switch boardType {
 	case ssangbongSchoolCrawlerBoardTypeList1:
@@ -244,9 +244,9 @@ func (c *ssangbongSchoolCrawler) extractArticle(boardID, boardType, urlDetailPat
 			var err error
 			var now = time.Now()
 			if fmt.Sprintf("%04d-%02d-%02d", now.Year(), now.Month(), now.Day()) == createdDateString {
-				article.CreatedDate, err = time.ParseInLocation("2006-01-02 15:04:05", fmt.Sprintf("%s %02d:%02d:%02d", createdDateString, now.Hour(), now.Minute(), now.Second()), time.Local)
+				article.CreatedAt, err = time.ParseInLocation("2006-01-02 15:04:05", fmt.Sprintf("%s %02d:%02d:%02d", createdDateString, now.Hour(), now.Minute(), now.Second()), time.Local)
 			} else {
-				article.CreatedDate, err = time.ParseInLocation("2006-01-02 15:04:05", fmt.Sprintf("%s 23:59:59", createdDateString), time.Local)
+				article.CreatedAt, err = time.ParseInLocation("2006-01-02 15:04:05", fmt.Sprintf("%s 23:59:59", createdDateString), time.Local)
 			}
 			if err != nil {
 				return nil, fmt.Errorf("게시글에서 등록일('%s') 파싱이 실패하였습니다. (error:%s)", createdDateString, err)
@@ -292,9 +292,9 @@ func (c *ssangbongSchoolCrawler) extractArticle(boardID, boardType, urlDetailPat
 			var err error
 			var now = time.Now()
 			if fmt.Sprintf("%04d-%02d-%02d", now.Year(), now.Month(), now.Day()) == createdDateString {
-				article.CreatedDate, err = time.ParseInLocation("2006-01-02 15:04:05", fmt.Sprintf("%s %02d:%02d:%02d", createdDateString, now.Hour(), now.Minute(), now.Second()), time.Local)
+				article.CreatedAt, err = time.ParseInLocation("2006-01-02 15:04:05", fmt.Sprintf("%s %02d:%02d:%02d", createdDateString, now.Hour(), now.Minute(), now.Second()), time.Local)
 			} else {
-				article.CreatedDate, err = time.ParseInLocation("2006-01-02 15:04:05", fmt.Sprintf("%s 23:59:59", createdDateString), time.Local)
+				article.CreatedAt, err = time.ParseInLocation("2006-01-02 15:04:05", fmt.Sprintf("%s 23:59:59", createdDateString), time.Local)
 			}
 			if err != nil {
 				return nil, fmt.Errorf("게시글에서 등록일('%s') 파싱이 실패하였습니다. (error:%s)", createdDateString, err)
@@ -311,7 +311,7 @@ func (c *ssangbongSchoolCrawler) extractArticle(boardID, boardType, urlDetailPat
 }
 
 // noinspection GoUnhandledErrorResult
-func (c *ssangbongSchoolCrawler) crawlingArticleContent(article *model.RssFeedProviderArticle) {
+func (c *ssangbongSchoolCrawler) crawlingArticleContent(article *model.Article) {
 	doc, errOccurred, err := c.getWebPageDocumentWithPOST(article.Link, fmt.Sprintf("%s('%s') %s 게시판의 게시글('%s') 상세페이지", c.site, c.siteID, article.BoardName, article.ArticleID))
 	if err != nil {
 		applog.Warnf("%s (error:%s)", errOccurred, err)

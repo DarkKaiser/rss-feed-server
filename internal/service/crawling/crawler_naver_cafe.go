@@ -28,7 +28,7 @@ import (
 
 func init() {
 	supportedCrawlers[config.ProviderSiteNaverCafe] = &supportedCrawlerConfig{
-		newCrawlerFn: func(rssFeedProviderID string, config *config.ProviderDetailConfig, rssFeedProviderStore *store.RssFeedProviderStore, notifyClient *notify.Client) cron.Job {
+		newCrawlerFn: func(rssFeedProviderID string, config *config.ProviderDetailConfig, rssFeedProviderStore *store.RSSFeedStore, notifyClient *notify.Client) cron.Job {
 			site := "네이버 카페"
 
 			data := naverCafeCrawlerConfigData{}
@@ -139,7 +139,7 @@ type naverCafeCrawler struct {
 }
 
 // noinspection GoErrorStringFormat,GoUnhandledErrorResult
-func (c *naverCafeCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, map[string]string, string, error) {
+func (c *naverCafeCrawler) crawlingArticles() ([]*model.Article, map[string]string, string, error) {
 	idString, latestCrawledCreatedDate, err := c.rssFeedProviderStore.LatestCrawledInfo(c.rssFeedProviderID, "")
 	if err != nil {
 		return nil, nil, fmt.Sprintf("%s('%s')에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", c.site, c.siteID), err
@@ -152,7 +152,7 @@ func (c *naverCafeCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 		}
 	}
 
-	articles := make([]*model.RssFeedProviderArticle, 0)
+	articles := make([]*model.Article, 0)
 	newLatestCrawledArticleID := latestCrawledArticleID
 	crawlingDelayStartTime := time.Now().Add(time.Duration(-1*c.crawlingDelayTimeMinutes) * time.Minute)
 
@@ -300,15 +300,15 @@ func (c *naverCafeCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 			}
 			author := strings.TrimSpace(as.Text())
 
-			articles = append(articles, &model.RssFeedProviderArticle{
-				BoardID:     boardID,
-				BoardName:   boardName,
-				ArticleID:   strconv.FormatInt(articleID, 10),
-				Title:       title,
-				Content:     "",
-				Link:        fmt.Sprintf("%s/ArticleRead.nhn?articleid=%d&clubid=%s", c.siteUrl, articleID, c.siteClubID),
-				Author:      author,
-				CreatedDate: createdDate,
+			articles = append(articles, &model.Article{
+				BoardID:   boardID,
+				BoardName: boardName,
+				ArticleID: strconv.FormatInt(articleID, 10),
+				Title:     title,
+				Content:   "",
+				Link:      fmt.Sprintf("%s/ArticleRead.nhn?articleid=%d&clubid=%s", c.siteUrl, articleID, c.siteClubID),
+				Author:    author,
+				CreatedAt: createdDate,
 			})
 
 			return true
@@ -342,7 +342,7 @@ func (c *naverCafeCrawler) crawlingArticles() ([]*model.RssFeedProviderArticle, 
 }
 
 // noinspection GoUnhandledErrorResult
-func (c *naverCafeCrawler) crawlingArticleContent(article *model.RssFeedProviderArticle, euckrDecoder *encoding.Decoder) {
+func (c *naverCafeCrawler) crawlingArticleContent(article *model.Article, euckrDecoder *encoding.Decoder) {
 	c.crawlingArticleContentUsingAPI(article, euckrDecoder)
 	if article.Content == "" {
 		c.crawlingArticleContentUsingLink(article, euckrDecoder)
@@ -353,7 +353,7 @@ func (c *naverCafeCrawler) crawlingArticleContent(article *model.RssFeedProvider
 }
 
 // noinspection GoUnhandledErrorResult
-func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.RssFeedProviderArticle, euckrDecoder *encoding.Decoder) {
+func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.Article, euckrDecoder *encoding.Decoder) {
 	//
 	// 네이버 카페 상세페이지를 로드하여 art 쿼리 문자열을 구한다.
 	//
@@ -472,16 +472,16 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *model.RssFeed
 	}
 
 	// 오늘 이전의 게시글이라서 작성일(시간) 추출을 못한 경우에 한해서 작성일(시간)을 다시 추출한다.
-	if article.CreatedDate.Format("15:04:05") == "23:59:59" {
+	if article.CreatedAt.Format("15:04:05") == "23:59:59" {
 		writeDate := time.Unix(apiResult.Result.Article.WriteDate/1000, 0)
 		if writeDate.IsZero() == false {
-			article.CreatedDate = writeDate
+			article.CreatedAt = writeDate
 		}
 	}
 }
 
 // noinspection GoUnhandledErrorResult
-func (c *naverCafeCrawler) crawlingArticleContentUsingLink(article *model.RssFeedProviderArticle, euckrDecoder *encoding.Decoder) {
+func (c *naverCafeCrawler) crawlingArticleContentUsingLink(article *model.Article, euckrDecoder *encoding.Decoder) {
 	doc, errOccurred, err := c.getWebPageDocument(article.Link, fmt.Sprintf("%s('%s > %s') 게시글('%s')의 상세페이지", c.site, c.siteID, article.BoardName, article.ArticleID), euckrDecoder)
 	if err != nil {
 		applog.Warnf("%s (error:%s)", errOccurred, err)
@@ -508,7 +508,7 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingLink(article *model.RssFee
 }
 
 // noinspection GoUnhandledErrorResult
-func (c *naverCafeCrawler) crawlingArticleContentUsingNaverSearch(article *model.RssFeedProviderArticle) {
+func (c *naverCafeCrawler) crawlingArticleContentUsingNaverSearch(article *model.Article) {
 	searchUrl := fmt.Sprintf("https://search.naver.com/search.naver?where=article&query=%s&ie=utf8&st=date&date_option=0&date_from=&date_to=&board=&srchby=title&dup_remove=0&cafe_url=%s&without_cafe_url=&sm=tab_opt&nso=so:dd,p:all,a:t&t=0&mson=0&prdtype=0", url.QueryEscape(article.Title), c.siteID)
 
 	doc, errOccurred, err := c.getWebPageDocument(searchUrl, fmt.Sprintf("%s('%s > %s') 게시글('%s')의 네이버 검색페이지", c.site, c.siteID, article.BoardName, article.ArticleID), nil)

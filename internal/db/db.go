@@ -5,14 +5,11 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/darkkaiser/rss-feed-server/internal/config"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 // Open sqlite3 DB 연결을 열고 연결 유효성을 검증하여 반환한다.
-func Open(ctx context.Context) (*sql.DB, error) {
-	dsn := fmt.Sprintf("./%s.db", config.AppName)
-
+func Open(ctx context.Context, dsn string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite3", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("DB를 여는 중에 오류가 발생하였습니다: %w", err)

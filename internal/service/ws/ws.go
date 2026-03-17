@@ -36,7 +36,7 @@ type webService struct {
 	runningMu sync.Mutex
 }
 
-func NewService(config *config.AppConfig, rssFeedProviderStore *store.RssFeedProviderStore, notifyClient *notify.Client) service.Service {
+func NewService(config *config.AppConfig, rssFeedProviderStore *store.RSSFeedStore, notifyClient *notify.Client) service.Service {
 	return &webService{
 		config: config,
 

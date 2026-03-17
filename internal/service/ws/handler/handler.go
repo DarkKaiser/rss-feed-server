@@ -9,12 +9,12 @@ import (
 type Handler struct {
 	config *config.AppConfig
 
-	rssFeedProviderStore *store.RssFeedProviderStore
+	rssFeedProviderStore *store.RSSFeedStore
 
 	notifyClient *notify.Client
 }
 
-func NewHandler(config *config.AppConfig, rssFeedProviderStore *store.RssFeedProviderStore, notifyClient *notify.Client) *Handler {
+func NewHandler(config *config.AppConfig, rssFeedProviderStore *store.RSSFeedStore, notifyClient *notify.Client) *Handler {
 	return &Handler{
 		config: config,
 

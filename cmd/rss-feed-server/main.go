@@ -13,11 +13,11 @@ import (
 	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
+	"github.com/darkkaiser/rss-feed-server/internal/db"
 	"github.com/darkkaiser/rss-feed-server/internal/pkg/version"
 	"github.com/darkkaiser/rss-feed-server/internal/service"
 	"github.com/darkkaiser/rss-feed-server/internal/service/crawling"
 	"github.com/darkkaiser/rss-feed-server/internal/service/ws"
-	"github.com/darkkaiser/rss-feed-server/internal/db"
 	"github.com/darkkaiser/rss-feed-server/internal/store"
 )
 
@@ -117,7 +117,8 @@ func run() error {
 
 	// @@@@@
 	// 8. 데이터베이스를 초기화한다.
-	db, err := db.Open(context.Background())
+	dsn := fmt.Sprintf("./%s.db", config.AppName)
+	sqlDB, err := db.Open(context.Background(), dsn)
 	if err != nil {
 		m := "데이터베이스 초기화 중 치명적인 오류가 발생했습니다"
 		if notifyClient != nil {
@@ -125,8 +126,8 @@ func run() error {
 		}
 		return fmt.Errorf("%s: %w", m, err)
 	}
-	defer func(db *sql.DB) {
-		if err := db.Close(); err != nil {
+	defer func(sqlDB *sql.DB) {
+		if err := sqlDB.Close(); err != nil {
 			m := "DB를 닫는 중에 오류가 발생하였습니다."
 
 			applog.Errorf("%s (error:%s)", m, err)
@@ -135,11 +136,26 @@ func run() error {
 				notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
 			}
 		}
-	}(db)
+	}(sqlDB)
 
 	// @@@@@
 	// 9. RSS Feed Store를 초기화한다.
-	rssFeedProviderStore := store.NewRssFeedProviderStore(appConfig, db)
+	rssFeedProviderStore, err := store.NewRSSFeed(appConfig, sqlDB)
+	if err != nil {
+		m := "RSS Feed Store 생성 중 치명적인 오류가 발생했습니다"
+		if notifyClient != nil {
+			notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
+		}
+		return fmt.Errorf("%s: %w", m, err)
+	}
+
+	if err := rssFeedProviderStore.Initialize(appConfig); err != nil {
+		m := "RSS Feed Store 초기화 중 치명적인 오류가 발생했습니다"
+		if notifyClient != nil {
+			notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
+		}
+		return fmt.Errorf("%s: %w", m, err)
+	}
 
 	// @@@@@
 	// 10. 서비스 객체 생성 및 연결
