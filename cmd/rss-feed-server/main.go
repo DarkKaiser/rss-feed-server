@@ -15,7 +15,7 @@ import (
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/pkg/version"
 	"github.com/darkkaiser/rss-feed-server/internal/service"
-	"github.com/darkkaiser/rss-feed-server/internal/service/crawling"
+	"github.com/darkkaiser/rss-feed-server/internal/service/crawl"
 	"github.com/darkkaiser/rss-feed-server/internal/service/ws"
 	"github.com/darkkaiser/rss-feed-server/internal/store/sqlite"
 )
@@ -165,7 +165,7 @@ func run() error {
 	// @@@@@
 	// 10. 서비스 객체 생성 및 연결
 	webService := ws.NewService(appConfig, store, notifyClient)
-	crawlingService := crawling.NewService(appConfig, store, notifyClient)
+	crawlingService := crawl.NewService(appConfig, store, notifyClient)
 
 	// 11. 서비스 생명주기 관리 컨텍스트 설정
 	// 전체 서비스의 종료 신호를 전파하는 Context(serviceStopCtx)와

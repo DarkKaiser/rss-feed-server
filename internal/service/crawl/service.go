@@ -1,4 +1,4 @@
-package crawling
+package crawl
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/service"
-	"github.com/darkkaiser/rss-feed-server/internal/service/crawling/crawler"
+	"github.com/darkkaiser/rss-feed-server/internal/service/crawl/crawler"
 	"github.com/darkkaiser/rss-feed-server/internal/store/sqlite"
 	"github.com/robfig/cron/v3"
 )
