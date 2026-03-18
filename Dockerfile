@@ -49,11 +49,11 @@ RUN go test ./... -v -coverprofile=coverage.out
 # 빌드 정보를 바이너리에 주입
 RUN CGO_ENABLED=1 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath \
     -ldflags="-s -w \
-    -X 'github.com/darkkaiser/rss-feed-server/internal/pkg/version.appVersion=${APP_VERSION}' \
-    -X 'github.com/darkkaiser/rss-feed-server/internal/pkg/version.gitCommitHash=${GIT_COMMIT_HASH}' \
-    -X 'github.com/darkkaiser/rss-feed-server/internal/pkg/version.gitTreeState=${GIT_TREE_STATE}' \
-    -X 'github.com/darkkaiser/rss-feed-server/internal/pkg/version.buildDate=${BUILD_DATE}' \
-    -X 'github.com/darkkaiser/rss-feed-server/internal/pkg/version.buildNumber=${BUILD_NUMBER}'" \
+    -X 'github.com/darkkaiser/rss-feed-server/internal/version.appVersion=${APP_VERSION}' \
+    -X 'github.com/darkkaiser/rss-feed-server/internal/version.gitCommitHash=${GIT_COMMIT_HASH}' \
+    -X 'github.com/darkkaiser/rss-feed-server/internal/version.gitTreeState=${GIT_TREE_STATE}' \
+    -X 'github.com/darkkaiser/rss-feed-server/internal/version.buildDate=${BUILD_DATE}' \
+    -X 'github.com/darkkaiser/rss-feed-server/internal/version.buildNumber=${BUILD_NUMBER}'" \
     -o ${APP_NAME} ./cmd/rss-feed-server
 
 # ------------------------------------------

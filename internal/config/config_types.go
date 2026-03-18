@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/darkkaiser/notify-server/pkg/cronx"
-	apperrors "github.com/darkkaiser/rss-feed-server/internal/pkg/errors"
+	apperrors "github.com/darkkaiser/rss-feed-server/internal/errors"
 	"github.com/go-playground/validator/v10"
 )
 
