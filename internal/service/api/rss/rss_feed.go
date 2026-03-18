@@ -1,4 +1,4 @@
-package feeds
+package rss
 
 // rss support
 // validation done according to spec here:

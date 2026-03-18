@@ -139,12 +139,6 @@ func run() error {
 		}
 	}(db)
 
-	// @@@@@ 테스트
-	if notifyClient != nil {
-		notifyClient.Notify(context.Background(), "일반 테스트")
-		notifyClient.NotifyError(context.Background(), "에러 테스트")
-	}
-
 	// 9. RSS Feed Store 초기화
 	store, err := sqlite.New(db)
 	if err != nil {
