@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/feed"
 	_ "github.com/mattn/go-sqlite3"
@@ -36,24 +35,24 @@ func New(db *sql.DB) (*Store, error) {
 // Initialize RSS Feed DB를 초기화(테이블 생성 및 기초 데이터 추가)한다.
 func (s *Store) Initialize(cfg *config.AppConfig) error {
 	if err := s.createTables(); err != nil {
-		return err
+		return fmt.Errorf("테이블 생성 실패: %w", err)
 	}
 
 	for _, c := range cfg.RssFeed.Providers {
 		// 기초 데이터를 추가한다.
 		if err := s.insertRSSFeedProvider(c.ID, c.Site, c.Config.ID, c.Config.Name, c.Config.Description, c.Config.URL); err != nil {
-			return err
+			return fmt.Errorf("RSS Feed Provider 정보 추가 실패 (providerID: %s): %w", c.ID, err)
 		}
 
 		for _, b := range c.Config.Boards {
 			if err := s.insertRSSFeedProviderBoard(c.ID, b.ID, b.Name); err != nil {
-				return err
+				return fmt.Errorf("RSS Feed Provider Board 정보 추가 실패 (providerID: %s, boardID: %s): %w", c.ID, b.ID, err)
 			}
 		}
 
 		// 일정 시간이 지난 게시글 자료를 모두 삭제한다.
 		if err := s.deleteOutOfDateArticles(c.ID, c.Config.ArticleArchiveDate); err != nil {
-			return err
+			return fmt.Errorf("보관 기간이 지난 게시글 삭제 실패 (providerID: %s): %w", c.ID, err)
 		}
 	}
 
@@ -77,22 +76,22 @@ func (s *Store) createTables() error {
 		)
 	`)
 	if err != nil {
-		return err
+		return fmt.Errorf("rss_provider 테이블 생성 쿼리 준비 실패: %w", err)
 	}
 	defer stmt1.Close()
 	if _, err = stmt1.Exec(); err != nil {
-		return err
+		return fmt.Errorf("rss_provider 테이블 생성 쿼리 실행 실패: %w", err)
 	}
 
 	stmt2, err := s.db.Prepare(`
 		CREATE INDEX IF NOT EXISTS rss_provider_index01 ON rss_provider(s_id)
 	`)
 	if err != nil {
-		return err
+		return fmt.Errorf("rss_provider_index01 인덱스 생성 쿼리 준비 실패: %w", err)
 	}
 	defer stmt2.Close()
 	if _, err = stmt2.Exec(); err != nil {
-		return err
+		return fmt.Errorf("rss_provider_index01 인덱스 생성 쿼리 실행 실패: %w", err)
 	}
 
 	//
@@ -108,22 +107,22 @@ func (s *Store) createTables() error {
 		)
 	`)
 	if err != nil {
-		return err
+		return fmt.Errorf("rss_provider_board 테이블 생성 쿼리 준비 실패: %w", err)
 	}
 	defer stmt3.Close()
 	if _, err = stmt3.Exec(); err != nil {
-		return err
+		return fmt.Errorf("rss_provider_board 테이블 생성 쿼리 실행 실패: %w", err)
 	}
 
 	stmt4, err := s.db.Prepare(`
 		CREATE INDEX IF NOT EXISTS rss_provider_board_index01 ON rss_provider_board(p_id)
 	`)
 	if err != nil {
-		return err
+		return fmt.Errorf("rss_provider_board_index01 인덱스 생성 쿼리 준비 실패: %w", err)
 	}
 	defer stmt4.Close()
 	if _, err = stmt4.Exec(); err != nil {
-		return err
+		return fmt.Errorf("rss_provider_board_index01 인덱스 생성 쿼리 실행 실패: %w", err)
 	}
 
 	//
@@ -145,22 +144,22 @@ func (s *Store) createTables() error {
 		)
 	`)
 	if err != nil {
-		return err
+		return fmt.Errorf("rss_provider_article 테이블 생성 쿼리 준비 실패: %w", err)
 	}
 	defer stmt5.Close()
 	if _, err = stmt5.Exec(); err != nil {
-		return err
+		return fmt.Errorf("rss_provider_article 테이블 생성 쿼리 실행 실패: %w", err)
 	}
 
 	stmt6, err := s.db.Prepare(`
 		CREATE INDEX IF NOT EXISTS rss_provider_article_index01 ON rss_provider_article(created_date)
 	`)
 	if err != nil {
-		return err
+		return fmt.Errorf("rss_provider_article_index01 인덱스 생성 쿼리 준비 실패: %w", err)
 	}
 	defer stmt6.Close()
 	if _, err = stmt6.Exec(); err != nil {
-		return err
+		return fmt.Errorf("rss_provider_article_index01 인덱스 생성 쿼리 실행 실패: %w", err)
 	}
 
 	//
@@ -176,11 +175,11 @@ func (s *Store) createTables() error {
 		)
 	`)
 	if err != nil {
-		return err
+		return fmt.Errorf("rss_provider_site_crawled_data 테이블 생성 쿼리 준비 실패: %w", err)
 	}
 	defer stmt7.Close()
 	if _, err = stmt7.Exec(); err != nil {
-		return err
+		return fmt.Errorf("rss_provider_site_crawled_data 테이블 생성 쿼리 실행 실패: %w", err)
 	}
 
 	return nil
@@ -195,11 +194,11 @@ func (s *Store) insertRSSFeedProvider(providerID, site, sourceID, sourceName, so
 		VALUES (?, ?, ?, ?, ?, ?)
 	`)
 	if err != nil {
-		return err
+		return fmt.Errorf("rss_provider 삽입/갱신 쿼리 준비 실패 (providerID: %s): %w", providerID, err)
 	}
 	defer stmt.Close()
 	if _, err = stmt.Exec(providerID, site, sourceID, sourceName, sourceDescription, sourceURL); err != nil {
-		return err
+		return fmt.Errorf("rss_provider 삽입/갱신 쿼리 실행 실패 (providerID: %s): %w", providerID, err)
 	}
 
 	return nil
@@ -214,19 +213,19 @@ func (s *Store) insertRSSFeedProviderBoard(providerID, boardID, boardName string
 		VALUES (?, ?, ?)
 	`)
 	if err != nil {
-		return err
+		return fmt.Errorf("rss_provider_board 삽입/갱신 쿼리 준비 실패 (providerID: %s, boardID: %s): %w", providerID, boardID, err)
 	}
 	defer stmt.Close()
 	if _, err = stmt.Exec(providerID, boardID, boardName); err != nil {
-		return err
+		return fmt.Errorf("rss_provider_board 삽입/갱신 쿼리 실행 실패 (providerID: %s, boardID: %s): %w", providerID, boardID, err)
 	}
 
 	return nil
 }
 
 // @@@@@
-// InsertArticles 게시글 목록을 DB에 추가하고 실제로 삽입된 건수를 반환한다.
-// 개별 행 삽입 실패는 건너뛰고 계속 진행하며, 실패한 행은 에러 로그로 기록된다.
+// InsertArticles 게시글 목록을 DB에 추가하고 실제로 삽입된 건수와 통합 에러를 반환한다.
+// 개별 행 삽입 실패는 건너뛰고 계속 진행하며, 실패한 행들은 단일 slice로 모여서 반환된다.
 //
 // noinspection GoUnhandledErrorResult
 func (s *Store) InsertArticles(providerID string, articles []*feed.Article) (int, error) {
@@ -236,26 +235,22 @@ func (s *Store) InsertArticles(providerID string, articles []*feed.Article) (int
 		VALUES (?, ?, ?, ?, ?, ?, ?, DATETIME(?))
 	`)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("rss_provider_article 삽입/갱신 쿼리 준비 실패 (providerID: %s): %w", providerID, err)
 	}
 	defer stmt.Close()
 
 	var insertedCnt int
+	var errs []error
+
 	for _, article := range articles {
 		if _, err := stmt.Exec(providerID, article.BoardID, article.ArticleID, article.Title, article.Content, article.Link, article.Author, article.CreatedAt.UTC().Format("2006-01-02 15:04:05")); err != nil {
-			applog.Errorf("RSS Feed DB에 게시글 등록이 실패하였습니다. (p_id:%s) (게시글정보:%s) (error:%s)", providerID, article, err)
-			// @@@@@ 알림은 삭제했음.
-			// 너무 많은 알림 메시지가 발송될 수 있으므로, 동시에 입력되는 게시글 중 최초 오류건에 대해서만 알림 메시지를 보낸다.
-			// if sentNotifyMessage == false && p.notifyClient != nil {
-			// 	sentNotifyMessage = true
-			// 	_ = p.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
-			// }
+			errs = append(errs, fmt.Errorf("RSS Feed DB 게시글 등록 실패 (p_id: %s, article: %+v): %w", providerID, article, err))
 		} else {
 			insertedCnt++
 		}
 	}
 
-	return insertedCnt, nil
+	return insertedCnt, errors.Join(errs...)
 }
 
 // @@@@@
@@ -289,7 +284,7 @@ func (s *Store) GetArticles(providerID string, boardIDs []string, limit uint) ([
 
 	stmt, err := s.db.Prepare(query)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("GetArticles 쿼리 준비 실패 (providerID: %s): %w", providerID, err)
 	}
 	defer stmt.Close()
 
@@ -303,7 +298,7 @@ func (s *Store) GetArticles(providerID string, boardIDs []string, limit uint) ([
 
 	rows, err := stmt.Query(args...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("GetArticles 쿼리 실행 실패 (providerID: %s): %w", providerID, err)
 	}
 	defer rows.Close()
 
@@ -313,7 +308,7 @@ func (s *Store) GetArticles(providerID string, boardIDs []string, limit uint) ([
 		var createdDate sql.NullTime
 		var article feed.Article
 		if err = rows.Scan(&article.BoardID, &article.BoardName, &article.ArticleID, &article.Title, &article.Content, &article.Link, &article.Author, &createdDate); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("GetArticles 결과 스캔 실패: %w", err)
 		}
 		if createdDate.Valid {
 			article.CreatedAt = createdDate.Time.Local()
@@ -322,7 +317,7 @@ func (s *Store) GetArticles(providerID string, boardIDs []string, limit uint) ([
 		articles = append(articles, &article)
 	}
 	if err = rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("GetArticles 결과 행 반복 중 에러 발생: %w", err)
 	}
 
 	return articles, nil
@@ -340,11 +335,11 @@ func (s *Store) deleteOutOfDateArticles(providerID string, archiveDays uint) err
 		   AND created_date < DATE(DATETIME('now', 'utc'), '-%d days')
 	`, archiveDays))
 	if err != nil {
-		return err
+		return fmt.Errorf("오래된 게시글 삭제 쿼리 준비 실패 (providerID: %s, days: %d): %w", providerID, archiveDays, err)
 	}
 	defer stmt.Close()
 	if _, err = stmt.Exec(providerID); err != nil {
-		return err
+		return fmt.Errorf("오래된 게시글 삭제 쿼리 실행 실패 (providerID: %s, days: %d): %w", providerID, archiveDays, err)
 	}
 
 	return nil
@@ -392,7 +387,7 @@ func (s *Store) GetLatestCrawledInfo(providerID, boardID string) (string, time.T
 	var latestCrawledCreatedDate time.Time
 
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return "", latestCrawledCreatedDate, err
+		return "", latestCrawledCreatedDate, fmt.Errorf("최신 크롤링 정보 조회 실패 (providerID: %s, boardID: %s): %w", providerID, boardID, err)
 	}
 
 	if articleID.Valid {
@@ -416,11 +411,11 @@ func (s *Store) UpdateLatestCrawledArticleID(providerID, boardID, articleID stri
 		VALUES (?, ?, ?)
 	`)
 	if err != nil {
-		return err
+		return fmt.Errorf("최신 크롤링 게시글 ID 갱신 쿼리 준비 실패 (providerID: %s, boardID: %s): %w", providerID, boardID, err)
 	}
 	defer stmt.Close()
 	if _, err = stmt.Exec(providerID, boardID, articleID); err != nil {
-		return err
+		return fmt.Errorf("최신 크롤링 게시글 ID 갱신 쿼리 실행 실패 (providerID: %s, boardID: %s): %w", providerID, boardID, err)
 	}
 
 	return nil

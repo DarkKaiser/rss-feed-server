@@ -1,7 +1,7 @@
-package ws
+package api
 
 import (
-	"github.com/darkkaiser/rss-feed-server/internal/service/ws/handler"
+	"github.com/darkkaiser/rss-feed-server/internal/service/api/handler"
 	"github.com/labstack/echo/v4"
 )
 

@@ -1,4 +1,4 @@
-package ws
+package api
 
 import (
 	"context"
@@ -12,8 +12,7 @@ import (
 	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
-	"github.com/darkkaiser/rss-feed-server/internal/service"
-	"github.com/darkkaiser/rss-feed-server/internal/service/ws/handler"
+	"github.com/darkkaiser/rss-feed-server/internal/service/api/handler"
 	"github.com/darkkaiser/rss-feed-server/internal/store/sqlite"
 	"github.com/labstack/echo/v4"
 )
@@ -23,16 +22,16 @@ var (
 	views embed.FS
 )
 
-// component WS 서비스의 로깅용 컴포넌트 이름
-const component = "ws.service"
+// component API 서비스의 로깅용 컴포넌트 이름
+const component = "api.service"
 
 var (
 	// shutdownTimeout Graceful Shutdown 시 최대 대기 시간 (5초)
 	shutdownTimeout = 5 * time.Second
 )
 
-// webService
-type webService struct {
+// Service
+type Service struct {
 	config *config.AppConfig
 
 	handler *handler.Handler
@@ -43,12 +42,12 @@ type webService struct {
 	runningMu sync.Mutex
 }
 
-func NewService(config *config.AppConfig, rssFeedProviderStore *sqlite.Store, notifyClient *notify.Client) service.Service {
+func NewService(config *config.AppConfig, rssFeedProviderStore *sqlite.Store, notifyClient *notify.Client) *Service {
 	if config == nil {
 		panic("AppConfig는 필수입니다")
 	}
 
-	return &webService{
+	return &Service{
 		config: config,
 
 		handler: handler.NewHandler(config, rssFeedProviderStore, notifyClient),
@@ -60,15 +59,15 @@ func NewService(config *config.AppConfig, rssFeedProviderStore *sqlite.Store, no
 	}
 }
 
-func (s *webService) Start(serviceStopCtx context.Context, serviceStopWG *sync.WaitGroup) error {
+func (s *Service) Start(serviceStopCtx context.Context, serviceStopWG *sync.WaitGroup) error {
 	s.runningMu.Lock()
 	defer s.runningMu.Unlock()
 
-	applog.WithComponent(component).Info("서비스 시작 진입: WS 서비스 초기화 프로세스를 시작합니다")
+	applog.WithComponent(component).Info("서비스 시작 진입: API 서비스 초기화 프로세스를 시작합니다")
 
 	if s.running {
 		defer serviceStopWG.Done()
-		applog.WithComponent(component).Warn("WS 서비스가 이미 시작됨 (중복 호출)")
+		applog.WithComponent(component).Warn("API 서비스가 이미 시작됨 (중복 호출)")
 		return nil
 	}
 
@@ -76,12 +75,12 @@ func (s *webService) Start(serviceStopCtx context.Context, serviceStopWG *sync.W
 
 	go s.runEventLoop(serviceStopCtx, serviceStopWG)
 
-	applog.WithComponent(component).Info("서비스 시작 완료: WS 서비스가 정상적으로 초기화되었습니다")
+	applog.WithComponent(component).Info("서비스 시작 완료: API 서비스가 정상적으로 초기화되었습니다")
 
 	return nil
 }
 
-func (s *webService) runEventLoop(serviceStopCtx context.Context, serviceStopWG *sync.WaitGroup) {
+func (s *Service) runEventLoop(serviceStopCtx context.Context, serviceStopWG *sync.WaitGroup) {
 	defer serviceStopWG.Done()
 
 	// 1. 서버 설정 및 라우팅 (추후 http_server.go, routes.go 로 분리될 대상)
@@ -95,7 +94,7 @@ func (s *webService) runEventLoop(serviceStopCtx context.Context, serviceStopWG 
 	s.waitForShutdown(serviceStopCtx, e, httpServerDone)
 }
 
-func (s *webService) setupServer() *echo.Echo {
+func (s *Service) setupServer() *echo.Echo {
 	e := NewEchoServer(ServerConfig{
 		Debug:        true,                  // 기존 router 설정 로직(e.Debug = true)을 그대로 인계
 		EnableHSTS:   s.config.WS.TLSServer, // TLS 사용 시 HSTS 적용
@@ -107,7 +106,7 @@ func (s *webService) setupServer() *echo.Echo {
 	return e
 }
 
-func (s *webService) startHTTPServer(serviceStopCtx context.Context, e *echo.Echo, httpServerDone chan struct{}) {
+func (s *Service) startHTTPServer(serviceStopCtx context.Context, e *echo.Echo, httpServerDone chan struct{}) {
 	defer close(httpServerDone)
 
 	listenPort := s.config.WS.ListenPort
@@ -126,7 +125,7 @@ func (s *webService) startHTTPServer(serviceStopCtx context.Context, e *echo.Ech
 }
 
 // handleServerError HTTP 서버 시작 중 발생한 에러를 처리합니다.
-func (s *webService) handleServerError(err error) {
+func (s *Service) handleServerError(err error) {
 	if err == nil {
 		return
 	}
@@ -147,14 +146,14 @@ func (s *webService) handleServerError(err error) {
 	}
 }
 
-func (s *webService) waitForShutdown(serviceStopCtx context.Context, e *echo.Echo, httpServerDone chan struct{}) {
+func (s *Service) waitForShutdown(serviceStopCtx context.Context, e *echo.Echo, httpServerDone chan struct{}) {
 	select {
 	case <-serviceStopCtx.Done():
-		applog.WithComponent(component).Info("종료 절차 진입: WS 서비스 중지 시그널을 수신했습니다")
+		applog.WithComponent(component).Info("종료 절차 진입: API 서비스 중지 시그널을 수신했습니다")
 
 	case <-httpServerDone:
 		// 서버가 예기치 않게 종료됨
-		applog.WithComponent(component).Error("비정상 종료: WS 서비스가 예기치 않게 중단되었습니다")
+		applog.WithComponent(component).Error("비정상 종료: API 서비스가 예기치 않게 중단되었습니다")
 		s.cleanup()
 		return
 	}
@@ -179,10 +178,10 @@ func (s *webService) waitForShutdown(serviceStopCtx context.Context, e *echo.Ech
 	s.cleanup()
 }
 
-func (s *webService) cleanup() {
+func (s *Service) cleanup() {
 	s.runningMu.Lock()
 	s.running = false
 	s.runningMu.Unlock()
 
-	applog.WithComponent(component).Info("WS 서비스 종료 완료: 모든 리소스가 정리되었습니다")
+	applog.WithComponent(component).Info("API 서비스 종료 완료: 모든 리소스가 정리되었습니다")
 }

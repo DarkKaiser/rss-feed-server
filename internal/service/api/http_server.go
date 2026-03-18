@@ -1,4 +1,4 @@
-package ws
+package api
 
 import (
 	"embed"
@@ -8,8 +8,8 @@ import (
 	"time"
 
 	applog "github.com/darkkaiser/notify-server/pkg/log"
-	"github.com/darkkaiser/rss-feed-server/internal/service/ws/httputil"
-	_middleware_ "github.com/darkkaiser/rss-feed-server/internal/service/ws/middleware"
+	"github.com/darkkaiser/rss-feed-server/internal/service/api/httputil"
+	_middleware_ "github.com/darkkaiser/rss-feed-server/internal/service/api/middleware"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )

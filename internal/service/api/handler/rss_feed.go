@@ -10,7 +10,7 @@ import (
 
 	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
-	"github.com/darkkaiser/rss-feed-server/internal/service/ws/feeds"
+	"github.com/darkkaiser/rss-feed-server/internal/service/api/feeds"
 	"github.com/labstack/echo/v4"
 )
 

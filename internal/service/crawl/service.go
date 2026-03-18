@@ -9,14 +9,13 @@ import (
 	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
-	"github.com/darkkaiser/rss-feed-server/internal/service"
 	"github.com/darkkaiser/rss-feed-server/internal/service/crawl/crawler"
 	"github.com/darkkaiser/rss-feed-server/internal/store/sqlite"
 	"github.com/robfig/cron/v3"
 )
 
-// crawlingService
-type crawlingService struct {
+// Service
+type Service struct {
 	config *config.AppConfig
 
 	cron *cron.Cron
@@ -28,8 +27,8 @@ type crawlingService struct {
 	runningMu sync.Mutex
 }
 
-func NewService(config *config.AppConfig, rssFeedProviderStore *sqlite.Store, notifyClient *notify.Client) service.Service {
-	return &crawlingService{
+func NewService(config *config.AppConfig, rssFeedProviderStore *sqlite.Store, notifyClient *notify.Client) *Service {
+	return &Service{
 		config: config,
 
 		cron: cron.New(
@@ -49,7 +48,7 @@ func NewService(config *config.AppConfig, rssFeedProviderStore *sqlite.Store, no
 	}
 }
 
-func (s *crawlingService) Start(serviceStopCtx context.Context, serviceStopWG *sync.WaitGroup) error {
+func (s *Service) Start(serviceStopCtx context.Context, serviceStopWG *sync.WaitGroup) error {
 	s.runningMu.Lock()
 	defer s.runningMu.Unlock()
 
@@ -102,7 +101,7 @@ func (s *crawlingService) Start(serviceStopCtx context.Context, serviceStopWG *s
 	return nil
 }
 
-func (s *crawlingService) run0(serviceStopCtx context.Context, serviceStopWaiter *sync.WaitGroup) {
+func (s *Service) run0(serviceStopCtx context.Context, serviceStopWaiter *sync.WaitGroup) {
 	defer serviceStopWaiter.Done()
 
 	<-serviceStopCtx.Done()
