@@ -32,31 +32,46 @@ func New(db *sql.DB) (*Store, error) {
 }
 
 // @@@@@
-// Initialize RSS Feed DB를 초기화(테이블 생성 및 기초 데이터 추가)한다.
-func (s *Store) Initialize(cfg *config.AppConfig) error {
+// AutoMigrate 어플리케이션에 필요한 DB 테이블 및 인덱스가 없다면 생성한다.
+func (s *Store) AutoMigrate() error {
 	if err := s.createTables(); err != nil {
-		return fmt.Errorf("테이블 생성 실패: %w", err)
+		return fmt.Errorf("초기 테이블 및 인덱스 생성 실패: %w", err)
 	}
+	return nil
+}
 
-	for _, c := range cfg.RssFeed.Providers {
-		// 기초 데이터를 추가한다.
+// @@@@@
+// SyncProviders 환경 설정에 정의된 내용으로 RSS Feed Provider 마스터 데이터를 DB에 동기화한다.
+func (s *Store) SyncProviders(providers []*config.ProviderConfig) error {
+	var errs []error
+
+	for _, c := range providers {
 		if err := s.insertRSSFeedProvider(c.ID, c.Site, c.Config.ID, c.Config.Name, c.Config.Description, c.Config.URL); err != nil {
-			return fmt.Errorf("RSS Feed Provider 정보 추가 실패 (providerID: %s): %w", c.ID, err)
+			errs = append(errs, fmt.Errorf("RSS Feed Provider 정보 추가 실패 (providerID: %s): %w", c.ID, err))
 		}
 
 		for _, b := range c.Config.Boards {
 			if err := s.insertRSSFeedProviderBoard(c.ID, b.ID, b.Name); err != nil {
-				return fmt.Errorf("RSS Feed Provider Board 정보 추가 실패 (providerID: %s, boardID: %s): %w", c.ID, b.ID, err)
+				errs = append(errs, fmt.Errorf("RSS Feed Provider Board 정보 추가 실패 (providerID: %s, boardID: %s): %w", c.ID, b.ID, err))
 			}
-		}
-
-		// 일정 시간이 지난 게시글 자료를 모두 삭제한다.
-		if err := s.deleteOutOfDateArticles(c.ID, c.Config.ArticleArchiveDate); err != nil {
-			return fmt.Errorf("보관 기간이 지난 게시글 삭제 실패 (providerID: %s): %w", c.ID, err)
 		}
 	}
 
-	return nil
+	return errors.Join(errs...)
+}
+
+// @@@@@
+// PurgeOldArticles 환경 설정에 정의된 보관 기한(ArticleArchiveDate)이 지난 오래된 크롤링 게시글을 모두 삭제한다.
+func (s *Store) PurgeOldArticles(providers []*config.ProviderConfig) error {
+	var errs []error
+
+	for _, c := range providers {
+		if err := s.deleteOutOfDateArticles(c.ID, c.Config.ArticleArchiveDate); err != nil {
+			errs = append(errs, fmt.Errorf("보관 기간이 지난 게시글 삭제 실패 (providerID: %s): %w", c.ID, err))
+		}
+	}
+
+	return errors.Join(errs...)
 }
 
 // @@@@@

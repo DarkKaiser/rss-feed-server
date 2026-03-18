@@ -139,6 +139,12 @@ func run() error {
 		}
 	}(db)
 
+	// @@@@@ 테스트
+	if notifyClient != nil {
+		notifyClient.Notify(context.Background(), "일반 테스트")
+		notifyClient.NotifyError(context.Background(), "에러 테스트")
+	}
+
 	// 9. RSS Feed Store 초기화
 	store, err := sqlite.New(db)
 	if err != nil {
@@ -151,9 +157,9 @@ func run() error {
 		return fmt.Errorf("%s: %w", m, err)
 	}
 
-	// @@@@@ Initialize 함수명만 남음
-	if err := store.Initialize(appConfig); err != nil {
-		m := "RSS 피드 저장소 초기화 중 치명적인 오류가 발생했습니다"
+	// 10. RSS Feed Store 스키마 마이그레이션
+	if err := store.AutoMigrate(); err != nil {
+		m := "RSS 피드 저장소 스키마 생성 중 치명적인 오류가 발생했습니다"
 
 		if notifyClient != nil {
 			notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
@@ -162,17 +168,39 @@ func run() error {
 		return fmt.Errorf("%s: %w", m, err)
 	}
 
-	// 10. 서비스 객체 생성 및 연결
+	// 11. RSS Feed Provider 설정 데이터 동기화
+	if err := store.SyncProviders(appConfig.RssFeed.Providers); err != nil {
+		m := "RSS 피드 마스터 정보 동기화 중 치명적인 오류가 발생했습니다"
+
+		if notifyClient != nil {
+			notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
+		}
+
+		return fmt.Errorf("%s: %w", m, err)
+	}
+
+	// 12. RSS Feed 보관 기한 만료 데이터 정리
+	if err := store.PurgeOldArticles(appConfig.RssFeed.Providers); err != nil {
+		m := "RSS 피드 만료 데이터 정리 중 치명적인 오류가 발생했습니다"
+
+		if notifyClient != nil {
+			notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
+		}
+
+		return fmt.Errorf("%s: %w", m, err)
+	}
+
+	// 13. 서비스 객체 생성 및 연결
 	apiService := api.NewService(appConfig, store, notifyClient)
 	crawlService := crawl.NewService(appConfig, store, notifyClient)
 
-	// 11. 서비스 생명주기 관리 컨텍스트 설정
+	// 14. 서비스 생명주기 관리 컨텍스트 설정
 	// 전체 서비스의 종료 신호를 전파하는 Context(serviceStopCtx)와
 	// 모든 서비스가 안전하게 종료될 때까지 대기하는 WaitGroup(serviceStopWG)을 초기화합니다.
 	serviceStopCtx, serviceStopCancel := context.WithCancel(context.Background())
 	serviceStopWG := &sync.WaitGroup{}
 
-	// 12. 서비스 병렬 기동
+	// 15. 서비스 병렬 기동
 	// 준비된 모든 서비스를 별도의 고루틴 또는 비동기 컨텍스트에서 시작합니다.
 	// 하나라도 초기화에 실패하면 즉시 전체 서버 구동을 중단하고 롤백(종료) 절차를 밟습니다.
 	services := []service.Service{apiService, crawlService}
@@ -185,7 +213,7 @@ func run() error {
 		}
 	}
 
-	// 13. OS 시그널 처리기 등록
+	// 16. OS 시그널 처리기 등록
 	// 운영체제로부터의 종료 신호(SIGTERM: 정상 종료, SIGINT: Ctrl+C)를 수신할 채널을 생성합니다.
 	// 이는 서버가 즉시 종료되지 않고, 진행 중인 작업을 마무리할 시간을 확보(Graceful Shutdown)하기 위함입니다.
 	termC := make(chan os.Signal, 1)
@@ -193,19 +221,19 @@ func run() error {
 
 	applog.WithComponent(component).Info("RSS Feed Server 초기화가 성공적으로 완료되었습니다 (Ready to Serve)")
 
-	// 14. 메인 루프 대기
+	// 17. 메인 루프 대기
 	// 종료 신호가 들어올 때까지 메인 고루틴을 블로킹 상태로 유지합니다.
 	sig := <-termC
 	applog.WithComponentAndFields(component, applog.Fields{
 		"signal": sig,
 	}).Info("종료 신호(Signal)를 수신했습니다. Graceful Shutdown 프로세스를 시작합니다")
 
-	// 15. 서비스 종료 전파
+	// 18. 서비스 종료 전파
 	// 취소 함수(serviceStopCancel)를 호출하여 `serviceStopCtx`를 대기하고 있는 모든 하위 서비스에 종료를 알립니다.
 	// 각 서비스는 이를 감지하고 리소스 정리, 연결 해제 등의 정리 작업을 수행해야 합니다.
 	serviceStopCancel()
 
-	// 16. 종료 타임아웃 프로세스
+	// 19. 종료 타임아웃 프로세스
 	// 서비스들이 무한정 종료되지 않는 상황(Deadlock 등)을 방지하기 위해 강제 종료 타임아웃(30초)을 설정합니다.
 	// `serviceStopCtx`는 이미 취소되었으므로, 타임아웃 카운트는 별도의 독립적인 Context(Background)에서 시작해야 합니다.
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), shutdownTimeout)
@@ -218,7 +246,7 @@ func run() error {
 		close(done)
 	}()
 
-	// 17. 종료 완료 대기 또는 강제 종료
+	// 20. 종료 완료 대기 또는 강제 종료
 	select {
 	case <-done:
 		applog.WithComponent(component).Info("모든 서비스가 리소스를 정리하고 정상적으로 종료되었습니다")
