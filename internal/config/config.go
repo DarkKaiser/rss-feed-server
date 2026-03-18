@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	apperrors "github.com/darkkaiser/rss-feed-server/internal/pkg/errors"
+	apperrors "github.com/darkkaiser/rss-feed-server/internal/errors"
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/knadh/koanf/parsers/json"
 	"github.com/knadh/koanf/providers/env"

@@ -13,11 +13,11 @@ import (
 	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
-	"github.com/darkkaiser/rss-feed-server/internal/pkg/version"
 	"github.com/darkkaiser/rss-feed-server/internal/service"
 	"github.com/darkkaiser/rss-feed-server/internal/service/api"
 	"github.com/darkkaiser/rss-feed-server/internal/service/crawl"
 	"github.com/darkkaiser/rss-feed-server/internal/store/sqlite"
+	"github.com/darkkaiser/rss-feed-server/internal/version"
 )
 
 // @@@@@ swagger 주석
@@ -141,8 +141,8 @@ func run() error {
 
 	// @@@@@ 테스트
 	if notifyClient != nil {
-		notifyClient.Notify(context.Background(), "일반 테스트")
 		notifyClient.NotifyError(context.Background(), "에러 테스트")
+		notifyClient.Notify(context.Background(), "일반 테스트")
 	}
 
 	// 9. RSS Feed Store 초기화

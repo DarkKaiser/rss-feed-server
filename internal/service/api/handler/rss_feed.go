@@ -10,7 +10,7 @@ import (
 
 	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
-	"github.com/darkkaiser/rss-feed-server/internal/service/api/feeds"
+	"github.com/darkkaiser/rss-feed-server/internal/service/api/rss"
 	"github.com/labstack/echo/v4"
 )
 
@@ -61,10 +61,10 @@ func (h *Handler) GetRssFeedHandler(c echo.Context) error {
 				lastBuildDate = articles[0].CreatedAt
 			}
 
-			rssFeed := feeds.NewRssFeed(p.Config.Name, p.Config.URL, p.Config.Description, "ko", config.AppName, time.Now(), lastBuildDate)
+			rssFeed := rss.NewRssFeed(p.Config.Name, p.Config.URL, p.Config.Description, "ko", config.AppName, time.Now(), lastBuildDate)
 			for _, article := range articles {
 				rssFeed.Items = append(rssFeed.Items,
-					feeds.NewRssFeedItem(article.Title, article.Link, strings.ReplaceAll(article.Content, "\r\n", "<br>"), article.Author, article.BoardName, article.CreatedAt),
+					rss.NewRssFeedItem(article.Title, article.Link, strings.ReplaceAll(article.Content, "\r\n", "<br>"), article.Author, article.BoardName, article.CreatedAt),
 				)
 			}
 

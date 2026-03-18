@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"strings"
 
-	apperrors "github.com/darkkaiser/rss-feed-server/internal/pkg/errors"
+	apperrors "github.com/darkkaiser/rss-feed-server/internal/errors"
 	"github.com/go-playground/validator/v10"
 )
 
