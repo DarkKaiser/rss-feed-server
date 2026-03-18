@@ -15,8 +15,8 @@ import (
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/pkg/version"
 	"github.com/darkkaiser/rss-feed-server/internal/service"
+	"github.com/darkkaiser/rss-feed-server/internal/service/api"
 	"github.com/darkkaiser/rss-feed-server/internal/service/crawl"
-	"github.com/darkkaiser/rss-feed-server/internal/service/ws"
 	"github.com/darkkaiser/rss-feed-server/internal/store/sqlite"
 )
 
@@ -162,10 +162,9 @@ func run() error {
 		return fmt.Errorf("%s: %w", m, err)
 	}
 
-	// @@@@@
 	// 10. 서비스 객체 생성 및 연결
-	webService := ws.NewService(appConfig, store, notifyClient)
-	crawlingService := crawl.NewService(appConfig, store, notifyClient)
+	apiService := api.NewService(appConfig, store, notifyClient)
+	crawlService := crawl.NewService(appConfig, store, notifyClient)
 
 	// 11. 서비스 생명주기 관리 컨텍스트 설정
 	// 전체 서비스의 종료 신호를 전파하는 Context(serviceStopCtx)와
@@ -176,7 +175,7 @@ func run() error {
 	// 12. 서비스 병렬 기동
 	// 준비된 모든 서비스를 별도의 고루틴 또는 비동기 컨텍스트에서 시작합니다.
 	// 하나라도 초기화에 실패하면 즉시 전체 서버 구동을 중단하고 롤백(종료) 절차를 밟습니다.
-	services := []service.Service{webService, crawlingService}
+	services := []service.Service{apiService, crawlService}
 	for _, s := range services {
 		serviceStopWG.Add(1)
 		if err := s.Start(serviceStopCtx, serviceStopWG); err != nil {
