@@ -105,24 +105,19 @@ func (s *crawlingService) Start(serviceStopCtx context.Context, serviceStopWG *s
 func (s *crawlingService) run0(serviceStopCtx context.Context, serviceStopWaiter *sync.WaitGroup) {
 	defer serviceStopWaiter.Done()
 
-	for {
-		select {
-		case <-serviceStopCtx.Done():
-			applog.Debug("크롤링 서비스 중지중...")
+	<-serviceStopCtx.Done()
 
-			s.runningMu.Lock()
-			{
-				// 크롤링 스케쥴러를 중지한다.
-				ctx := s.cron.Stop()
-				<-ctx.Done()
+	applog.Debug("크롤링 서비스 중지중...")
 
-				s.running = false
-			}
-			s.runningMu.Unlock()
+	s.runningMu.Lock()
+	{
+		// 크롤링 스케쥴러를 중지한다.
+		ctx := s.cron.Stop()
+		<-ctx.Done()
 
-			applog.Debug("크롤링 서비스 중지됨")
-
-			return
-		}
+		s.running = false
 	}
+	s.runningMu.Unlock()
+
+	applog.Debug("크롤링 서비스 중지됨")
 }

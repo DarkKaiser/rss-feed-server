@@ -68,12 +68,12 @@ func (s *Store) createTables() error {
 	//
 	stmt1, err := s.db.Prepare(`
 		CREATE TABLE IF NOT EXISTS rss_provider (
-			id 					VARCHAR( 50) PRIMARY KEY NOT NULL UNIQUE,
-			site 				VARCHAR( 50) NOT NULL,
-			s_id 				VARCHAR( 50) NOT NULL,
-			s_name 				VARCHAR(130) NOT NULL,
-			s_description 		VARCHAR(200),
-			s_url 				VARCHAR(100) NOT NULL
+			id            VARCHAR( 50) PRIMARY KEY NOT NULL UNIQUE,
+			site          VARCHAR( 50) NOT NULL,
+			s_id          VARCHAR( 50) NOT NULL,
+			s_name        VARCHAR(130) NOT NULL,
+			s_description VARCHAR(200),
+			s_url         VARCHAR(100) NOT NULL
 		)
 	`)
 	if err != nil {
@@ -100,10 +100,10 @@ func (s *Store) createTables() error {
 	//
 	stmt3, err := s.db.Prepare(`
 		CREATE TABLE IF NOT EXISTS rss_provider_board (
-			p_id 		VARCHAR( 50) NOT NULL,
-			id			VARCHAR( 50) NOT NULL,
-			name 		VARCHAR(130) NOT NULL,
-			PRIMARY KEY (p_id, id)
+			p_id VARCHAR( 50) NOT NULL,
+			id   VARCHAR( 50) NOT NULL,
+			name VARCHAR(130) NOT NULL,
+			PRIMARY KEY (p_id, id),
 			FOREIGN KEY (p_id) REFERENCES rss_provider(id)
 		)
 	`)
@@ -131,16 +131,16 @@ func (s *Store) createTables() error {
 	//
 	stmt5, err := s.db.Prepare(`
 		CREATE TABLE IF NOT EXISTS rss_provider_article (
-			p_id 			VARCHAR( 50) NOT NULL,
-			b_id 			VARCHAR( 50) NOT NULL,
-			id 				VARCHAR( 50) NOT NULL,
-			title 			VARCHAR(400) NOT NULL,
-			content			TEXT,
-			link 			VARCHAR(1000) NOT NULL,
-			author 			VARCHAR(50),
-			created_date	DATETIME,
-			PRIMARY KEY (p_id, b_id, id)
-			FOREIGN KEY (p_id) REFERENCES rss_provider(id)
+			p_id         VARCHAR( 50) NOT NULL,
+			b_id         VARCHAR( 50) NOT NULL,
+			id           VARCHAR( 50) NOT NULL,
+			title        VARCHAR(400) NOT NULL,
+			content      TEXT,
+			link         VARCHAR(1000) NOT NULL,
+			author       VARCHAR(50),
+			created_date DATETIME,
+			PRIMARY KEY (p_id, b_id, id),
+			FOREIGN KEY (p_id) REFERENCES rss_provider(id),
 			FOREIGN KEY (b_id) REFERENCES rss_provider_board(id)
 		)
 	`)
@@ -168,10 +168,10 @@ func (s *Store) createTables() error {
 	//
 	stmt7, err := s.db.Prepare(`
 		CREATE TABLE IF NOT EXISTS rss_provider_site_crawled_data (
-			p_id 						VARCHAR( 50) NOT NULL,
-			b_id 						VARCHAR( 50) NOT NULL,
-			latest_crawled_article_id	VARCHAR( 50) NOT NULL,
-			PRIMARY KEY (p_id, b_id)
+			p_id                      VARCHAR( 50) NOT NULL,
+			b_id                      VARCHAR( 50) NOT NULL,
+			latest_crawled_article_id VARCHAR( 50) NOT NULL,
+			PRIMARY KEY (p_id, b_id),
 			FOREIGN KEY (p_id) REFERENCES rss_provider(id)
 		)
 	`)
@@ -192,7 +192,7 @@ func (s *Store) insertRSSFeedProvider(providerID, site, sourceID, sourceName, so
 	stmt, err := s.db.Prepare(`
 		INSERT OR REPLACE
 		  INTO rss_provider (id, site, s_id, s_name, s_description, s_url) 
-	    VALUES (?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		return err
@@ -208,7 +208,11 @@ func (s *Store) insertRSSFeedProvider(providerID, site, sourceID, sourceName, so
 // @@@@@
 // noinspection GoUnhandledErrorResult
 func (s *Store) insertRSSFeedProviderBoard(providerID, boardID, boardName string) error {
-	stmt, err := s.db.Prepare("INSERT OR REPLACE INTO rss_provider_board (p_id, id, name) VALUES (?, ?, ?)")
+	stmt, err := s.db.Prepare(`
+		INSERT OR REPLACE
+		  INTO rss_provider_board (p_id, id, name) 
+		VALUES (?, ?, ?)
+	`)
 	if err != nil {
 		return err
 	}
@@ -229,7 +233,7 @@ func (s *Store) InsertArticles(providerID string, articles []*feed.Article) (int
 	stmt, err := s.db.Prepare(`
 		INSERT OR REPLACE
 		  INTO rss_provider_article (p_id, b_id, id, title, content, link, author, created_date)
-	    VALUES (?, ?, ?, ?, ?, ?, ?, datetime(?))
+		VALUES (?, ?, ?, ?, ?, ?, ?, DATETIME(?))
 	`)
 	if err != nil {
 		return 0, err
@@ -267,20 +271,20 @@ func (s *Store) GetArticles(providerID string, boardIDs []string, limit uint) ([
 
 	query := fmt.Sprintf(`
 		SELECT a.b_id
-             , b.name b_name
+		     , b.name AS b_name
 		     , a.id
 		     , a.title
-		     , IFNULL(a.content, "") content
+		     , IFNULL(a.content, "") AS content
 		     , a.link
-		     , IFNULL(a.author, "") author
+		     , IFNULL(a.author, "") AS author
 		     , a.created_date
 		  FROM rss_provider_article a
-               INNER JOIN rss_provider_board b ON ( a.p_id = b.p_id AND a.b_id = b.id )
+		       INNER JOIN rss_provider_board b ON ( a.p_id = b.p_id AND a.b_id = b.id )
 		 WHERE a.p_id = ?
 		   AND a.b_id IN (%s)
-      ORDER BY a.created_date DESC
-             , a.rowid DESC
-         LIMIT ?
+		 ORDER BY a.created_date DESC
+		        , a.rowid DESC
+		 LIMIT ?
 	`, strings.Join(placeholders, ", "))
 
 	stmt, err := s.db.Prepare(query)
@@ -333,7 +337,7 @@ func (s *Store) deleteOutOfDateArticles(providerID string, archiveDays uint) err
 		DELETE 
 		  FROM rss_provider_article
 		 WHERE p_id = ?
-		   AND created_date < date(datetime('now', 'utc'), '-%d days')
+		   AND created_date < DATE(DATETIME('now', 'utc'), '-%d days')
 	`, archiveDays))
 	if err != nil {
 		return err
@@ -357,30 +361,30 @@ func (s *Store) GetLatestCrawledInfo(providerID, boardID string) (string, time.T
 
 	if boardID == "" {
 		err = s.db.QueryRow(`
-			 SELECT ( SELECT latest_crawled_article_id
-					  	FROM rss_provider_site_crawled_data
-					   WHERE p_id = ?
-						AND b_id = '' ),
-					( SELECT created_date 
-						FROM rss_provider_article
-					   WHERE p_id = ?
-					ORDER BY created_date DESC
-					   		, rowid DESC
-					   LIMIT 1 )
+			SELECT ( SELECT latest_crawled_article_id
+					   FROM rss_provider_site_crawled_data
+					  WHERE p_id = ?
+					    AND b_id = '' )
+			     , ( SELECT created_date 
+					   FROM rss_provider_article
+					  WHERE p_id = ?
+					  ORDER BY created_date DESC
+					         , rowid DESC
+					  LIMIT 1 )
 		`, providerID, providerID).Scan(&articleID, &createdDate)
 	} else {
 		err = s.db.QueryRow(`
-			 SELECT ( SELECT latest_crawled_article_id
-					  	FROM rss_provider_site_crawled_data
-					   WHERE p_id = ?
-						AND b_id = ? ),
-					( SELECT created_date 
-						FROM rss_provider_article
-					   WHERE p_id = ?
-						AND b_id = ?
-					ORDER BY created_date DESC
-					   		, rowid DESC
-					   LIMIT 1 )
+			SELECT ( SELECT latest_crawled_article_id
+					   FROM rss_provider_site_crawled_data
+					  WHERE p_id = ?
+					    AND b_id = ? )
+			     , ( SELECT created_date 
+					   FROM rss_provider_article
+					  WHERE p_id = ?
+					    AND b_id = ?
+					  ORDER BY created_date DESC
+					         , rowid DESC
+					  LIMIT 1 )
 		`, providerID, boardID, providerID, boardID).Scan(&articleID, &createdDate)
 	}
 
@@ -406,7 +410,11 @@ func (s *Store) GetLatestCrawledInfo(providerID, boardID string) (string, time.T
 //
 // noinspection GoUnhandledErrorResult,GoSnakeCaseUsage
 func (s *Store) UpdateLatestCrawledArticleID(providerID, boardID, articleID string) error {
-	stmt, err := s.db.Prepare("INSERT OR REPLACE INTO rss_provider_site_crawled_data (p_id, b_id, latest_crawled_article_id) VALUES (?, ?, ?)")
+	stmt, err := s.db.Prepare(`
+		INSERT OR REPLACE
+		  INTO rss_provider_site_crawled_data (p_id, b_id, latest_crawled_article_id) 
+		VALUES (?, ?, ?)
+	`)
 	if err != nil {
 		return err
 	}
