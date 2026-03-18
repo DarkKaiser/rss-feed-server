@@ -6,9 +6,8 @@ toolchain go1.24.11
 
 require (
 	github.com/PuerkitoBio/goquery v1.11.0
-	github.com/darkkaiser/notify-server v1.2.0
+	github.com/darkkaiser/notify-server v1.2.1
 	github.com/go-playground/validator/v10 v10.30.1
-	github.com/go-sql-driver/mysql v1.9.3
 	github.com/go-viper/mapstructure/v2 v2.5.0
 	github.com/knadh/koanf/parsers/json v1.0.0
 	github.com/knadh/koanf/providers/env v1.1.0
@@ -26,7 +25,6 @@ require (
 )
 
 require (
-	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect

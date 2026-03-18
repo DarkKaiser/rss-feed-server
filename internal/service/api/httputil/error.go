@@ -8,7 +8,7 @@ import (
 )
 
 // component 로깅용 컴포넌트 이름
-const component = "ws.error_handler"
+const component = "api.error_handler"
 
 // ErrorHandler Echo 프레임워크의 전역 에러 핸들러입니다.
 func ErrorHandler(err error, c echo.Context) {
