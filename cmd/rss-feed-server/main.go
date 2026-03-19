@@ -22,23 +22,25 @@ import (
 
 // @title RSS Feed Server API
 // @version 1.0.0
-// @description 네이버 카페, 여수 시청, 여수 쌍봉초등학교 등 다양한 목적의 게시판을 자동으로 모니터링하고 크롤링하여 **RSS 피드**를 제공하는 서비스입니다.
+// @description 네이버 카페, 여수 시청, 여수 쌍봉초등학교 등 다양한 웹 게시판을 자동으로 모니터링하고 크롤링하여 **RSS 피드**를 제공하는 서비스입니다.
 // @description
-// @description 이 서버 백엔드는 각 게시판의 새로운 글을 주기적으로 수집(Polling)하여 자체 데이터베이스에 보관하며, 클라이언트의 요청 시 즉시 RSS 2.0 규격에 맞는 XML 문서를 생성하여 제공합니다.
-// @description 사용자는 제공된 엔드포인트를 통해 자신이 원하는 RSS 리더기 애플리케이션 등에서 원활하게 새 게시글 알림을 구독(Subscribe)할 수 있습니다.
+// @description 각 게시판의 새로운 글을 주기적으로 수집(Polling)하여 자체 데이터베이스에 보관하며, 클라이언트 요청 시 즉시 RSS 2.0 규격의 XML 문서를 생성하여 반환합니다.
 // @description
 // @description ## 📌 핵심 기능
 // @description
 // @description 1. **통합 RSS 피드 제공**: 여러 형태의 웹 게시판들을 RSS 2.0 표준 규격으로 일원화하여 서빙합니다.
-// @description 2. **피드 목록 및 상태 정보 제공**: 현재 서비스 중인 전체 RSS 피드의 목록을 직관적인 HTML 화면(`GET /`)으로 요약 제공합니다.
-// @description 3. **주기적 크롤링 엔진 내장**: 사용자의 요청 시 외부 서버로 즉시 쿼리하는 것이 아니라, 설정된 인터벌에 따라 백그라운드에서 게시글을 최신화하여 응답 속도가 빠릅니다.
+// @description 2. **피드 목록 요약 페이지**: 서비스 중인 전체 RSS 피드 목록을 HTML 화면(`GET /`)으로 제공합니다.
+// @description 3. **백그라운드 크롤링 엔진**: 설정된 스케줄에 따라 게시글을 미리 수집하므로, 요청 시 별도 외부 서버 조회 없이 빠르게 응답합니다.
+// @description 4. **표준 에러 응답 포맷**: 모든 에러 응답은 `{"result_code": <HTTP 상태 코드>, "message": "<에러 메시지>"}` JSON 형식을 따릅니다.
 // @description
 // @description ## 🚀 사용 안내
 // @description
-// @description - 각 피드의 고유 식별자(`id`)를 통해 접근할 수 있습니다. (예: `/{id}` 또는 `/{id}.xml`)
-// @description - 올바르지 않은 식별자나 지원하지 않는 게시판의 경우 표준 에러 포맷으로 응답합니다.
+// @description - `/{id}` 또는 `/{id}.xml` 형식 모두 동일하게 처리됩니다. (예: `/naver-cafe` = `/naver-cafe.xml`)
+// @description - 지원하지 않는 식별자의 경우 400 Bad Request를 반환합니다.
 // @description
-// @description ---
+
+// @termsOfService http://swagger.io/terms/
+
 // @contact.name DarkKaiser
 // @contact.url https://github.com/DarkKaiser
 // @contact.email darkkaiser@gmail.com
@@ -48,6 +50,7 @@ import (
 
 // @host rss.darkkaiser.com
 // @BasePath /
+// @schemes http https
 
 const (
 	banner = `
