@@ -13,6 +13,7 @@ import (
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/feed"
 	"github.com/darkkaiser/rss-feed-server/internal/service/api/httputil"
+	_ "github.com/darkkaiser/rss-feed-server/internal/service/api/model/response"
 	"github.com/darkkaiser/rss-feed-server/internal/service/api/rss"
 	"github.com/labstack/echo/v4"
 )
@@ -35,6 +36,14 @@ func New(config *config.AppConfig, feedRepo feed.Repository, notifyClient *notif
 	}
 }
 
+// ViewSummary 핸들러
+//
+// @Summary 전체 RSS 피드 정보 요약 페이지
+// @Description 현재 서버가 제공하고 있는 전체 RSS 목록, 서비스 소개 및 기본 정보를 HTML 웹 페이지 형태로 제공합니다. 브라우저로 접속 시 이 페이지를 볼 수 있습니다.
+// @Tags RSS
+// @Produce text/html
+// @Success 200 {string} string "HTML 요약 페이지"
+// @Router / [get]
 func (h *Handler) ViewSummary(c echo.Context) error {
 	return c.Render(http.StatusOK, "rss_summary.tmpl", map[string]interface{}{
 		"serviceUrl": fmt.Sprintf("%s://%s", c.Scheme(), c.Request().Host),
@@ -42,6 +51,17 @@ func (h *Handler) ViewSummary(c echo.Context) error {
 	})
 }
 
+// GetFeed 핸들러
+//
+// @Summary 개별 RSS 피드 조회 (XML)
+// @Description 지정된 식별자(id)에 해당하는 특정 게시판의 최신 게시글 목록을 RSS 2.0 호환 XML 형식으로 제공합니다. RSS 리더 등에서 구독 링크로 사용할 수 있습니다.
+// @Tags RSS
+// @Produce application/xml
+// @Param id path string true "RSS 피드 고유 식별자 (예: gangnam, gangnam.xml 형식 모두 가능)"
+// @Success 200 {string} string "RSS 2.0 규격의 XML 포맷 데이터"
+// @Failure 400 {object} response.ErrorResponse "잘못된 요청 또는 유효하지 않은 피드 식별자"
+// @Failure 500 {object} response.ErrorResponse "서버 내부 처리 중 오류 발생 (DB 조회 실패, XML 파싱 오류 등)"
+// @Router /{id} [get]
 func (h *Handler) GetFeed(c echo.Context) error {
 	// 입력된 ID를 구한다.
 	id := c.Param("id")

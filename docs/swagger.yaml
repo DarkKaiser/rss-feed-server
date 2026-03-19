@@ -1,4 +1,77 @@
+basePath: /
+definitions:
+  response.ErrorResponse:
+    properties:
+      message:
+        description: Message 에러 메시지
+        example: 요청한 RSS 피드(ID:naver-cafe)를 찾을 수 없습니다.
+        type: string
+      result_code:
+        description: 'ResultCode HTTP 상태 코드 (예: 400, 401, 500)'
+        example: 400
+        type: integer
+    type: object
+host: localhost:8080
 info:
-  contact: {}
-paths: {}
+  contact:
+    email: darkkaiser@gmail.com
+    name: DarkKaiser
+    url: https://github.com/DarkKaiser
+  description: "네이버 카페, 여수 시청, 여수 쌍봉초등학교 등 다양한 목적의 게시판을 자동으로 모니터링하고 크롤링하여 **RSS 피드**를
+    제공하는 서비스입니다.\n\n이 서버 백엔드는 각 게시판의 새로운 글을 주기적으로 수집(Polling)하여 자체 데이터베이스에 보관하며, 클라이언트의
+    요청 시 즉시 RSS 2.0 규격에 맞는 XML 문서를 생성하여 제공합니다.\n사용자는 제공된 엔드포인트를 통해 자신이 원하는 RSS 리더기
+    애플리케이션 등에서 원활하게 새 게시글 알림을 구독(Subscribe)할 수 있습니다.\n\n## \U0001F4CC 핵심 기능\n\n1.
+    **통합 RSS 피드 제공**: 여러 형태의 웹 게시판들을 RSS 2.0 표준 규격으로 일원화하여 서빙합니다.\n2. **피드 목록 및 상태
+    정보 제공**: 현재 서비스 중인 전체 RSS 피드의 목록을 직관적인 HTML 화면(`GET /`)으로 요약 제공합니다.\n3. **주기적
+    크롤링 엔진 내장**: 사용자의 요청 시 외부 서버로 즉시 쿼리하는 것이 아니라, 설정된 인터벌에 따라 백그라운드에서 게시글을 최신화하여 응답
+    속도가 빠릅니다.\n\n## \U0001F680 사용 안내\n\n- 각 피드의 고유 식별자(`id`)를 통해 접근할 수 있습니다. (예: `/{id}`
+    또는 `/{id}.xml`)\n- 올바르지 않은 식별자나 지원하지 않는 게시판의 경우 표준 에러 포맷으로 응답합니다.\n\n---"
+  license:
+    name: MIT License
+    url: https://github.com/DarkKaiser/rss-feed-server/blob/master/LICENSE
+  title: RSS Feed Server API
+  version: 1.0.0
+paths:
+  /:
+    get:
+      description: 현재 서버가 제공하고 있는 전체 RSS 목록, 서비스 소개 및 기본 정보를 HTML 웹 페이지 형태로 제공합니다.
+        브라우저로 접속 시 이 페이지를 볼 수 있습니다.
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML 요약 페이지
+          schema:
+            type: string
+      summary: 전체 RSS 피드 정보 요약 페이지
+      tags:
+      - RSS
+  /{id}:
+    get:
+      description: 지정된 식별자(id)에 해당하는 특정 게시판의 최신 게시글 목록을 RSS 2.0 호환 XML 형식으로 제공합니다.
+        RSS 리더 등에서 구독 링크로 사용할 수 있습니다.
+      parameters:
+      - description: 'RSS 피드 고유 식별자 (예: gangnam, gangnam.xml 형식 모두 가능)'
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/xml
+      responses:
+        "200":
+          description: RSS 2.0 규격의 XML 포맷 데이터
+          schema:
+            type: string
+        "400":
+          description: 잘못된 요청 또는 유효하지 않은 피드 식별자
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: 서버 내부 처리 중 오류 발생 (DB 조회 실패, XML 파싱 오류 등)
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: 개별 RSS 피드 조회 (XML)
+      tags:
+      - RSS
 swagger: "2.0"
