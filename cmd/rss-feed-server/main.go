@@ -46,7 +46,7 @@ import (
 // @license.name MIT License
 // @license.url https://github.com/DarkKaiser/rss-feed-server/blob/master/LICENSE
 
-// @host localhost:8080
+// @host rss.darkkaiser.com
 // @BasePath /
 
 const (

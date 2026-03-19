@@ -11,7 +11,7 @@ definitions:
         example: 400
         type: integer
     type: object
-host: localhost:8080
+host: rss.darkkaiser.com
 info:
   contact:
     email: darkkaiser@gmail.com
