@@ -18,19 +18,43 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// @@@@@
+// component RSS 핸들러의 로깅용 컴포넌트 이름
+const component = "api.handler.rss"
+
+// Handler RSS 피드 관련 HTTP 요청을 처리하는 핸들러입니다.
 type Handler struct {
-	config *config.AppConfig
+	appConfig *config.AppConfig
+
+	// @@@@@
+	// providerMap 은 설정에 등록된 RSS 피드 프로바이더를 ID 기준으로 인덱싱한 맵입니다.
+	// GetFeed 요청마다 슬라이스를 순회하는 O(n) 탐색 대신 O(1) 조회를 위해 사용됩니다.
+	providerMap map[string]*config.ProviderConfig
 
 	feedRepo feed.Repository
 
 	notifyClient *notify.Client
 }
 
-// @@@@@
-func New(config *config.AppConfig, feedRepo feed.Repository, notifyClient *notify.Client) *Handler {
+// New Handler 인스턴스를 생성합니다.
+func New(appConfig *config.AppConfig, feedRepo feed.Repository, notifyClient *notify.Client) *Handler {
+	if appConfig == nil {
+		panic("AppConfig는 필수입니다")
+	}
+	if feedRepo == nil {
+		panic("feed.Repository는 필수입니다")
+	}
+
+	// @@@@@
+	// 요청마다 반복되는 선형 탐색을 피하기 위해 Provider ID를 키로 하는 맵을 미리 구성한다.
+	providerMap := make(map[string]*config.ProviderConfig, len(appConfig.RssFeed.Providers))
+	for _, p := range appConfig.RssFeed.Providers {
+		providerMap[p.ID] = p
+	}
+
 	return &Handler{
-		config: config,
+		appConfig: appConfig,
+
+		providerMap: providerMap,
 
 		feedRepo: feedRepo,
 
@@ -48,10 +72,18 @@ func New(config *config.AppConfig, feedRepo feed.Repository, notifyClient *notif
 // @Failure 500 {object} response.ErrorResponse "서버 내부 오류 (템플릿 렌더링 실패 등)"
 // @Router / [get]
 func (h *Handler) ViewSummary(c echo.Context) error {
+	applog.WithComponentAndFields(component, applog.Fields{
+		"request_id": c.Response().Header().Get(echo.HeaderXRequestID),
+		"endpoint":   "/",
+		"method":     c.Request().Method,
+		"remote_ip":  c.RealIP(),
+		"user_agent": c.Request().UserAgent(),
+	}).Debug("RSS 피드 목록 요약 페이지 조회")
+
 	// @@@@@
-	return c.Render(http.StatusOK, "rss_summary.tmpl", map[string]interface{}{
+	return c.Render(http.StatusOK, "rss_summary.tmpl", map[string]any{
 		"serviceUrl": fmt.Sprintf("%s://%s", c.Scheme(), c.Request().Host),
-		"rssFeed":    h.config.RssFeed,
+		"rssFeed":    h.appConfig.RssFeed,
 	})
 }
 
@@ -70,68 +102,85 @@ func (h *Handler) ViewSummary(c echo.Context) error {
 // @Router /{id} [get]
 func (h *Handler) GetFeed(c echo.Context) error {
 	// @@@@@
-	// 입력된 ID를 구한다.
+	// URL 경로에서 피드 식별자(ID)를 추출한다.
+	// RSS 리더 앱 호환성을 위해 ".xml" 확장자가 붙은 경우(예: /naver-cafe.xml)에도
+	// 정상적으로 처리될 수 있도록 확장자를 제거한다.
 	id := c.Param("id")
-	if strings.HasSuffix(strings.ToLower(id), ".xml") == true {
+	if strings.HasSuffix(strings.ToLower(id), ".xml") {
 		id = id[:len(id)-len(".xml")]
 	}
 
-	for _, p := range h.config.RssFeed.Providers {
-		if p.ID == id {
-			//
-			// 게시글을 검색한다.
-			//
-			var boardIDs []string
-			for _, b := range p.Config.Boards {
-				boardIDs = append(boardIDs, b.ID)
-			}
+	applog.WithComponentAndFields(component, applog.Fields{
+		"request_id": c.Response().Header().Get(echo.HeaderXRequestID),
+		"endpoint":   "/{id}",
+		"feed_id":    id,
+		"method":     c.Request().Method,
+		"remote_ip":  c.RealIP(),
+		"user_agent": c.Request().UserAgent(),
+	}).Debug("개별 RSS 피드 조회")
 
-			articles, err := h.feedRepo.GetArticles(p.ID, boardIDs, h.config.RssFeed.MaxItemCount)
-			if err != nil {
-				m := fmt.Sprintf("DB에서 게시글을 읽어오는 중에 오류가 발생하였습니다. (p_id:%s)", p.ID)
-
-				applog.Errorf("%s (error:%s)", m, err)
-
-				if h.notifyClient != nil {
-					h.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
-				}
-
-				return httputil.NewInternalServerError(m)
-			}
-
-			//
-			// 검색된 게시글을 RSS Feed로 변환한다.
-			//
-
-			// 가장 최근에 작성된 게시글의 작성시간을 구한다.
-			var lastBuildDate time.Time
-			if len(articles) > 0 {
-				lastBuildDate = articles[0].CreatedAt
-			}
-
-			rssFeed := rss.NewRssFeed(p.Config.Name, p.Config.URL, p.Config.Description, "ko", config.AppName, time.Now(), lastBuildDate)
-			for _, article := range articles {
-				rssFeed.Items = append(rssFeed.Items,
-					rss.NewRssFeedItem(article.Title, article.Link, strings.ReplaceAll(article.Content, "\r\n", "<br>"), article.Author, article.BoardName, article.CreatedAt),
-				)
-			}
-
-			xmlBytes, err := xml.MarshalIndent(rssFeed.FeedXml(), "", "  ")
-			if err != nil {
-				m := fmt.Sprintf("RSS Feed 객체를 XML로 변환하는 중에 오류가 발생하였습니다. (ID:%s)", id)
-
-				applog.Errorf("%s (error:%s)", m, err)
-
-				if h.notifyClient != nil {
-					h.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
-				}
-
-				return httputil.NewInternalServerError(m)
-			}
-
-			return c.XMLBlob(http.StatusOK, xmlBytes)
-		}
+	// @@@@@
+	// providerMap에서 O(1) 조회로 해당 프로바이더를 찾는다.
+	// 등록되지 않은 ID라면 즉시 400 에러를 반환한다.
+	p, ok := h.providerMap[id]
+	if !ok {
+		return httputil.NewBadRequestError(fmt.Sprintf("요청하신 식별자(ID:%s)의 RSS 피드를 찾을 수 없습니다.", id))
 	}
 
-	return httputil.NewBadRequestError(fmt.Sprintf("요청하신 식별자(ID:%s)의 RSS 피드를 찾을 수 없습니다.", id))
+	// 해당 프로바이더에 속한 모든 게시판 ID를 수집한다.
+	// DB 조회 시 여러 게시판의 게시글을 한 번에 가져오기 위해 슬라이스로 구성한다.
+	var boardIDs []string
+	for _, b := range p.Config.Boards {
+		boardIDs = append(boardIDs, b.ID)
+	}
+
+	// DB에서 최신 게시글을 MaxItemCount 개 한도로 조회한다.
+	articles, err := h.feedRepo.GetArticles(p.ID, boardIDs, h.appConfig.RssFeed.MaxItemCount)
+	if err != nil {
+		m := fmt.Sprintf("DB에서 게시글을 읽어오는 중에 오류가 발생하였습니다. (p_id:%s)", p.ID)
+
+		applog.Errorf("%s (error:%s)", m, err)
+
+		// 텔레그램 등 외부 알림 채널을 통해 담당자에게 즉시 오류를 전파한다.
+		if h.notifyClient != nil {
+			h.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
+		}
+
+		return httputil.NewInternalServerError(m)
+	}
+
+	// 조회된 게시글 목록을 RSS 2.0 규격의 Feed 객체로 변환한다.
+
+	// RSS <lastBuildDate> 필드는 피드에서 가장 최근에 변경된 시각을 나타낸다.
+	// DB 결과가 CreatedAt 내림차순이라고 가정하여 첫 번째 게시글의 작성시간을 사용한다.
+	var lastBuildDate time.Time
+	if len(articles) > 0 {
+		lastBuildDate = articles[0].CreatedAt
+	}
+
+	rssFeed := rss.NewRssFeed(p.Config.Name, p.Config.URL, p.Config.Description, "ko", config.AppName, time.Now(), lastBuildDate)
+	for _, article := range articles {
+		// 게시글 본문의 줄바꿈(CRLF)을 HTML <br> 태그로 치환하여
+		// RSS 리더에서 줄바꿈이 올바르게 렌더링되도록 한다.
+		rssFeed.Items = append(rssFeed.Items,
+			rss.NewRssFeedItem(article.Title, article.Link, strings.ReplaceAll(article.Content, "\r\n", "<br>"), article.Author, article.BoardName, article.CreatedAt),
+		)
+	}
+
+	// Feed 객체를 RSS 클라이언트가 파싱하기 쉽도록 들여쓰기된 XML 바이트로 직렬화한다.
+	xmlBytes, err := xml.MarshalIndent(rssFeed.FeedXml(), "", "  ")
+	if err != nil {
+		m := fmt.Sprintf("RSS Feed 객체를 XML로 변환하는 중에 오류가 발생하였습니다. (ID:%s)", id)
+
+		applog.Errorf("%s (error:%s)", m, err)
+
+		// 텔레그램 등 외부 알림 채널을 통해 담당자에게 즉시 오류를 전파한다.
+		if h.notifyClient != nil {
+			h.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
+		}
+
+		return httputil.NewInternalServerError(m)
+	}
+
+	return c.XMLBlob(http.StatusOK, xmlBytes)
 }
