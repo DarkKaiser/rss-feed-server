@@ -246,7 +246,7 @@
         </header>
 
         <main class="grid">
-            {{ $serviceUrl := .serviceUrl }}
+            {{ $serviceURL := .serviceURL }}
             {{ range .rssFeed.Providers }}
             <section class="card">
                 <div class="card-header">
@@ -292,7 +292,7 @@
                     </div>
                 </div>
 
-                <a href="{{ $serviceUrl }}/{{ .ID }}.xml" target="_blank" class="rss-link">
+                <a href="{{ $serviceURL }}/{{ .ID }}.xml" target="_blank" class="rss-link">
                     <i data-lucide="external-link" size="16"></i>
                     RSS 피드 구독하기
                 </a>

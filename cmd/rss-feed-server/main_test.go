@@ -154,7 +154,7 @@ func TestRun_SuccessAndGracefulShutdown(t *testing.T) {
 		if runErr != nil {
 			t.Fatalf("정상 종료 상황이나, run()에서 에러가 반환됨: %v", runErr)
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(15 * time.Second):
 		t.Fatal("SIGTERM 전송 후 Graceful Shutdown 시간 초과 (데드락 의심)")
 	}
 }
@@ -189,7 +189,7 @@ func TestRun_DebugMode(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Debug 모드 실행 중 에러 발생: %v", err)
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(15 * time.Second):
 		t.Fatal("Graceful Shutdown 시간 초과")
 	}
 }

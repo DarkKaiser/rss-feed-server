@@ -82,7 +82,7 @@ func (h *Handler) ViewSummary(c echo.Context) error {
 
 	// @@@@@
 	return c.Render(http.StatusOK, "rss_summary.tmpl", map[string]any{
-		"serviceUrl": fmt.Sprintf("%s://%s", c.Scheme(), c.Request().Host),
+		"serviceURL": fmt.Sprintf("%s://%s", c.Scheme(), c.Request().Host),
 		"rssFeed":    h.appConfig.RssFeed,
 	})
 }
