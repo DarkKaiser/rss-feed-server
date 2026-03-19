@@ -19,8 +19,8 @@ const (
 
 // sensitiveQueryParams HTTP 요청 로깅 시 보안을 위해 값을 마스킹(가리기) 처리해야 하는 쿼리 파라미터 키 목록입니다.
 var sensitiveQueryParams = []string{
-	"api_key",
 	"app_key",
+	"api_key",
 	"password",
 	"token",
 	"secret",
