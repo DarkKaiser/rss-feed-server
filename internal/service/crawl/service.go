@@ -17,7 +17,7 @@ import (
 
 // Service
 type Service struct {
-	config *config.AppConfig
+	appConfig *config.AppConfig
 
 	cron *cron.Cron
 
@@ -31,9 +31,9 @@ type Service struct {
 // 컴파일 타임에 인터페이스 구현 여부를 검증합니다.
 var _ service.Service = (*Service)(nil)
 
-func NewService(config *config.AppConfig, feedRepo feed.Repository, notifyClient *notify.Client) *Service {
+func NewService(appConfig *config.AppConfig, feedRepo feed.Repository, notifyClient *notify.Client) *Service {
 	return &Service{
-		config: config,
+		appConfig: appConfig,
 
 		cron: cron.New(
 			cron.WithParser(cronx.StandardParser()),
@@ -68,7 +68,7 @@ func (s *Service) Start(serviceStopCtx context.Context, serviceStopWG *sync.Wait
 	}
 
 	// 크롤링 스케쥴러를 시작한다.
-	for _, p := range s.config.RssFeed.Providers {
+	for _, p := range s.appConfig.RssFeed.Providers {
 		crawlerConfig, err := provider.FindConfigFromSupportedCrawler(config.ProviderSite(p.Site))
 		if err != nil {
 			defer serviceStopWG.Done()
