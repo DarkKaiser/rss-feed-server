@@ -1,4 +1,4 @@
-package handler
+package rss
 
 import (
 	"context"
@@ -9,19 +9,40 @@ import (
 	"time"
 
 	applog "github.com/darkkaiser/notify-server/pkg/log"
+	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
+	"github.com/darkkaiser/rss-feed-server/internal/feed"
+	"github.com/darkkaiser/rss-feed-server/internal/service/api/httputil"
 	"github.com/darkkaiser/rss-feed-server/internal/service/api/rss"
 	"github.com/labstack/echo/v4"
 )
 
-func (h *Handler) GetRssFeedSummaryViewHandler(c echo.Context) error {
-	return c.Render(http.StatusOK, "rss_feed_summary_view.tmpl", map[string]interface{}{
+type Handler struct {
+	config *config.AppConfig
+
+	feedRepo feed.Repository
+
+	notifyClient *notify.Client
+}
+
+func New(config *config.AppConfig, feedRepo feed.Repository, notifyClient *notify.Client) *Handler {
+	return &Handler{
+		config: config,
+
+		feedRepo: feedRepo,
+
+		notifyClient: notifyClient,
+	}
+}
+
+func (h *Handler) ViewSummary(c echo.Context) error {
+	return c.Render(http.StatusOK, "rss_summary.tmpl", map[string]interface{}{
 		"serviceUrl": fmt.Sprintf("%s://%s", c.Scheme(), c.Request().Host),
 		"rssFeed":    h.config.RssFeed,
 	})
 }
 
-func (h *Handler) GetRssFeedHandler(c echo.Context) error {
+func (h *Handler) GetFeed(c echo.Context) error {
 	// 입력된 ID를 구한다.
 	id := c.Param("id")
 	if strings.HasSuffix(strings.ToLower(id), ".xml") == true {
@@ -38,7 +59,7 @@ func (h *Handler) GetRssFeedHandler(c echo.Context) error {
 				boardIDs = append(boardIDs, b.ID)
 			}
 
-			articles, err := h.rssFeedProviderStore.GetArticles(p.ID, boardIDs, h.config.RssFeed.MaxItemCount)
+			articles, err := h.feedRepo.GetArticles(p.ID, boardIDs, h.config.RssFeed.MaxItemCount)
 			if err != nil {
 				m := fmt.Sprintf("DB에서 게시글을 읽어오는 중에 오류가 발생하였습니다. (p_id:%s)", p.ID)
 
@@ -48,7 +69,7 @@ func (h *Handler) GetRssFeedHandler(c echo.Context) error {
 					h.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
 				}
 
-				return echo.NewHTTPError(http.StatusInternalServerError, err)
+				return httputil.NewInternalServerError(m)
 			}
 
 			//
@@ -78,12 +99,12 @@ func (h *Handler) GetRssFeedHandler(c echo.Context) error {
 					h.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
 				}
 
-				return echo.NewHTTPError(http.StatusInternalServerError, err)
+				return httputil.NewInternalServerError(m)
 			}
 
 			return c.XMLBlob(http.StatusOK, xmlBytes)
 		}
 	}
 
-	return c.NoContent(http.StatusBadRequest)
+	return httputil.NewBadRequestError(fmt.Sprintf("요청하신 식별자(ID:%s)의 RSS 피드를 찾을 수 없습니다.", id))
 }
