@@ -37,19 +37,19 @@ const (
 // component main 로깅용 컴포넌트 이름
 const component = "main"
 
-const (
+var (
 	// shutdownTimeout 종료 시그널 수신 후 최대 대기 시간
 	shutdownTimeout = 30 * time.Second
 )
 
 func main() {
-	if err := run(); err != nil {
+	if err := run(nil, nil, nil); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 }
 
-func run() error {
+func run(testDB *sql.DB, testServices []service.Service, testTermC <-chan os.Signal) error {
 	// 1. 환경설정 로드
 	// 애플리케이션 구동에 필요한 모든 설정(로깅, 타임아웃, 포트 등)을 파일로부터 읽어 메모리에 적재합니다.
 	// 이 단계가 실패하면 서버는 정상 동작할 수 없으므로 즉시 종료됩니다.
@@ -115,15 +115,20 @@ func run() error {
 	}
 
 	// 8. 데이터베이스 초기화
-	db, err := sqlite.Open(context.Background(), fmt.Sprintf("./%s.db", config.AppName))
-	if err != nil {
-		m := "SQLite 데이터베이스 초기화 중 치명적인 오류가 발생했습니다"
+	var db *sql.DB
+	if testDB != nil {
+		db = testDB
+	} else {
+		db, err = sqlite.Open(context.Background(), fmt.Sprintf("./%s.db", config.AppName))
+		if err != nil {
+			m := "SQLite 데이터베이스 초기화 중 치명적인 오류가 발생했습니다"
 
-		if notifyClient != nil {
-			notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
+			if notifyClient != nil {
+				notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
+			}
+
+			return fmt.Errorf("%s: %w", m, err)
 		}
-
-		return fmt.Errorf("%s: %w", m, err)
 	}
 	defer func(db *sql.DB) {
 		if err := db.Close(); err != nil {
@@ -138,12 +143,6 @@ func run() error {
 			}
 		}
 	}(db)
-
-	// @@@@@ 테스트
-	if notifyClient != nil {
-		notifyClient.NotifyError(context.Background(), "에러 테스트")
-		notifyClient.Notify(context.Background(), "일반 테스트")
-	}
 
 	// 9. RSS Feed Store 초기화
 	store, err := sqlite.New(db)
@@ -191,8 +190,15 @@ func run() error {
 	}
 
 	// 13. 서비스 객체 생성 및 연결
-	apiService := api.NewService(appConfig, store, notifyClient)
-	crawlService := crawl.NewService(appConfig, store, notifyClient)
+	var services []service.Service
+	if testServices != nil {
+		services = testServices
+	} else {
+		services = []service.Service{
+			api.NewService(appConfig, store, notifyClient),
+			crawl.NewService(appConfig, store, notifyClient),
+		}
+	}
 
 	// 14. 서비스 생명주기 관리 컨텍스트 설정
 	// 전체 서비스의 종료 신호를 전파하는 Context(serviceStopCtx)와
@@ -203,7 +209,6 @@ func run() error {
 	// 15. 서비스 병렬 기동
 	// 준비된 모든 서비스를 별도의 고루틴 또는 비동기 컨텍스트에서 시작합니다.
 	// 하나라도 초기화에 실패하면 즉시 전체 서버 구동을 중단하고 롤백(종료) 절차를 밟습니다.
-	services := []service.Service{apiService, crawlService}
 	for _, s := range services {
 		serviceStopWG.Add(1)
 		if err := s.Start(serviceStopCtx, serviceStopWG); err != nil {
@@ -216,8 +221,14 @@ func run() error {
 	// 16. OS 시그널 처리기 등록
 	// 운영체제로부터의 종료 신호(SIGTERM: 정상 종료, SIGINT: Ctrl+C)를 수신할 채널을 생성합니다.
 	// 이는 서버가 즉시 종료되지 않고, 진행 중인 작업을 마무리할 시간을 확보(Graceful Shutdown)하기 위함입니다.
-	termC := make(chan os.Signal, 1)
-	signal.Notify(termC, syscall.SIGINT, syscall.SIGTERM)
+	var termC <-chan os.Signal
+	if testTermC != nil {
+		termC = testTermC
+	} else {
+		sigC := make(chan os.Signal, 1)
+		signal.Notify(sigC, syscall.SIGINT, syscall.SIGTERM)
+		termC = sigC
+	}
 
 	applog.WithComponent(component).Info("RSS Feed Server 초기화가 성공적으로 완료되었습니다 (Ready to Serve)")
 

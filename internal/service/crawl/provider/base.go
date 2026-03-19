@@ -14,7 +14,6 @@ import (
 	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/feed"
-	"github.com/darkkaiser/rss-feed-server/internal/store/sqlite"
 	"github.com/robfig/cron/v3"
 	"golang.org/x/net/html"
 	"golang.org/x/text/encoding"
@@ -23,7 +22,7 @@ import (
 var ErrNotSupportedCrawler = errors.New("지원하지 않는 Crawler입니다")
 
 // NewCrawlerFunc 크롤러 생성 함수 타입
-type NewCrawlerFunc func(string, *config.ProviderDetailConfig, *sqlite.Store, *notify.Client) cron.Job
+type NewCrawlerFunc func(string, *config.ProviderDetailConfig, feed.Repository, *notify.Client) cron.Job
 
 // SupportedCrawlers 지원되는 Crawler 목록
 var SupportedCrawlers = make(map[config.ProviderSite]*SupportedCrawlerConfig)
@@ -49,9 +48,9 @@ type crawlingArticlesFunc func() ([]*feed.Article, map[string]string, string, er
 type crawler struct {
 	config *config.ProviderDetailConfig
 
-	rssFeedProviderID    string
-	rssFeedProviderStore *sqlite.Store
-	notifyClient         *notify.Client
+	rssFeedProviderID string
+	feedRepo          feed.Repository
+	notifyClient      *notify.Client
 
 	site            string
 	siteID          string
@@ -83,7 +82,7 @@ func (c *crawler) Run() {
 		if len(articles) > 0 {
 			applog.Debugf("%s('%s')의 크롤링 작업 결과로 %d건의 신규 게시글이 추출되었습니다. 신규 게시글을 DB에 추가합니다.", c.site, c.siteID, len(articles))
 
-			insertedCnt, err := c.rssFeedProviderStore.InsertArticles(c.rssFeedProviderID, articles)
+			insertedCnt, err := c.feedRepo.InsertArticles(c.rssFeedProviderID, articles)
 			if err != nil {
 				m := fmt.Sprintf("%s('%s')의 신규 게시글을 DB에 추가하는 중에 오류가 발생하여 크롤링 작업이 실패하였습니다.", c.site, c.siteID)
 
@@ -101,7 +100,7 @@ func (c *crawler) Run() {
 					boardID = ""
 				}
 
-				if err = c.rssFeedProviderStore.UpdateLatestCrawledArticleID(c.rssFeedProviderID, boardID, articleID); err != nil {
+				if err = c.feedRepo.UpdateLatestCrawledArticleID(c.rssFeedProviderID, boardID, articleID); err != nil {
 					m := fmt.Sprintf("%s('%s')의 크롤링 된 최근 게시글 ID의 DB 갱신이 실패하였습니다.", c.site, c.siteID)
 
 					applog.Errorf("%s (error:%s)", m, err)
@@ -123,7 +122,7 @@ func (c *crawler) Run() {
 					boardID = ""
 				}
 
-				if err = c.rssFeedProviderStore.UpdateLatestCrawledArticleID(c.rssFeedProviderID, boardID, articleID); err != nil {
+				if err = c.feedRepo.UpdateLatestCrawledArticleID(c.rssFeedProviderID, boardID, articleID); err != nil {
 					m := fmt.Sprintf("%s('%s')의 크롤링 된 최근 게시글 ID의 DB 갱신이 실패하였습니다.", c.site, c.siteID)
 
 					applog.Errorf("%s (error:%s)", m, err)

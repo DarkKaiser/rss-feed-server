@@ -9,8 +9,9 @@ import (
 	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
+	"github.com/darkkaiser/rss-feed-server/internal/feed"
+	"github.com/darkkaiser/rss-feed-server/internal/service"
 	"github.com/darkkaiser/rss-feed-server/internal/service/crawl/provider"
-	"github.com/darkkaiser/rss-feed-server/internal/store/sqlite"
 	"github.com/robfig/cron/v3"
 )
 
@@ -20,14 +21,17 @@ type Service struct {
 
 	cron *cron.Cron
 
-	rssFeedProviderStore *sqlite.Store
-	notifyClient         *notify.Client
+	feedRepo     feed.Repository
+	notifyClient *notify.Client
 
 	running   bool
 	runningMu sync.Mutex
 }
 
-func NewService(config *config.AppConfig, rssFeedProviderStore *sqlite.Store, notifyClient *notify.Client) *Service {
+// 컴파일 타임에 인터페이스 구현 여부를 검증합니다.
+var _ service.Service = (*Service)(nil)
+
+func NewService(config *config.AppConfig, feedRepo feed.Repository, notifyClient *notify.Client) *Service {
 	return &Service{
 		config: config,
 
@@ -40,8 +44,8 @@ func NewService(config *config.AppConfig, rssFeedProviderStore *sqlite.Store, no
 			),
 		),
 
-		rssFeedProviderStore: rssFeedProviderStore,
-		notifyClient:         notifyClient,
+		feedRepo:     feedRepo,
+		notifyClient: notifyClient,
 
 		running:   false,
 		runningMu: sync.Mutex{},
@@ -67,6 +71,8 @@ func (s *Service) Start(serviceStopCtx context.Context, serviceStopWG *sync.Wait
 	for _, p := range s.config.RssFeed.Providers {
 		crawlerConfig, err := provider.FindConfigFromSupportedCrawler(config.ProviderSite(p.Site))
 		if err != nil {
+			defer serviceStopWG.Done()
+
 			m := fmt.Sprintf("%s(ID:%s) 크롤링 작업의 스케쥴러 등록이 실패하였습니다. 구현된 Crawler가 존재하지 않습니다.", p.Site, p.ID)
 
 			if s.notifyClient != nil {
@@ -79,7 +85,7 @@ func (s *Service) Start(serviceStopCtx context.Context, serviceStopWG *sync.Wait
 			return nil
 		}
 
-		if _, err := s.cron.AddJob(p.Scheduler.TimeSpec, crawlerConfig.NewCrawlerFn(p.ID, p.Config, s.rssFeedProviderStore, s.notifyClient)); err != nil {
+		if _, err := s.cron.AddJob(p.Scheduler.TimeSpec, crawlerConfig.NewCrawlerFn(p.ID, p.Config, s.feedRepo, s.notifyClient)); err != nil {
 			m := fmt.Sprintf("%s(ID:%s) 크롤링 작업의 스케쥴러 등록이 실패하였습니다. (error:%s)", p.Site, p.ID, err)
 
 			if s.notifyClient != nil {

@@ -20,7 +20,6 @@ import (
 	"github.com/darkkaiser/notify-server/pkg/strutil"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/feed"
-	"github.com/darkkaiser/rss-feed-server/internal/store/sqlite"
 	"github.com/robfig/cron/v3"
 	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/korean"
@@ -28,7 +27,7 @@ import (
 
 func init() {
 	SupportedCrawlers[config.ProviderSiteNaverCafe] = &SupportedCrawlerConfig{
-		NewCrawlerFn: func(rssFeedProviderID string, providerConfig *config.ProviderDetailConfig, rssFeedProviderStore *sqlite.Store, notifyClient *notify.Client) cron.Job {
+		NewCrawlerFn: func(rssFeedProviderID string, providerConfig *config.ProviderDetailConfig, feedRepo feed.Repository, notifyClient *notify.Client) cron.Job {
 			site := "네이버 카페"
 
 			data := naverCafeCrawlerConfigData{}
@@ -46,9 +45,9 @@ func init() {
 				crawler: crawler{
 					config: providerConfig,
 
-					rssFeedProviderID:    rssFeedProviderID,
-					rssFeedProviderStore: rssFeedProviderStore,
-					notifyClient:         notifyClient,
+					rssFeedProviderID: rssFeedProviderID,
+					feedRepo:          feedRepo,
+					notifyClient:      notifyClient,
 
 					site:            site,
 					siteID:          providerConfig.ID,
@@ -139,7 +138,7 @@ type naverCafeCrawler struct {
 }
 
 func (c *naverCafeCrawler) crawlingArticles() ([]*feed.Article, map[string]string, string, error) {
-	idString, latestCrawledCreatedDate, err := c.rssFeedProviderStore.GetLatestCrawledInfo(c.rssFeedProviderID, "")
+	idString, latestCrawledCreatedDate, err := c.feedRepo.GetLatestCrawledInfo(c.rssFeedProviderID, "")
 	if err != nil {
 		return nil, nil, fmt.Sprintf("%s('%s')에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", c.site, c.siteID), err
 	}
