@@ -386,16 +386,16 @@ func TestTemplateRenderer_Render(t *testing.T) {
 
 	t.Run("유효한 템플릿 이름으로 렌더링이 성공한다", func(t *testing.T) {
 		var buf bytes.Buffer
-		data := map[string]interface{}{
-			"serviceUrl": "http://localhost:8080",
-			"rssFeed": map[string]interface{}{
+		data := map[string]any{
+			"serviceURL": "http://localhost:8080",
+			"rssFeed": map[string]any{
 				"MaxItemCount": 100,
-				"Providers":    []interface{}{},
+				"Providers":    []any{},
 			},
 		}
 		err := renderer.Render(&buf, "rss_summary.tmpl", data, nil)
 		require.NoError(t, err)
-		assert.True(t, strings.Contains(buf.String(), "RSS 피드 목록"),
+		assert.True(t, strings.Contains(buf.String(), "RSS 피드 대시보드"),
 			"렌더링 결과에 페이지 제목이 포함되어야 한다")
 	})
 
