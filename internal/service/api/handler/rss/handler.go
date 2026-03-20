@@ -25,13 +25,15 @@ const component = "api.handler.rss"
 type Handler struct {
 	appConfig *config.AppConfig
 
-	// @@@@@
-	// providerMap 은 설정에 등록된 RSS 피드 프로바이더를 ID 기준으로 인덱싱한 맵입니다.
-	// GetFeed 요청마다 슬라이스를 순회하는 O(n) 탐색 대신 O(1) 조회를 위해 사용됩니다.
-	providerMap map[string]*config.ProviderConfig
+	// providers 설정에 등록된 RSS 피드 프로바이더를 ID 기준으로 인덱싱한 맵입니다.
+	providers map[string]*config.ProviderConfig
 
+	// feedRepo 게시글 영속성을 담당하는 저장소 인터페이스입니다.
 	feedRepo feed.Repository
 
+	// notifyClient 텔레그램 등 외부 알림 채널과 통신하는 클라이언트입니다.
+	// DB 조회 또는 XML 직렬화 실패 시 담당자에게 즉시 오류를 전파하는 데 사용됩니다.
+	// nil 이 허용되며, nil 인 경우 외부 알림은 전송되지 않습니다.
 	notifyClient *notify.Client
 }
 
@@ -44,17 +46,16 @@ func New(appConfig *config.AppConfig, feedRepo feed.Repository, notifyClient *no
 		panic("feed.Repository는 필수입니다")
 	}
 
-	// @@@@@
-	// 요청마다 반복되는 선형 탐색을 피하기 위해 Provider ID를 키로 하는 맵을 미리 구성한다.
-	providerMap := make(map[string]*config.ProviderConfig, len(appConfig.RssFeed.Providers))
+	// 클라이언트가 특정 피드 ID를 요청했을 때 매번 전체 목록을 뒤지지 않고 즉시 꺼내 쓸 수 있도록, ID를 Key로 하는 사전을 미리 만들어 둡니다.
+	providers := make(map[string]*config.ProviderConfig, len(appConfig.RssFeed.Providers))
 	for _, p := range appConfig.RssFeed.Providers {
-		providerMap[p.ID] = p
+		providers[p.ID] = p
 	}
 
 	return &Handler{
 		appConfig: appConfig,
 
-		providerMap: providerMap,
+		providers: providers,
 
 		feedRepo: feedRepo,
 
@@ -80,10 +81,9 @@ func (h *Handler) ViewSummary(c echo.Context) error {
 		"user_agent": c.Request().UserAgent(),
 	}).Debug("RSS 피드 목록 요약 페이지 조회")
 
-	// @@@@@
 	return c.Render(http.StatusOK, "rss_summary.tmpl", map[string]any{
-		"serviceURL": fmt.Sprintf("%s://%s", c.Scheme(), c.Request().Host),
-		"rssFeed":    h.appConfig.RssFeed,
+		"baseURL":    fmt.Sprintf("%s://%s", c.Scheme(), c.Request().Host),
+		"feedConfig": h.appConfig.RssFeed,
 	})
 }
 
@@ -122,7 +122,7 @@ func (h *Handler) GetFeed(c echo.Context) error {
 	// @@@@@
 	// providerMap에서 O(1) 조회로 해당 프로바이더를 찾는다.
 	// 등록되지 않은 ID라면 즉시 400 에러를 반환한다.
-	p, ok := h.providerMap[id]
+	p, ok := h.providers[id]
 	if !ok {
 		return httputil.NewBadRequestError(fmt.Sprintf("요청하신 식별자(ID:%s)의 RSS 피드를 찾을 수 없습니다.", id))
 	}
