@@ -72,7 +72,12 @@ func (c *crawler) Run() {
 		applog.Errorf("%s (error:%s)", errOccurred, err)
 
 		if c.notifyClient != nil {
-			c.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", errOccurred, err))
+			go func(msg string, e error) {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+
+				c.notifyClient.NotifyError(ctx, fmt.Sprintf("%s\r\n\r\n%s", msg, e))
+			}(errOccurred, err)
 		}
 
 		return
@@ -89,7 +94,12 @@ func (c *crawler) Run() {
 				applog.Errorf("%s (error:%s)", m, err)
 
 				if c.notifyClient != nil {
-					c.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
+					go func(msg string, e error) {
+						ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+						defer cancel()
+
+						c.notifyClient.NotifyError(ctx, fmt.Sprintf("%s\r\n\r\n%s", msg, e))
+					}(m, err)
 				}
 
 				return

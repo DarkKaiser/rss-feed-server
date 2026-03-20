@@ -35,7 +35,12 @@ func init() {
 				m := fmt.Sprintf("작업 데이터가 유효하지 않아 %s('%s') Crawler 생성이 실패하였습니다. (error:%s)", site, providerConfig.ID, err)
 
 				if notifyClient != nil {
-					notifyClient.NotifyError(context.Background(), m)
+					go func(msg string) {
+						ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+						defer cancel()
+
+						notifyClient.NotifyError(ctx, msg)
+					}(m)
 				}
 
 				applog.Panic(m)

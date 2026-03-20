@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/darkkaiser/notify-server/pkg/cronx"
 	applog "github.com/darkkaiser/notify-server/pkg/log"
@@ -76,7 +77,12 @@ func (s *Service) Start(serviceStopCtx context.Context, serviceStopWG *sync.Wait
 			m := fmt.Sprintf("%s(ID:%s) 크롤링 작업의 스케쥴러 등록이 실패하였습니다. 구현된 Crawler가 존재하지 않습니다.", p.Site, p.ID)
 
 			if s.notifyClient != nil {
-				s.notifyClient.NotifyError(context.Background(), m)
+				go func(msg string) {
+					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					defer cancel()
+
+					s.notifyClient.NotifyError(ctx, msg)
+				}(m)
 			}
 
 			applog.Panic(m)
