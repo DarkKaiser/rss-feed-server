@@ -58,7 +58,7 @@ func TestNewDefaultConfig(t *testing.T) {
 	})
 
 	t.Run("MaxItemCount 기본값 확인", func(t *testing.T) {
-		assert.Equal(t, uint(DefaultMaxItemCount), cfg.RssFeed.MaxItemCount)
+		assert.Equal(t, uint(DefaultMaxItemCount), cfg.RSSFeed.MaxItemCount)
 	})
 
 	t.Run("ListenPort 기본값 확인", func(t *testing.T) {
@@ -66,7 +66,7 @@ func TestNewDefaultConfig(t *testing.T) {
 	})
 
 	t.Run("Providers 기본값은 nil (빈 슬라이스)", func(t *testing.T) {
-		assert.Empty(t, cfg.RssFeed.Providers)
+		assert.Empty(t, cfg.RSSFeed.Providers)
 	})
 }
 
@@ -174,7 +174,7 @@ func TestLoadWithFile_Success_DefaultsApplied(t *testing.T) {
 
 	cfg, _, err := LoadWithFile(path)
 	require.NoError(t, err)
-	assert.Equal(t, uint(DefaultMaxItemCount), cfg.RssFeed.MaxItemCount)
+	assert.Equal(t, uint(DefaultMaxItemCount), cfg.RSSFeed.MaxItemCount)
 }
 
 func TestLoadWithFile_Success_LintWarning(t *testing.T) {
@@ -196,7 +196,7 @@ func TestLoadWithFile_Success_URLTrailingSlashTrimmed(t *testing.T) {
 
 	cfg, _, err := LoadWithFile(path)
 	require.NoError(t, err)
-	assert.Equal(t, "http://example.com", cfg.RssFeed.Providers[0].Config.URL)
+	assert.Equal(t, "http://example.com", cfg.RSSFeed.Providers[0].Config.URL)
 }
 
 func TestLoadWithFile_EnvOverride(t *testing.T) {

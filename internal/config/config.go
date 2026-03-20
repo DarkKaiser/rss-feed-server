@@ -42,7 +42,7 @@ const (
 func newDefaultConfig() AppConfig {
 	return AppConfig{
 		Debug: false,
-		RssFeed: RssFeedConfig{
+		RSSFeed: RSSFeedConfig{
 			MaxItemCount: DefaultMaxItemCount,
 		},
 		WS: WSConfig{

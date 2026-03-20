@@ -61,12 +61,12 @@ func (s *Store) SyncProviders(providers []*config.ProviderConfig) error {
 }
 
 // @@@@@
-// PurgeOldArticles 환경 설정에 정의된 보관 기한(ArticleArchiveDate)이 지난 오래된 크롤링 게시글을 모두 삭제한다.
+// PurgeOldArticles 환경 설정에 정의된 보관 기한(ArchiveDays)이 지난 오래된 크롤링 게시글을 모두 삭제한다.
 func (s *Store) PurgeOldArticles(providers []*config.ProviderConfig) error {
 	var errs []error
 
 	for _, c := range providers {
-		if err := s.deleteOutOfDateArticles(c.ID, c.Config.ArticleArchiveDate); err != nil {
+		if err := s.deleteOutOfDateArticles(c.ID, c.Config.ArchiveDays); err != nil {
 			errs = append(errs, fmt.Errorf("보관 기간이 지난 게시글 삭제 실패 (providerID: %s): %w", c.ID, err))
 		}
 	}

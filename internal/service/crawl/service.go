@@ -68,7 +68,7 @@ func (s *Service) Start(serviceStopCtx context.Context, serviceStopWG *sync.Wait
 	}
 
 	// 크롤링 스케쥴러를 시작한다.
-	for _, p := range s.appConfig.RssFeed.Providers {
+	for _, p := range s.appConfig.RSSFeed.Providers {
 		crawlerConfig, err := provider.FindConfigFromSupportedCrawler(config.ProviderSite(p.Site))
 		if err != nil {
 			defer serviceStopWG.Done()

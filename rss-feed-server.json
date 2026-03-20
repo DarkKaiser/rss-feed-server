@@ -115,7 +115,7 @@
 							"category": "여순광 생활 정보"
 						}
 					],
-					"article_archive_date": 90,
+					"archive_days": 90,
 					"data": {
 						"club_id": "12303558"
 					}
@@ -194,7 +194,7 @@
 							"category": "협력기관 / 정보안내"
 						}
 					],
-					"article_archive_date": 90,
+					"archive_days": 90,
 					"data": {
 						"club_id": "19246017"
 					}
@@ -261,7 +261,7 @@
 							"category": "협력기관"
 						}
 					],
-					"article_archive_date": 90,
+					"archive_days": 90,
 					"data": {
 						"club_id": "15346057"
 					}
@@ -316,7 +316,7 @@
 							"category": "열린시정 > 여수소식"
 						}
 					],
-					"article_archive_date": 90,
+					"archive_days": 90,
 					"data": {
 					}
 				},
@@ -376,7 +376,7 @@
 							"category": "학부모마당"
 						}
 					],
-					"article_archive_date": 90,
+					"archive_days": 90,
 					"data": {
 					}
 				},

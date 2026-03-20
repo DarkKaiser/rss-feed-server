@@ -48,7 +48,7 @@ func TestAppConfig_Validate(t *testing.T) {
 
 	t.Run("유효한 최소 설정", func(t *testing.T) {
 		cfg := AppConfig{
-			RssFeed: RssFeedConfig{
+			RSSFeed: RSSFeedConfig{
 				MaxItemCount: 10,
 				Providers:    []*ProviderConfig{validProvider("p1", string(ProviderSiteYeosuCityHall))},
 			},
@@ -57,9 +57,9 @@ func TestAppConfig_Validate(t *testing.T) {
 		assert.NoError(t, cfg.validate(v))
 	})
 
-	t.Run("RssFeed 오류가 상위로 전파됨", func(t *testing.T) {
+	t.Run("RSSFeed 오류가 상위로 전파됨", func(t *testing.T) {
 		cfg := AppConfig{
-			RssFeed: RssFeedConfig{MaxItemCount: 0}, // 위반
+			RSSFeed: RSSFeedConfig{MaxItemCount: 0}, // 위반
 			WS:      WSConfig{ListenPort: 8080},
 		}
 		err := cfg.validate(v)
@@ -69,7 +69,7 @@ func TestAppConfig_Validate(t *testing.T) {
 
 	t.Run("WS 오류가 상위로 전파됨", func(t *testing.T) {
 		cfg := AppConfig{
-			RssFeed: RssFeedConfig{
+			RSSFeed: RSSFeedConfig{
 				MaxItemCount: 10,
 				Providers:    []*ProviderConfig{validProvider("p1", string(ProviderSiteYeosuCityHall))},
 			},
@@ -88,7 +88,7 @@ func TestAppConfig_Validate(t *testing.T) {
 		}, NotifyAPIConfig{})
 
 		cfg := AppConfig{
-			RssFeed: RssFeedConfig{
+			RSSFeed: RSSFeedConfig{
 				MaxItemCount: 10,
 				Providers:    []*ProviderConfig{validProvider("p1", string(ProviderSiteYeosuCityHall))},
 			},
@@ -132,14 +132,14 @@ func TestAppConfig_Lint(t *testing.T) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RssFeedConfig
+// RSSFeedConfig
 // ─────────────────────────────────────────────────────────────────────────────
 
-func TestRssFeedConfig_Validate(t *testing.T) {
+func TestRSSFeedConfig_Validate(t *testing.T) {
 	v := newTestValidator()
 
 	t.Run("유효한 설정", func(t *testing.T) {
-		cfg := RssFeedConfig{
+		cfg := RSSFeedConfig{
 			MaxItemCount: 10,
 			Providers:    []*ProviderConfig{validProvider("p1", string(ProviderSiteYeosuCityHall))},
 		}
@@ -147,14 +147,14 @@ func TestRssFeedConfig_Validate(t *testing.T) {
 	})
 
 	t.Run("MaxItemCount가 0이면 에러", func(t *testing.T) {
-		cfg := RssFeedConfig{MaxItemCount: 0}
+		cfg := RSSFeedConfig{MaxItemCount: 0}
 		err := cfg.validate(v)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "RSS 피드 최대 수집 개수(max_item_count)는 0보다 커야 합니다")
 	})
 
 	t.Run("Provider ID 중복이면 에러", func(t *testing.T) {
-		cfg := RssFeedConfig{
+		cfg := RSSFeedConfig{
 			MaxItemCount: 10,
 			Providers: []*ProviderConfig{
 				validProvider("dup_id", string(ProviderSiteYeosuCityHall)),
@@ -167,7 +167,7 @@ func TestRssFeedConfig_Validate(t *testing.T) {
 	})
 
 	t.Run("Provider 하위 에러가 상위로 전파됨", func(t *testing.T) {
-		cfg := RssFeedConfig{
+		cfg := RSSFeedConfig{
 			MaxItemCount: 10,
 			Providers:    []*ProviderConfig{{ID: "", Site: "", Config: nil}},
 		}
