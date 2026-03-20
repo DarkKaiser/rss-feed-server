@@ -47,8 +47,8 @@ func New(appConfig *config.AppConfig, feedRepo feed.Repository, notifyClient *no
 	}
 
 	// 클라이언트가 특정 피드 ID를 요청했을 때 매번 전체 목록을 뒤지지 않고 즉시 꺼내 쓸 수 있도록, ID를 Key로 하는 사전을 미리 만들어 둡니다.
-	providers := make(map[string]*config.ProviderConfig, len(appConfig.RssFeed.Providers))
-	for _, p := range appConfig.RssFeed.Providers {
+	providers := make(map[string]*config.ProviderConfig, len(appConfig.RSSFeed.Providers))
+	for _, p := range appConfig.RSSFeed.Providers {
 		providers[p.ID] = p
 	}
 
@@ -83,7 +83,7 @@ func (h *Handler) ViewSummary(c echo.Context) error {
 
 	return c.Render(http.StatusOK, "rss_summary.tmpl", map[string]any{
 		"baseURL":    fmt.Sprintf("%s://%s", c.Scheme(), c.Request().Host),
-		"feedConfig": h.appConfig.RssFeed,
+		"feedConfig": h.appConfig.RSSFeed,
 	})
 }
 
@@ -135,7 +135,7 @@ func (h *Handler) GetFeed(c echo.Context) error {
 	}
 
 	// DB에서 최신 게시글을 MaxItemCount 개 한도로 조회한다.
-	articles, err := h.feedRepo.GetArticles(p.ID, boardIDs, h.appConfig.RssFeed.MaxItemCount)
+	articles, err := h.feedRepo.GetArticles(p.ID, boardIDs, h.appConfig.RSSFeed.MaxItemCount)
 	if err != nil {
 		m := fmt.Sprintf("DB에서 게시글을 읽어오는 중에 오류가 발생하였습니다. (p_id:%s)", p.ID)
 
@@ -158,12 +158,12 @@ func (h *Handler) GetFeed(c echo.Context) error {
 		lastBuildDate = articles[0].CreatedAt
 	}
 
-	rssFeed := rss.NewRssFeed(p.Config.Name, p.Config.URL, p.Config.Description, "ko", config.AppName, time.Now(), lastBuildDate)
+	rssFeed := rss.NewRSSFeed(p.Config.Name, p.Config.URL, p.Config.Description, "ko", config.AppName, time.Now(), lastBuildDate)
 	for _, article := range articles {
 		// 게시글 본문의 줄바꿈(CRLF)을 HTML <br> 태그로 치환하여
 		// RSS 리더에서 줄바꿈이 올바르게 렌더링되도록 한다.
 		rssFeed.Items = append(rssFeed.Items,
-			rss.NewRssFeedItem(article.Title, article.Link, strings.ReplaceAll(article.Content, "\r\n", "<br>"), article.Author, article.BoardName, article.CreatedAt),
+			rss.NewRSSFeedItem(article.Title, article.Link, strings.ReplaceAll(article.Content, "\r\n", "<br>"), article.Author, article.BoardName, article.CreatedAt),
 		)
 	}
 

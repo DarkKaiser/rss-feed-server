@@ -126,8 +126,6 @@ func TestRun_DBInitError(t *testing.T) {
 	}
 }
 
-
-
 // TestRun_SuccessAndGracefulShutdown은 서버 정상 기동 및 주입된 Signal 채널을 통한 Graceful Shutdown이 잘 동작하는지 검증합니다.
 func TestRun_SuccessAndGracefulShutdown(t *testing.T) {
 	setupEnv(t, defaultValidConfig)
@@ -154,7 +152,7 @@ func TestRun_SuccessAndGracefulShutdown(t *testing.T) {
 		if runErr != nil {
 			t.Fatalf("정상 종료 상황이나, run()에서 에러가 반환됨: %v", runErr)
 		}
-	case <-time.After(15 * time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("SIGTERM 전송 후 Graceful Shutdown 시간 초과 (데드락 의심)")
 	}
 }
@@ -189,7 +187,7 @@ func TestRun_DebugMode(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Debug 모드 실행 중 에러 발생: %v", err)
 		}
-	case <-time.After(15 * time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Graceful Shutdown 시간 초과")
 	}
 }
@@ -242,8 +240,6 @@ func TestRun_SQLiteNewError(t *testing.T) {
 		t.Fatal("SQLite 초기화 실패로 인해 run()이 에러를 반환해야 하지만, nil이 반환되었습니다")
 	}
 }
-
-
 
 // MockService는 테스트를 위한 가짜 서비스 구현체입니다.
 type MockService struct {
@@ -353,4 +349,3 @@ func TestRun_RealSignal(t *testing.T) {
 		t.Log("Graceful Shutdown 타임아웃 또는 시그널 송신 실패 (정상 처리)")
 	}
 }
-

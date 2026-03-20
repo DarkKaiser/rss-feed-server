@@ -22,14 +22,14 @@ const (
 // AppConfig 애플리케이션의 모든 설정을 포함하는 최상위 구조체
 type AppConfig struct {
 	Debug     bool            `json:"debug"`
-	RssFeed   RssFeedConfig   `json:"rss_feed"`
+	RSSFeed   RSSFeedConfig   `json:"rss_feed"`
 	WS        WSConfig        `json:"ws"`
 	NotifyAPI NotifyAPIConfig `json:"notify_api"`
 }
 
 // validate 설정 파일 로드 직후, 각 설정 항목의 정합성과 필수 값의 유효성을 검증합니다.
 func (c *AppConfig) validate(v *validator.Validate) error {
-	if err := c.RssFeed.validate(v); err != nil {
+	if err := c.RSSFeed.validate(v); err != nil {
 		return err
 	}
 
@@ -52,13 +52,13 @@ func (c *AppConfig) lint() []string {
 	return warnings
 }
 
-// RssFeedConfig RSS 피드 관련 설정을 정의하는 구조체
-type RssFeedConfig struct {
+// RSSFeedConfig RSS 피드 관련 설정을 정의하는 구조체
+type RSSFeedConfig struct {
 	MaxItemCount uint              `json:"max_item_count" validate:"gt=0"`
 	Providers    []*ProviderConfig `json:"providers" validate:"unique=ID"`
 }
 
-func (c *RssFeedConfig) validate(v *validator.Validate) error {
+func (c *RSSFeedConfig) validate(v *validator.Validate) error {
 	if err := checkStruct(v, c, "RSS 피드 설정"); err != nil {
 		return err
 	}
@@ -132,13 +132,13 @@ func (c *ProviderConfig) validate(v *validator.Validate, seenClubIDs map[string]
 
 // ProviderDetailConfig RSS 피드 공급자의 상세 정보를 담는 설정 구조체
 type ProviderDetailConfig struct {
-	ID                 string         `json:"id" validate:"required"`
-	Name               string         `json:"name" validate:"required"`
-	Description        string         `json:"description"`
-	URL                string         `json:"url" validate:"required"`
-	Boards             []*BoardConfig `json:"boards" validate:"unique=ID"`
-	ArticleArchiveDate uint           `json:"article_archive_date"`
-	Data               map[string]any `json:"data"`
+	ID          string         `json:"id" validate:"required"`
+	Name        string         `json:"name" validate:"required"`
+	Description string         `json:"description"`
+	URL         string         `json:"url" validate:"required"`
+	Boards      []*BoardConfig `json:"boards" validate:"unique=ID"`
+	ArchiveDays uint           `json:"archive_days"`
+	Data        map[string]any `json:"data"`
 }
 
 func (c *ProviderDetailConfig) validate(v *validator.Validate, providerName string) error {

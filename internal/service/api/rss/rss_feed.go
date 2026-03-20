@@ -19,14 +19,14 @@ type CDATA2 struct {
 	Text string `xml:",cdata"`
 }
 
-// RssFeedXml private wrapper around the RssFeed which gives us the <rss>...</rss> xml
-type RssFeedXml struct {
+// RSSFeedXml private wrapper around the RSSFeed which gives us the <rss>...</rss> xml
+type RSSFeedXml struct {
 	XMLName xml.Name `xml:"rss"`
 	Version string   `xml:"version,attr"`
-	Channel *RssFeed
+	Channel *RSSFeed
 }
 
-type RssFeed struct {
+type RSSFeed struct {
 	XMLName        xml.Name `xml:"channel"`
 	Title          CDATA    `xml:"title"`       // required
 	Link           string   `xml:"link"`        // required
@@ -50,9 +50,9 @@ type RssFeed struct {
 	Items          []*RssItem `xml:"item"`
 }
 
-// FeedXml returns an XML-ready object for an RssFeed object
-func (r *RssFeed) FeedXml() interface{} {
-	return &RssFeedXml{
+// FeedXml returns an XML-ready object for an RSSFeed object
+func (r *RSSFeed) FeedXml() interface{} {
+	return &RSSFeedXml{
 		Version: "2.0",
 		Channel: r,
 	}
@@ -113,8 +113,8 @@ func anyTimeFormat(format string, times ...time.Time) string {
 	return ""
 }
 
-func NewRssFeed(title, link, description, language, generator string, pubDate, lastBuildDate time.Time) *RssFeed {
-	feed := &RssFeed{
+func NewRSSFeed(title, link, description, language, generator string, pubDate, lastBuildDate time.Time) *RSSFeed {
+	feed := &RSSFeed{
 		Title:         CDATA(title),
 		Link:          link,
 		Description:   CDATA(description),
@@ -132,7 +132,7 @@ func NewRssFeed(title, link, description, language, generator string, pubDate, l
 	return feed
 }
 
-func NewRssFeedItem(title, link, description, author, category string, pubDate time.Time) *RssItem {
+func NewRSSFeedItem(title, link, description, author, category string, pubDate time.Time) *RssItem {
 	item := &RssItem{
 		Title:       CDATA(title),
 		Link:        link,

@@ -198,7 +198,7 @@ func run(testDB *sql.DB, testServices []service.Service, testTermC <-chan os.Sig
 	}
 
 	// 11. RSS Feed Provider 설정 데이터 동기화
-	if err := store.SyncProviders(appConfig.RssFeed.Providers); err != nil {
+	if err := store.SyncProviders(appConfig.RSSFeed.Providers); err != nil {
 		m := "RSS 피드 마스터 정보 동기화 중 치명적인 오류가 발생했습니다"
 
 		if notifyClient != nil {
@@ -209,7 +209,7 @@ func run(testDB *sql.DB, testServices []service.Service, testTermC <-chan os.Sig
 	}
 
 	// 12. RSS Feed 보관 기한 만료 데이터 정리
-	if err := store.PurgeOldArticles(appConfig.RssFeed.Providers); err != nil {
+	if err := store.PurgeOldArticles(appConfig.RSSFeed.Providers); err != nil {
 		m := "RSS 피드 만료 데이터 정리 중 치명적인 오류가 발생했습니다"
 
 		if notifyClient != nil {
