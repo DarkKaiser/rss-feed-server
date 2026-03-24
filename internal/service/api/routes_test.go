@@ -17,7 +17,8 @@ import (
 
 // newTestRSSHandler 테스트용 최소 rss.Handler를 생성합니다.
 func newTestRSSHandler() *rss.Handler {
-	return rss.New(newTestAppConfig(), &mockFeedRepository{}, nil)
+	appConf := newTestAppConfig()
+	return rss.New(&appConf.RSSFeed, &mockFeedRepository{}, nil)
 }
 
 // routeExists 주어진 method/path 조합의 라우트가 Echo 인스턴스에 등록되어 있는지 확인합니다.
