@@ -19,11 +19,12 @@ type CDATA2 struct {
 	Text string `xml:",cdata"`
 }
 
-// RSSFeedXml private wrapper around the RSSFeed which gives us the <rss>...</rss> xml
-type RSSFeedXml struct {
-	XMLName xml.Name `xml:"rss"`
-	Version string   `xml:"version,attr"`
-	Channel *RSSFeed
+// RSSFeedDocument private wrapper around the RSSFeed which gives us the <rss>...</rss> xml
+type RSSFeedDocument struct {
+	XMLName      xml.Name `xml:"rss"`
+	Version      string   `xml:"version,attr"`
+	XmlnsContent string   `xml:"xmlns:content,attr"`
+	Channel      *RSSFeed
 }
 
 type RSSFeed struct {
@@ -50,23 +51,24 @@ type RSSFeed struct {
 	Items          []*RssItem `xml:"item"`
 }
 
-// FeedXml returns an XML-ready object for an RSSFeed object
-func (r *RSSFeed) FeedXml() interface{} {
-	return &RSSFeedXml{
-		Version: "2.0",
-		Channel: r,
+// Document returns an XML Document wrapper for an RSSFeed object
+func (r *RSSFeed) Document() *RSSFeedDocument {
+	return &RSSFeedDocument{
+		Version:      "2.0",
+		XmlnsContent: "http://purl.org/rss/1.0/modules/content/",
+		Channel:      r,
 	}
 }
 
 type RssItem struct {
-	XMLName     xml.Name `xml:"item"`
-	Title       CDATA    `xml:"title"`       // required
-	Link        string   `xml:"link"`        // required
-	Description CDATA    `xml:"description"` // required
-	Content     *RssContent
-	Author      CDATA  `xml:"author,omitempty"`
-	Category    CDATA  `xml:"category,omitempty"`
-	Comments    string `xml:"comments,omitempty"`
+	XMLName     xml.Name    `xml:"item"`
+	Title       CDATA       `xml:"title"`       // required
+	Link        string      `xml:"link"`        // required
+	Description CDATA       `xml:"description"` // required
+	Content     *RssContent `xml:"content:encoded,omitempty"`
+	Author      CDATA       `xml:"author,omitempty"`
+	Category    CDATA       `xml:"category,omitempty"`
+	Comments    string      `xml:"comments,omitempty"`
 	Enclosure   *RssEnclosure
 	Guid        string `xml:"guid,omitempty"`    // ID used
 	PubDate     string `xml:"pubDate,omitempty"` // created or updated
@@ -113,7 +115,7 @@ func anyTimeFormat(format string, times ...time.Time) string {
 	return ""
 }
 
-func NewRSSFeed(title, link, description, language, generator string, pubDate, lastBuildDate time.Time) *RSSFeed {
+func NewFeed(title, link, description, language, generator string, pubDate, lastBuildDate time.Time) *RSSFeed {
 	feed := &RSSFeed{
 		Title:         CDATA(title),
 		Link:          link,
@@ -132,13 +134,17 @@ func NewRSSFeed(title, link, description, language, generator string, pubDate, l
 	return feed
 }
 
-func NewRSSFeedItem(title, link, description, author, category string, pubDate time.Time) *RssItem {
+func NewFeedItem(title, link, description, content, author, category string, pubDate time.Time) *RssItem {
 	item := &RssItem{
 		Title:       CDATA(title),
 		Link:        link,
 		Description: CDATA(description),
 		Guid:        link,
 		PubDate:     anyTimeFormat(time.RFC1123Z, pubDate),
+	}
+
+	if len(content) > 0 {
+		item.Content = &RssContent{Content: content}
 	}
 
 	if len(author) > 0 {

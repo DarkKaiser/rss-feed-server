@@ -148,7 +148,7 @@ func (s *Service) runEventLoop(serviceStopCtx context.Context, serviceStopWG *sy
 //  3. 라우트 등록 (전역 라우트)
 func (s *Service) setupServer() *echo.Echo {
 	// 1. Handler 생성
-	rssHandler := rss.New(s.appConfig, s.feedRepo, s.notifyClient)
+	rssHandler := rss.New(&s.appConfig.RSSFeed, s.feedRepo, s.notifyClient)
 
 	// 2. Echo 서버 생성 (미들웨어 체인 포함)
 	e := NewEchoServer(ServerConfig{
