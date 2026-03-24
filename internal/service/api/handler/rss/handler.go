@@ -2,7 +2,6 @@ package rss
 
 import (
 	"context"
-	"encoding/xml"
 	"errors"
 	"fmt"
 	"net/http"
@@ -16,7 +15,7 @@ import (
 	"github.com/darkkaiser/rss-feed-server/internal/feed"
 	"github.com/darkkaiser/rss-feed-server/internal/service/api/httputil"
 	_ "github.com/darkkaiser/rss-feed-server/internal/service/api/model/response"
-	"github.com/darkkaiser/rss-feed-server/pkg/rss"
+	"github.com/gorilla/feeds"
 	"github.com/labstack/echo/v4"
 )
 
@@ -211,12 +210,18 @@ func (h *Handler) GetFeed(c echo.Context) error {
 	}
 
 	// =========================================================================
-	// 5단계: RSS Feed 객체 조립
+	// 5단계: RSS 피드 객체 조립
 	// =========================================================================
-	// DB에서 조회한 게시글들을 RSS 2.0 규격에 맞는 데이터 구조(Feed, Item)로 조립합니다.
-	// 발행일(PubDate)과 최종갱신일(LastBuildDate)을 가장 최신 게시글 쓰인 시각으로 일치시켜서, 새 글이 없을 때 RSS 리더기가 중복 알림을 울리지 않도록 예방합니다.
-	feed := rss.NewFeed(provider.cfg.Config.Name, provider.cfg.Config.URL, provider.cfg.Config.Description, "ko", config.AppName, lastBuildDate, lastBuildDate)
-	feed.Items = make([]*rss.RssItem, 0, len(articles))
+	// DB에서 조회한 게시글들을 바탕으로 RSS 2.0 객체를 라이브러리 스펙에 맞게 조립합니다.
+	feed := &feeds.Feed{
+		Title:       provider.cfg.Config.Name,
+		Link:        &feeds.Link{Href: provider.cfg.Config.URL},
+		Description: provider.cfg.Config.Description,
+		Author:      &feeds.Author{Name: config.AppName},
+		Updated:     lastBuildDate,
+		Created:     lastBuildDate,
+	}
+
 	for _, article := range articles {
 		if article == nil {
 			continue
@@ -230,24 +235,30 @@ func (h *Handler) GetFeed(c echo.Context) error {
 			content = nl2brReplacer.Replace(content)
 		}
 
-		// 카테고리를 위한 게시판 ID(영문/숫자 등)를 사람이 읽기 좋은 표시용 이름으로 변환합니다.
+		// 게시판 ID(영문/숫자 등)를 사람이 읽기 좋은 표시용 이름으로 변환합니다.
 		boardName, exists := provider.boardNameByID[article.BoardID]
 		if !exists {
 			boardName = article.BoardID
 		}
 
-		feed.Items = append(feed.Items,
-			rss.NewFeedItem(article.Title, article.Link, content, content, article.Author, boardName, article.CreatedAt),
-		)
+		feed.Items = append(feed.Items, &feeds.Item{
+			Title:       fmt.Sprintf("[%s] %s", boardName, article.Title),
+			Link:        &feeds.Link{Href: article.Link},
+			Author:      &feeds.Author{Name: article.Author},
+			Description: content,
+			Id:          article.Link,
+			Created:     article.CreatedAt,
+			Updated:     article.CreatedAt,
+			Content:     content,
+		})
 	}
 
 	// =========================================================================
 	// 6단계: XML 직렬화
 	// =========================================================================
-	// 조립된 객체를 XML 바이트로 변환합니다.
-	xmlBytes, err := xml.Marshal(feed.Document())
+	rssXML, err := feed.ToRss()
 	if err != nil {
-		return h.notifyError(logger, fmt.Sprintf("RSS 피드 데이터를 XML 문서로 변환하는 과정에서 시스템 내부 오류가 발생했습니다. (제공자 식별자: %s)", id), err)
+		return h.notifyError(logger, fmt.Sprintf("시스템 내부 오류로 인해 RSS 피드 문서를 정상적으로 생성할 수 없습니다. (제공자 식별자: %s)", id), err)
 	}
 
 	// =========================================================================
@@ -256,8 +267,8 @@ func (h *Handler) GetFeed(c echo.Context) error {
 	// RSS 리더의 과도한 반복 풀링을 막기 위해 60초 캐싱 헤더를 주입합니다.
 	c.Response().Header().Set("Cache-Control", "public, max-age=60")
 
-	// 일부 RSS 리더의 파싱 거부 대응을 위해 반드시 XML 선언(<?xml ...>) 헤더를 포함하여 반환합니다.
-	return c.Blob(http.StatusOK, "application/rss+xml; charset=UTF-8", append([]byte(xml.Header), xmlBytes...))
+	// gorilla/feeds의 ToRss()는 기본적으로 <?xml ... ?> 선언 헤더를 포함하여 반환합니다.
+	return c.Blob(http.StatusOK, "application/rss+xml; charset=UTF-8", []byte(rssXML))
 }
 
 // notifyError 핸들러 내부에서 복구 불가능한 오류가 발생했을 때 호출되는 공통 에러 처리 헬퍼입니다.
