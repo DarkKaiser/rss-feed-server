@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -243,8 +244,8 @@ func (s *Store) insertRSSFeedProviderBoard(providerID, boardID, boardName string
 // 개별 행 삽입 실패는 건너뛰고 계속 진행하며, 실패한 행들은 단일 slice로 모여서 반환된다.
 //
 // noinspection GoUnhandledErrorResult
-func (s *Store) InsertArticles(providerID string, articles []*feed.Article) (int, error) {
-	stmt, err := s.db.Prepare(`
+func (s *Store) InsertArticles(ctx context.Context, providerID string, articles []*feed.Article) (int, error) {
+	stmt, err := s.db.PrepareContext(ctx, `
 		INSERT OR REPLACE
 		  INTO rss_provider_article (p_id, b_id, id, title, content, link, author, created_date)
 		VALUES (?, ?, ?, ?, ?, ?, ?, DATETIME(?))
@@ -258,7 +259,7 @@ func (s *Store) InsertArticles(providerID string, articles []*feed.Article) (int
 	var errs []error
 
 	for _, article := range articles {
-		if _, err := stmt.Exec(providerID, article.BoardID, article.ArticleID, article.Title, article.Content, article.Link, article.Author, article.CreatedAt.UTC().Format("2006-01-02 15:04:05")); err != nil {
+		if _, err := stmt.ExecContext(ctx, providerID, article.BoardID, article.ArticleID, article.Title, article.Content, article.Link, article.Author, article.CreatedAt.UTC().Format("2006-01-02 15:04:05")); err != nil {
 			errs = append(errs, fmt.Errorf("RSS Feed DB 게시글 등록 실패 (p_id: %s, article: %+v): %w", providerID, article, err))
 		} else {
 			insertedCnt++
@@ -272,7 +273,7 @@ func (s *Store) InsertArticles(providerID string, articles []*feed.Article) (int
 // GetArticles 지정한 provider/board의 게시글 목록을 최신순으로 반환한다.
 //
 // noinspection GoUnhandledErrorResult
-func (s *Store) GetArticles(providerID string, boardIDs []string, limit uint) ([]*feed.Article, error) {
+func (s *Store) GetArticles(ctx context.Context, providerID string, boardIDs []string, limit uint) ([]*feed.Article, error) {
 	// 플레이스홀더 (?, ?, ?) 생성
 	placeholders := make([]string, len(boardIDs))
 	for i := range boardIDs {
@@ -297,7 +298,7 @@ func (s *Store) GetArticles(providerID string, boardIDs []string, limit uint) ([
 		 LIMIT ?
 	`, strings.Join(placeholders, ", "))
 
-	stmt, err := s.db.Prepare(query)
+	stmt, err := s.db.PrepareContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("GetArticles 쿼리 준비 실패 (providerID: %s): %w", providerID, err)
 	}
@@ -311,7 +312,7 @@ func (s *Store) GetArticles(providerID string, boardIDs []string, limit uint) ([
 	}
 	args = append(args, limit)
 
-	rows, err := stmt.Query(args...)
+	rows, err := stmt.QueryContext(ctx, args...)
 	if err != nil {
 		return nil, fmt.Errorf("GetArticles 쿼리 실행 실패 (providerID: %s): %w", providerID, err)
 	}
@@ -364,13 +365,13 @@ func (s *Store) deleteOutOfDateArticles(providerID string, archiveDays uint) err
 // GetLatestCrawledInfo 마지막으로 크롤링한 게시글 ID와 작성일시를 반환한다.
 //
 // noinspection GoUnhandledErrorResult,GoSnakeCaseUsage
-func (s *Store) GetLatestCrawledInfo(providerID, boardID string) (string, time.Time, error) {
+func (s *Store) GetLatestCrawledInfo(ctx context.Context, providerID, boardID string) (string, time.Time, error) {
 	var err error
 	var articleID sql.NullString
 	var createdDate sql.NullTime
 
 	if boardID == "" {
-		err = s.db.QueryRow(`
+		err = s.db.QueryRowContext(ctx, `
 			SELECT ( SELECT latest_crawled_article_id
 					   FROM rss_provider_site_crawled_data
 					  WHERE p_id = ?
@@ -383,7 +384,7 @@ func (s *Store) GetLatestCrawledInfo(providerID, boardID string) (string, time.T
 					  LIMIT 1 )
 		`, providerID, providerID).Scan(&articleID, &createdDate)
 	} else {
-		err = s.db.QueryRow(`
+		err = s.db.QueryRowContext(ctx, `
 			SELECT ( SELECT latest_crawled_article_id
 					   FROM rss_provider_site_crawled_data
 					  WHERE p_id = ?
@@ -419,8 +420,8 @@ func (s *Store) GetLatestCrawledInfo(providerID, boardID string) (string, time.T
 // UpdateLatestCrawledArticleID 마지막으로 크롤링한 게시글 ID를 갱신한다.
 //
 // noinspection GoUnhandledErrorResult,GoSnakeCaseUsage
-func (s *Store) UpdateLatestCrawledArticleID(providerID, boardID, articleID string) error {
-	stmt, err := s.db.Prepare(`
+func (s *Store) UpdateLatestCrawledArticleID(ctx context.Context, providerID, boardID, articleID string) error {
+	stmt, err := s.db.PrepareContext(ctx, `
 		INSERT OR REPLACE
 		  INTO rss_provider_site_crawled_data (p_id, b_id, latest_crawled_article_id) 
 		VALUES (?, ?, ?)
@@ -429,7 +430,7 @@ func (s *Store) UpdateLatestCrawledArticleID(providerID, boardID, articleID stri
 		return fmt.Errorf("최신 크롤링 게시글 ID 갱신 쿼리 준비 실패 (providerID: %s, boardID: %s): %w", providerID, boardID, err)
 	}
 	defer stmt.Close()
-	if _, err = stmt.Exec(providerID, boardID, articleID); err != nil {
+	if _, err = stmt.ExecContext(ctx, providerID, boardID, articleID); err != nil {
 		return fmt.Errorf("최신 크롤링 게시글 ID 갱신 쿼리 실행 실패 (providerID: %s, boardID: %s): %w", providerID, boardID, err)
 	}
 

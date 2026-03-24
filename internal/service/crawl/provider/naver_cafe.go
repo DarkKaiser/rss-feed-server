@@ -142,8 +142,8 @@ type naverCafeCrawler struct {
 	crawlingDelayTimeMinutes int
 }
 
-func (c *naverCafeCrawler) crawlingArticles() ([]*feed.Article, map[string]string, string, error) {
-	idString, latestCrawledCreatedDate, err := c.feedRepo.GetLatestCrawledInfo(c.rssFeedProviderID, "")
+func (c *naverCafeCrawler) crawlingArticles(ctx context.Context) ([]*feed.Article, map[string]string, string, error) {
+	idString, latestCrawledCreatedDate, err := c.feedRepo.GetLatestCrawledInfo(ctx, c.rssFeedProviderID, "")
 	if err != nil {
 		return nil, nil, fmt.Sprintf("%s('%s')에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", c.site, c.siteID), err
 	}

@@ -1,6 +1,7 @@
 package feed_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -106,29 +107,29 @@ func TestArticle_String_ImplementsStringer(t *testing.T) {
 // 인터페이스에 새 메서드가 추가될 경우 여기에서 컴파일 에러가 발생하여
 // 구현체 업데이트를 강제합니다.
 type mockRepository struct {
-	insertArticlesFn            func(providerID string, articles []*feed.Article) (int, error)
-	getArticlesFn               func(providerID string, boardIDs []string, limit uint) ([]*feed.Article, error)
-	getLatestCrawledInfoFn      func(providerID, boardID string) (string, time.Time, error)
-	updateLatestCrawledArticleIDFn func(providerID, boardID, articleID string) error
+	insertArticlesFn               func(ctx context.Context, providerID string, articles []*feed.Article) (int, error)
+	getArticlesFn                  func(ctx context.Context, providerID string, boardIDs []string, limit uint) ([]*feed.Article, error)
+	getLatestCrawledInfoFn         func(ctx context.Context, providerID, boardID string) (string, time.Time, error)
+	updateLatestCrawledArticleIDFn func(ctx context.Context, providerID, boardID, articleID string) error
 }
 
 // 컴파일 타임 인터페이스 준수 검증
 var _ feed.Repository = (*mockRepository)(nil)
 
-func (m *mockRepository) InsertArticles(providerID string, articles []*feed.Article) (int, error) {
-	return m.insertArticlesFn(providerID, articles)
+func (m *mockRepository) InsertArticles(ctx context.Context, providerID string, articles []*feed.Article) (int, error) {
+	return m.insertArticlesFn(ctx, providerID, articles)
 }
 
-func (m *mockRepository) GetArticles(providerID string, boardIDs []string, limit uint) ([]*feed.Article, error) {
-	return m.getArticlesFn(providerID, boardIDs, limit)
+func (m *mockRepository) GetArticles(ctx context.Context, providerID string, boardIDs []string, limit uint) ([]*feed.Article, error) {
+	return m.getArticlesFn(ctx, providerID, boardIDs, limit)
 }
 
-func (m *mockRepository) GetLatestCrawledInfo(providerID, boardID string) (string, time.Time, error) {
-	return m.getLatestCrawledInfoFn(providerID, boardID)
+func (m *mockRepository) GetLatestCrawledInfo(ctx context.Context, providerID, boardID string) (string, time.Time, error) {
+	return m.getLatestCrawledInfoFn(ctx, providerID, boardID)
 }
 
-func (m *mockRepository) UpdateLatestCrawledArticleID(providerID, boardID, articleID string) error {
-	return m.updateLatestCrawledArticleIDFn(providerID, boardID, articleID)
+func (m *mockRepository) UpdateLatestCrawledArticleID(ctx context.Context, providerID, boardID, articleID string) error {
+	return m.updateLatestCrawledArticleIDFn(ctx, providerID, boardID, articleID)
 }
 
 // TestRepository_InterfaceContract은 mockRepository를 통해 Repository 인터페이스의
@@ -142,30 +143,30 @@ func TestRepository_InterfaceContract(t *testing.T) {
 	}
 
 	repo := &mockRepository{
-		insertArticlesFn: func(providerID string, in []*feed.Article) (int, error) {
+		insertArticlesFn: func(ctx context.Context, providerID string, in []*feed.Article) (int, error) {
 			return len(in), nil
 		},
-		getArticlesFn: func(providerID string, boardIDs []string, limit uint) ([]*feed.Article, error) {
+		getArticlesFn: func(ctx context.Context, providerID string, boardIDs []string, limit uint) ([]*feed.Article, error) {
 			return articles, nil
 		},
-		getLatestCrawledInfoFn: func(providerID, boardID string) (string, time.Time, error) {
+		getLatestCrawledInfoFn: func(ctx context.Context, providerID, boardID string) (string, time.Time, error) {
 			return "a1", fixedTime, nil
 		},
-		updateLatestCrawledArticleIDFn: func(providerID, boardID, articleID string) error {
+		updateLatestCrawledArticleIDFn: func(ctx context.Context, providerID, boardID, articleID string) error {
 			return nil
 		},
 	}
 
 	t.Run("InsertArticles: 삽입 성공 수를 올바르게 반환한다", func(t *testing.T) {
 		t.Parallel()
-		n, err := repo.InsertArticles("provider-1", articles)
+		n, err := repo.InsertArticles(context.Background(), "provider-1", articles)
 		assert.NoError(t, err)
 		assert.Equal(t, 1, n)
 	})
 
 	t.Run("GetArticles: 게시글 목록을 올바르게 반환한다", func(t *testing.T) {
 		t.Parallel()
-		got, err := repo.GetArticles("provider-1", []string{"b1"}, 10)
+		got, err := repo.GetArticles(context.Background(), "provider-1", []string{"b1"}, 10)
 		assert.NoError(t, err)
 		assert.Len(t, got, 1)
 		assert.Equal(t, "a1", got[0].ArticleID)
@@ -173,7 +174,7 @@ func TestRepository_InterfaceContract(t *testing.T) {
 
 	t.Run("GetLatestCrawledInfo: 마지막 크롤링 정보를 올바르게 반환한다", func(t *testing.T) {
 		t.Parallel()
-		id, at, err := repo.GetLatestCrawledInfo("provider-1", "b1")
+		id, at, err := repo.GetLatestCrawledInfo(context.Background(), "provider-1", "b1")
 		assert.NoError(t, err)
 		assert.Equal(t, "a1", id)
 		assert.Equal(t, fixedTime, at)
@@ -181,7 +182,7 @@ func TestRepository_InterfaceContract(t *testing.T) {
 
 	t.Run("UpdateLatestCrawledArticleID: 오류 없이 완료된다", func(t *testing.T) {
 		t.Parallel()
-		err := repo.UpdateLatestCrawledArticleID("provider-1", "b1", "a1")
+		err := repo.UpdateLatestCrawledArticleID(context.Background(), "provider-1", "b1", "a1")
 		assert.NoError(t, err)
 	})
 }

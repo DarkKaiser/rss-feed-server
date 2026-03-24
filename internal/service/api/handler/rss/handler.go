@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -20,6 +21,14 @@ import (
 
 // component RSS 핸들러의 로깅용 컴포넌트 이름
 const component = "api.handler.rss"
+
+// @@@@@
+var (
+	contentReplacer = strings.NewReplacer("\r\n", "<br>", "\n", "<br>")
+
+	// hasHTMLTags는 RSS 본문에 구조적인 HTML 태그가 이미 포함되어 있는지 판별합니다.
+	hasHTMLTags = regexp.MustCompile(`(?i)<(?:br|p|div|img|table|ul|ol|li|h[1-6])[^>]*>`)
+)
 
 // @@@@@
 // providerInfo 개별 공급자 설정과 최소화된 할당을 위한 캐시(게시판 ID 목록) 등을 담는 내부 구조체입니다.
@@ -62,7 +71,7 @@ func New(appConfig *config.AppConfig, feedRepo feed.Repository, notifyClient *no
 		for _, b := range p.Config.Boards {
 			boardIDs = append(boardIDs, b.ID)
 		}
-		providers[p.ID] = providerInfo{
+		providers[strings.ToLower(p.ID)] = providerInfo{
 			config:   p,
 			boardIDs: boardIDs,
 		}
@@ -123,9 +132,8 @@ func (h *Handler) GetFeed(c echo.Context) error {
 	// RSS 리더 앱 호환성을 위해 ".xml" 확장자가 붙은 경우(예: /naver-cafe.xml)에도
 	// 정상적으로 처리될 수 있도록 확장자를 제거한다.
 	id := c.Param("id")
-	if strings.HasSuffix(strings.ToLower(id), ".xml") {
-		id = id[:len(id)-len(".xml")]
-	}
+	id = strings.ToLower(id)
+	id = strings.TrimSuffix(id, ".xml")
 
 	logger := applog.WithComponentAndFields(component, applog.Fields{
 		"request_id": c.Response().Header().Get(echo.HeaderXRequestID),
@@ -139,45 +147,48 @@ func (h *Handler) GetFeed(c echo.Context) error {
 
 	// @@@@@
 	// providers에서 O(1) 조회로 해당 프로바이더를 찾는다.
-	// 등록되지 않은 ID라면 즉시 400 에러를 반환한다.
+	// 등록되지 않은 ID라면 즉시 404 Not Found 에러를 반환한다.
 	pInfo, ok := h.providers[id]
 	if !ok {
-		return httputil.NewBadRequestError(fmt.Sprintf("요청하신 식별자(ID:%s)의 RSS 피드를 찾을 수 없습니다.", id))
+		return httputil.NewNotFoundError(fmt.Sprintf("요청하신 식별자(ID:%s)의 RSS 피드를 찾을 수 없습니다.", id))
 	}
 	p := pInfo.config
 
-	// DB에서 최신 게시글을 MaxItemCount 개 한도로 조회한다.
-	articles, err := h.feedRepo.GetArticles(p.ID, pInfo.boardIDs, h.appConfig.RSSFeed.MaxItemCount)
+	// DB에서 최신 게시글을 MaxItemCount 개 한도로 모두 조회한다.
+	// SQLite의 조회 성능이 충분히 빠르므로, 복잡한 If-Modified-Since(304) 로직 대신 매번 결과를 반환하여 정합성을 보장한다.
+	articles, err := h.feedRepo.GetArticles(c.Request().Context(), p.ID, pInfo.boardIDs, h.appConfig.RSSFeed.MaxItemCount)
 	if err != nil {
 		return h.notifyError(logger, fmt.Sprintf("DB에서 게시글을 읽어오는 중에 오류가 발생하였습니다. (p_id:%s)", p.ID), err)
 	}
 
-	// 조회된 게시글 목록을 RSS 2.0 규격의 Feed 객체로 변환한다.
-
-	// RSS <lastBuildDate> 필드는 피드에서 가장 최근에 변경된 시각을 나타낸다.
-	// DB 결과가 CreatedAt 내림차순이라고 가정하여 첫 번째 게시글의 작성시간을 사용한다.
-	// 조회된 게시글이 없을 때는 빈 피드로 간주하여 현재 서버 시각을 반환해 캐시 갱신 지연을 방지한다.
-	lastBuildDate := time.Now()
+	now := time.Now()
+	cacheBuildDate := now
 	if len(articles) > 0 {
-		lastBuildDate = articles[0].CreatedAt
+		cacheBuildDate = articles[0].CreatedAt
 	}
 
-	rssFeed := rss.NewRSSFeed(p.Config.Name, p.Config.URL, p.Config.Description, "ko", config.AppName, time.Now(), lastBuildDate)
+	c.Response().Header().Set("Cache-Control", "public, max-age=60")
+
+	// 조회된 게시글 목록을 RSS 2.0 규격의 Feed 객체로 변환한다.
+	rssFeed := rss.NewRSSFeed(p.Config.Name, p.Config.URL, p.Config.Description, "ko", config.AppName, now, cacheBuildDate)
 	rssFeed.Items = make([]*rss.RssItem, 0, len(articles))
 
 	for _, article := range articles {
 		// 게시글 본문의 줄바꿈(\r\n, \n)을 HTML <br> 태그로 치환하여
 		// RSS 리더에서 줄바꿈이 올바르게 렌더링되도록 한다.
-		content := strings.ReplaceAll(article.Content, "\r\n", "\n")
-		content = strings.ReplaceAll(content, "\n", "<br>")
+		// 단, 본문에 이미 구조적 HTML 태그가 포함되어 있다면 치환하지 않는다.
+		content := article.Content
+		if !hasHTMLTags.MatchString(content) {
+			content = contentReplacer.Replace(content)
+		}
 
 		rssFeed.Items = append(rssFeed.Items,
 			rss.NewRSSFeedItem(article.Title, article.Link, content, article.Author, article.BoardName, article.CreatedAt),
 		)
 	}
 
-	// Feed 객체를 RSS 클라이언트가 파싱하기 쉽도록 들여쓰기된 XML 바이트로 직렬화한다.
-	xmlBytes, err := xml.MarshalIndent(rssFeed.FeedXml(), "", "  ")
+	// Feed 객체를 직렬화한다.
+	xmlBytes, err := xml.Marshal(rssFeed.FeedXml())
 	if err != nil {
 		return h.notifyError(logger, fmt.Sprintf("RSS Feed 객체를 XML로 변환하는 중에 오류가 발생하였습니다. (ID:%s)", id), err)
 	}

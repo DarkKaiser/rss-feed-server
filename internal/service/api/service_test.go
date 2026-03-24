@@ -22,19 +22,19 @@ type mockFeedRepository struct{}
 
 var _ feed.Repository = (*mockFeedRepository)(nil)
 
-func (m *mockFeedRepository) InsertArticles(_ string, _ []*feed.Article) (int, error) {
+func (m *mockFeedRepository) InsertArticles(ctx context.Context, _ string, _ []*feed.Article) (int, error) {
 	return 0, nil
 }
 
-func (m *mockFeedRepository) GetArticles(_ string, _ []string, _ uint) ([]*feed.Article, error) {
+func (m *mockFeedRepository) GetArticles(ctx context.Context, _ string, _ []string, _ uint) ([]*feed.Article, error) {
 	return nil, nil
 }
 
-func (m *mockFeedRepository) GetLatestCrawledInfo(_ string, _ string) (string, time.Time, error) {
+func (m *mockFeedRepository) GetLatestCrawledInfo(ctx context.Context, _ string, _ string) (string, time.Time, error) {
 	return "", time.Time{}, nil
 }
 
-func (m *mockFeedRepository) UpdateLatestCrawledArticleID(_ string, _ string, _ string) error {
+func (m *mockFeedRepository) UpdateLatestCrawledArticleID(ctx context.Context, _ string, _ string, _ string) error {
 	return nil
 }
 
@@ -48,14 +48,13 @@ func newTestAppConfig() *config.AppConfig {
 	}
 }
 
-// startAndWaitRunning 서비스를 시작하고, 고루틴이 스케줄링되어 running이 true가 될
-// 때까지 짧은 시간 동안 폴링합니다. 테스트에서 race condition을 방지하기 위해 사용합니다.
+// startAndWaitRunning 서비스를 시작합니다.
+// 서비스는 고루틴 내부에서 구동되지만 Start() 내에서 running=true 가 즉시
+// 설정되므로 별도의 sleep 이 필요하지 않습니다.
 func startAndWaitRunning(t *testing.T, svc *Service, ctx context.Context, wg *sync.WaitGroup) {
 	t.Helper()
 	err := svc.Start(ctx, wg)
 	require.NoError(t, err)
-	// HTTP 서버가 포트에 바인딩될 시간을 확보합니다.
-	time.Sleep(50 * time.Millisecond)
 }
 
 // =============================================================================
@@ -170,6 +169,62 @@ func TestService_Start(t *testing.T) {
 }
 
 // =============================================================================
+// setupServer 테스트
+// =============================================================================
+
+func TestService_setupServer(t *testing.T) {
+	t.Run("성공: 라우트가 올바르게 등록된 Echo 인스턴스를 반환한다", func(t *testing.T) {
+		svc := NewService(newTestAppConfig(), &mockFeedRepository{}, nil)
+		e := svc.setupServer()
+		require.NotNil(t, e)
+
+		// 등록된 라우트 검증
+		routes := e.Routes()
+		var foundSummary, foundFeed bool
+		for _, route := range routes {
+			if route.Method == http.MethodGet && route.Path == "/" {
+				foundSummary = true
+			}
+			if route.Method == http.MethodGet && route.Path == "/:id" {
+				foundFeed = true
+			}
+		}
+
+		assert.True(t, foundSummary, "/ 라우트가 존재해야 합니다")
+		assert.True(t, foundFeed, "/:id 라우트가 존재해야 합니다")
+	})
+}
+
+// =============================================================================
+// startHTTPServer 테스트
+// =============================================================================
+
+func TestService_startHTTPServer(t *testing.T) {
+	t.Run("성공: TLS 활성화 시 잘못된 인증서 경로면 에러 처리하고 종료된다", func(t *testing.T) {
+		appConf := newTestAppConfig()
+		appConf.WS.TLSServer = true
+		appConf.WS.TLSCertFile = "invalid_cert.pem"
+		appConf.WS.TLSKeyFile = "invalid_key.pem"
+
+		svc := NewService(appConf, &mockFeedRepository{}, nil)
+		e := svc.setupServer()
+		ctx := context.Background()
+
+		httpServerDone := make(chan struct{})
+		
+		// 인증서 파일이 없으므로 StartTLS 에서 즉시 에러가 발생하고 채널이 닫혀야 함
+		go svc.startHTTPServer(ctx, e, httpServerDone)
+
+		select {
+		case <-httpServerDone:
+			// 정상적으로 채널이 닫히며 반환
+		case <-time.After(1 * time.Second):
+			t.Fatal("HTTP 서버 종료 채널이 닫히지 않았습니다")
+		}
+	})
+}
+
+// =============================================================================
 // handleServerError 테스트
 // =============================================================================
 
@@ -221,16 +276,14 @@ func TestService_waitForShutdown_ServerDiesFirst(t *testing.T) {
 		svc.running = true
 		svc.runningMu.Unlock()
 
-		// 이미 닫힌 httpServerDone 채널과 취소되지 않은 ctx를 전달
-		// → select가 즉시 httpServerDone 케이스를 선택하고 cleanup만 수행
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
 		httpServerDone := make(chan struct{})
+		// 서버가 예기치 않게 종료된 상황을 모방하기 위해 먼저 채널을 닫음
 		close(httpServerDone)
 
-		// 별도 Echo 서버 없이 waitForShutdown 직접 호출
-		// 주의: 이 케이스에서는 e.Shutdown이 호출되지 않으므로 Echo 인스턴스가 불필요
+		// e.Shutdown이 호출되지 않으므로 Echo 인스턴스가 불필요
 		e := NewEchoServer(ServerConfig{AllowOrigins: []string{"*"}}, views)
 
 		done := make(chan struct{})
@@ -255,7 +308,6 @@ func TestService_waitForShutdown_GracefulShutdown(t *testing.T) {
 	t.Run("Context가 취소되면: Graceful Shutdown 후 cleanup을 수행한다", func(t *testing.T) {
 		svc := NewService(newTestAppConfig(), &mockFeedRepository{}, nil)
 
-		// running을 수동으로 true로 설정
 		svc.runningMu.Lock()
 		svc.running = true
 		svc.runningMu.Unlock()
@@ -263,20 +315,22 @@ func TestService_waitForShutdown_GracefulShutdown(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		httpServerDone := make(chan struct{})
 
-		// 실제 Echo 서버를 생성하되 포트를 바인딩하지 않은 상태로 Shutdown 호출 가능
 		e := NewEchoServer(ServerConfig{AllowOrigins: []string{"*"}}, views)
 
 		done := make(chan struct{})
+		
+		// waitForShutdown은 e.Shutdown(ctx) 를 호출한 후 <-httpServerDone 에 의해 블록되므로,
+		// e.Shutdown(ctx)가 트리거된 시점을 알기 위해 임의의 신호를 보내주도록 설정.
+		// Echo.Shutdown 은 현재 구동 중인 서버가 없더라도 즉시 에러 없이 리턴됨.
 		go func() {
 			svc.waitForShutdown(ctx, e, httpServerDone)
 			close(done)
 		}()
 
-		// 짧은 시간 후 ctx 취소 및 httpServerDone 신호 전송
-		time.Sleep(20 * time.Millisecond)
+		// 즉시 취소 신호 전송
 		cancel()
-		// e.Shutdown 이후 httpServerDone이 닫혀야 waitForShutdown이 반환됨
-		// 실제 서버 없이 직접 close하여 시뮬레이션
+		
+		// HTTP 서버가 Shutdown 결과로 종료되었다고 가정하고 httpServerDone 채널을 닫음
 		close(httpServerDone)
 
 		select {
