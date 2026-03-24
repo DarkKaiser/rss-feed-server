@@ -223,7 +223,10 @@ func (s *Service) handleServerError(_ context.Context, err error) {
 	}).Error(message)
 
 	if s.notifyClient != nil {
-		s.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", message, err))
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		s.notifyClient.NotifyError(ctx, fmt.Sprintf("%s\r\n\r\n%s", message, err))
 	}
 }
 
@@ -269,7 +272,10 @@ func (s *Service) waitForShutdown(serviceStopCtx context.Context, e *echo.Echo, 
 		}).Error(message)
 
 		if s.notifyClient != nil {
-			s.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", message, err))
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			s.notifyClient.NotifyError(ctx, fmt.Sprintf("%s\r\n\r\n%s", message, err))
 		}
 	}
 

@@ -154,7 +154,10 @@ func run(testDB *sql.DB, testServices []service.Service, testTermC <-chan os.Sig
 			m := "SQLite 데이터베이스 초기화 중 치명적인 오류가 발생했습니다"
 
 			if notifyClient != nil {
-				notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+
+				notifyClient.NotifyError(ctx, fmt.Sprintf("%s\r\n\r\n%s", m, err))
 			}
 
 			return fmt.Errorf("%s: %w", m, err)
@@ -180,7 +183,10 @@ func run(testDB *sql.DB, testServices []service.Service, testTermC <-chan os.Sig
 		m := "RSS 피드 저장소 객체 생성 중 치명적인 오류가 발생했습니다"
 
 		if notifyClient != nil {
-			notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			notifyClient.NotifyError(ctx, fmt.Sprintf("%s\r\n\r\n%s", m, err))
 		}
 
 		return fmt.Errorf("%s: %w", m, err)

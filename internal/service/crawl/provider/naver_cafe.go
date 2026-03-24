@@ -35,7 +35,12 @@ func init() {
 				m := fmt.Sprintf("작업 데이터가 유효하지 않아 %s('%s') Crawler 생성이 실패하였습니다. (error:%s)", site, providerConfig.ID, err)
 
 				if notifyClient != nil {
-					notifyClient.NotifyError(context.Background(), m)
+					go func(msg string) {
+						ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+						defer cancel()
+
+						notifyClient.NotifyError(ctx, msg)
+					}(m)
 				}
 
 				applog.Panic(m)
@@ -137,8 +142,8 @@ type naverCafeCrawler struct {
 	crawlingDelayTimeMinutes int
 }
 
-func (c *naverCafeCrawler) crawlingArticles() ([]*feed.Article, map[string]string, string, error) {
-	idString, latestCrawledCreatedDate, err := c.feedRepo.GetLatestCrawledInfo(c.rssFeedProviderID, "")
+func (c *naverCafeCrawler) crawlingArticles(ctx context.Context) ([]*feed.Article, map[string]string, string, error) {
+	idString, latestCrawledCreatedDate, err := c.feedRepo.GetLatestCrawledInfo(ctx, c.rssFeedProviderID, "")
 	if err != nil {
 		return nil, nil, fmt.Sprintf("%s('%s')에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", c.site, c.siteID), err
 	}

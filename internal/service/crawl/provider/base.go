@@ -43,7 +43,7 @@ func FindConfigFromSupportedCrawler(site config.ProviderSite) (*SupportedCrawler
 // crawler
 const EmptyBoardIDKey = "#empty#"
 
-type crawlingArticlesFunc func() ([]*feed.Article, map[string]string, string, error)
+type crawlingArticlesFunc func(ctx context.Context) ([]*feed.Article, map[string]string, string, error)
 
 type crawler struct {
 	config *config.ProviderDetailConfig
@@ -67,12 +67,20 @@ type crawler struct {
 func (c *crawler) Run() {
 	applog.Debugf("%s('%s')의 크롤링 작업을 시작합니다.", c.site, c.siteID)
 
-	articles, latestCrawledArticleIDsByBoard, errOccurred, err := c.crawlingArticlesFn()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	articles, latestCrawledArticleIDsByBoard, errOccurred, err := c.crawlingArticlesFn(ctx)
 	if err != nil {
 		applog.Errorf("%s (error:%s)", errOccurred, err)
 
 		if c.notifyClient != nil {
-			c.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", errOccurred, err))
+			go func(msg string, e error) {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+
+				c.notifyClient.NotifyError(ctx, fmt.Sprintf("%s\r\n\r\n%s", msg, e))
+			}(errOccurred, err)
 		}
 
 		return
@@ -82,14 +90,19 @@ func (c *crawler) Run() {
 		if len(articles) > 0 {
 			applog.Debugf("%s('%s')의 크롤링 작업 결과로 %d건의 신규 게시글이 추출되었습니다. 신규 게시글을 DB에 추가합니다.", c.site, c.siteID, len(articles))
 
-			insertedCnt, err := c.feedRepo.InsertArticles(c.rssFeedProviderID, articles)
+			insertedCnt, err := c.feedRepo.InsertArticles(ctx, c.rssFeedProviderID, articles)
 			if err != nil {
 				m := fmt.Sprintf("%s('%s')의 신규 게시글을 DB에 추가하는 중에 오류가 발생하여 크롤링 작업이 실패하였습니다.", c.site, c.siteID)
 
 				applog.Errorf("%s (error:%s)", m, err)
 
 				if c.notifyClient != nil {
-					c.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
+					go func(msg string, e error) {
+						ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+						defer cancel()
+
+						c.notifyClient.NotifyError(ctx, fmt.Sprintf("%s\r\n\r\n%s", msg, e))
+					}(m, err)
 				}
 
 				return
@@ -100,7 +113,7 @@ func (c *crawler) Run() {
 					boardID = ""
 				}
 
-				if err = c.feedRepo.UpdateLatestCrawledArticleID(c.rssFeedProviderID, boardID, articleID); err != nil {
+				if err = c.feedRepo.UpdateLatestCrawledArticleID(ctx, c.rssFeedProviderID, boardID, articleID); err != nil {
 					m := fmt.Sprintf("%s('%s')의 크롤링 된 최근 게시글 ID의 DB 갱신이 실패하였습니다.", c.site, c.siteID)
 
 					applog.Errorf("%s (error:%s)", m, err)
@@ -122,7 +135,7 @@ func (c *crawler) Run() {
 					boardID = ""
 				}
 
-				if err = c.feedRepo.UpdateLatestCrawledArticleID(c.rssFeedProviderID, boardID, articleID); err != nil {
+				if err = c.feedRepo.UpdateLatestCrawledArticleID(ctx, c.rssFeedProviderID, boardID, articleID); err != nil {
 					m := fmt.Sprintf("%s('%s')의 크롤링 된 최근 게시글 ID의 DB 갱신이 실패하였습니다.", c.site, c.siteID)
 
 					applog.Errorf("%s (error:%s)", m, err)

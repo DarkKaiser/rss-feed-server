@@ -104,58 +104,77 @@ func TestRegisterSwaggerRoutes(t *testing.T) {
 }
 
 // =============================================================================
-// HTTP 엔드포인트 라우팅 검증
+// HTTP 엔드포인트 라우팅 매핑 검증
 // =============================================================================
 
-// serveRequest 테스트용 Echo에 요청을 보내고 응답을 반환하는 헬퍼입니다.
-func serveRequest(e *echo.Echo, method, path string) *httptest.ResponseRecorder {
-	req := httptest.NewRequest(method, path, nil)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-	return rec
-}
-
 func TestRoutes_RoutingBehavior(t *testing.T) {
-	// 라우트 등록만 확인하는 단위 테스트와 달리,
-	// 실제 HTTP 요청이 올바른 핸들러로 라우팅되는지 검증합니다.
-	// 미들웨어 없이 순수 라우팅 동작에만 집중합니다.
 	e := echo.New()
-	e.HideBanner = true
 	RegisterRoutes(e, newTestRSSHandler())
 
-	t.Run("GET / 는 핸들러가 실행된다 (404가 아닌 응답)", func(t *testing.T) {
-		// ViewSummary 핸들러가 실행되면 Renderer가 없어 500이 반환되지만, 라우팅은 성공한 것이다.
-		rec := serveRequest(e, http.MethodGet, "/")
-		assert.NotEqual(t, http.StatusNotFound, rec.Code,
-			"GET / 는 등록된 라우트이므로 404가 아닌 응답을 반환해야 한다")
-	})
+	tests := []struct {
+		name           string
+		method         string
+		requestPath    string
+		expectedPath   string
+		expectedParams map[string]string
+	}{
+		{
+			name:         "GET / 요청은 최상위 라우트로 매핑된다",
+			method:       http.MethodGet,
+			requestPath:  "/",
+			expectedPath: "/",
+		},
+		{
+			name:         "GET /some-feed-id 요청은 /:id 라우트로 매핑되며 파라미터를 추출한다",
+			method:       http.MethodGet,
+			requestPath:  "/some-feed-id",
+			expectedPath: "/:id",
+			expectedParams: map[string]string{
+				"id": "some-feed-id",
+			},
+		},
+		{
+			name:         "GET /some-feed.xml 요청도 /:id 라우트로 매핑되며 파라미터를 추출한다",
+			method:       http.MethodGet,
+			requestPath:  "/some-feed.xml",
+			expectedPath: "/:id",
+			expectedParams: map[string]string{
+				"id": "some-feed.xml",
+			},
+		},
+		{
+			name:         "GET /swagger/index.html 요청은 Swagger 라우트로 매핑된다",
+			method:       http.MethodGet,
+			requestPath:  "/swagger/index.html",
+			expectedPath: "/swagger/*",
+		},
+	}
 
-	t.Run("GET /:id 는 핸들러가 실행된다 (404가 아닌 응답)", func(t *testing.T) {
-		// GetFeed 핸들러가 실행되면 config에 피드가 없으므로 400이 반환된다.
-		rec := serveRequest(e, http.MethodGet, "/some-feed-id")
-		assert.NotEqual(t, http.StatusNotFound, rec.Code,
-			"GET /:id 는 등록된 라우트이므로 404가 아닌 응답을 반환해야 한다")
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, tt.requestPath, nil)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
 
-	t.Run("GET /swagger/index.html 는 핸들러가 실행된다 (404가 아닌 응답)", func(t *testing.T) {
-		rec := serveRequest(e, http.MethodGet, "/swagger/index.html")
-		assert.NotEqual(t, http.StatusNotFound, rec.Code,
-			"GET /swagger/* 는 등록된 라우트이므로 404가 아닌 응답을 반환해야 한다")
-	})
+			e.Router().Find(tt.method, tt.requestPath, c)
 
-	t.Run("등록되지 않은 HTTP 메서드는 405를 반환한다", func(t *testing.T) {
-		// /:id 패턴은 GET만 허용하므로, POST로 요청하면 405 Method Not Allowed가 반환된다.
-		// (echo는 메서드 미등록 시 405를 자동으로 처리한다)
-		rec := serveRequest(e, http.MethodPost, "/some-feed-id")
-		assert.Equal(t, http.StatusMethodNotAllowed, rec.Code,
-			"등록되지 않은 메서드(POST /:id)는 405를 반환해야 한다")
-	})
+			assert.Equal(t, tt.expectedPath, c.Path(), "라우팅된 경로가 예상과 다릅니다")
 
-	t.Run("GET /:id 는 .xml 확장자 경로도 라우팅된다", func(t *testing.T) {
-		// GetFeed 핸들러는 .xml 접미사를 제거하여 처리한다.
-		// /:id 라우트가 /some-feed.xml을 잡아야 한다.
-		rec := serveRequest(e, http.MethodGet, "/some-feed.xml")
-		assert.NotEqual(t, http.StatusNotFound, rec.Code,
-			"GET /:id 는 .xml 확장자 경로도 처리해야 한다")
+			for key, expectedVal := range tt.expectedParams {
+				assert.Equal(t, expectedVal, c.Param(key), "파라미터 추출 결과가 예상과 다릅니다")
+			}
+		})
+	}
+
+	t.Run("등록되지 않은 HTTP 메서드는 라우팅되지 않는다", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/some-feed-id", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		e.Router().Find(http.MethodPost, "/some-feed-id", c)
+		
+		// echo.Router().Find 가 메서드를 찾지 못하면 MethodNotAllowedHandler 를 Context 에 바인딩합니다.
+		err := c.Handler()(c)
+		assert.Equal(t, echo.ErrMethodNotAllowed, err, "등록되지 않은 메서드는 405 에러 핸들러로 매핑되어야 합니다")
 	})
 }
