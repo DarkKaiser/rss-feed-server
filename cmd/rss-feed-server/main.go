@@ -232,7 +232,7 @@ func run(testDB *sql.DB, testServices []service.Service, testTermC <-chan os.Sig
 	} else {
 		services = []service.Service{
 			api.NewService(appConfig, store, notifyClient),
-			crawl.NewService(appConfig, store, notifyClient),
+			crawl.NewService(&appConfig.RSSFeed, store, notifyClient),
 		}
 	}
 
