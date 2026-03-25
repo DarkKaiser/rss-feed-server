@@ -23,11 +23,6 @@ import (
 type NewCrawlerFunc func(string, *config.ProviderDetailConfig, feed.Repository, *notify.Client) cron.Job
 
 // @@@@@
-type CrawlerFactory struct {
-	NewCrawler NewCrawlerFunc
-}
-
-// @@@@@
 // crawler
 const EmptyBoardIDKey = "#empty#"
 

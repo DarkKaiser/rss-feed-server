@@ -9,42 +9,55 @@ import (
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 )
 
-// Registry 등록된 모든 크롤러 설정을 관리하는 중앙 저장소입니다.
-type Registry struct {
-	factories map[config.ProviderSite]*CrawlerFactory
-	mu        sync.RWMutex
+// @@@@@
+type CrawlerConfig struct {
+	NewCrawler NewCrawlerFunc
 }
 
+// Registry 등록된 모든 크롤러 설정을 관리하는 중앙 저장소입니다.
+type Registry struct {
+	// @@@@@
+	configs map[config.ProviderSite]*CrawlerConfig
+
+	// mu 동시성 제어를 위한 읽기/쓰기 락입니다.
+	// 등록 시에는 쓰기 락, 조회 시에는 읽기 락을 사용합니다.
+	mu sync.RWMutex
+}
+
+// defaultRegistry 전역에서 사용하는 기본 Registry 인스턴스입니다.
 var defaultRegistry = newRegistry()
 
+// newRegistry 새로운 Registry 인스턴스를 생성합니다.
 func newRegistry() *Registry {
 	return &Registry{
-		factories: make(map[config.ProviderSite]*CrawlerFactory),
+		configs: make(map[config.ProviderSite]*CrawlerConfig),
 	}
 }
 
 // MustRegister 크롤러를 전역 Registry에 등록하며, 실패 시 패닉을 발생시킵니다.
-func MustRegister(site config.ProviderSite, factory *CrawlerFactory) {
+func MustRegister(site config.ProviderSite, factory *CrawlerConfig) {
 	if err := defaultRegistry.Register(site, factory); err != nil {
 		panic(err.Error())
 	}
 }
 
 // Register 크롤러를 Registry에 등록합니다.
-func (r *Registry) Register(site config.ProviderSite, factory *CrawlerFactory) error {
+func (r *Registry) Register(site config.ProviderSite, factory *CrawlerConfig) error {
+	// @@@@@
 	if factory == nil {
 		return errors.New("CrawlerFactory는 nil일 수 없습니다")
+		// return apperrors.New(apperrors.InvalidInput, "Task 설정은 필수값입니다")
 	}
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	// 중복 등록 방지
-	if _, exists := r.factories[site]; exists {
+	if _, exists := r.configs[site]; exists {
 		return fmt.Errorf("Site(%s)에 대한 크롤러가 이미 등록되어 있습니다", site)
 	}
 
-	r.factories[site] = factory
+	r.configs[site] = factory
 
 	// 로그 기록
 	applog.WithComponentAndFields("crawl.provider.registry", applog.Fields{
@@ -54,17 +67,19 @@ func (r *Registry) Register(site config.ProviderSite, factory *CrawlerFactory) e
 	return nil
 }
 
+// @@@@@
 // Lookup 전역 Registry를 통해 주어진 Site에 해당하는 크롤러 팩토리를 검색합니다.
-func Lookup(site config.ProviderSite) (*CrawlerFactory, error) {
+func Lookup(site config.ProviderSite) (*CrawlerConfig, error) {
 	return defaultRegistry.Lookup(site)
 }
 
+// @@@@@
 // Lookup Registry에서 크롤러 팩토리를 검색합니다.
-func (r *Registry) Lookup(site config.ProviderSite) (*CrawlerFactory, error) {
+func (r *Registry) Lookup(site config.ProviderSite) (*CrawlerConfig, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	factory, exists := r.factories[site]
+	factory, exists := r.configs[site]
 	if exists {
 		return factory, nil
 	}

@@ -39,7 +39,7 @@ type ssangbongSchoolCrawlerBoardTypeConfig struct {
 const ssangbongSchoolUrlPathReplaceStringWithBoardID = "#{board_id}"
 
 func init() {
-	MustRegister(config.ProviderSiteSsangbongElementarySchool, &CrawlerFactory{
+	MustRegister(config.ProviderSiteSsangbongElementarySchool, &CrawlerConfig{
 		NewCrawler: func(rssFeedProviderID string, providerConfig *config.ProviderDetailConfig, feedRepo feed.Repository, notifyClient *notify.Client) cron.Job {
 			site := "쌍봉초등학교 홈페이지"
 

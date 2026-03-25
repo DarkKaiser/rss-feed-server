@@ -147,12 +147,13 @@ func TestRun_SuccessAndGracefulShutdown(t *testing.T) {
 	testTermC <- syscall.SIGTERM
 
 	// run() 함수가 신호를 받고 Graceful Shutdown 처리를 완료한 후 반환하는지 검증
+	// api.Service의 shutdownTimeout(5초)보다 여유 있게 10초로 설정하여 CI 환경 오버헤드를 흡수합니다.
 	select {
 	case runErr := <-errCh:
 		if runErr != nil {
 			t.Fatalf("정상 종료 상황이나, run()에서 에러가 반환됨: %v", runErr)
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("SIGTERM 전송 후 Graceful Shutdown 시간 초과 (데드락 의심)")
 	}
 }
@@ -187,7 +188,7 @@ func TestRun_DebugMode(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Debug 모드 실행 중 에러 발생: %v", err)
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("Graceful Shutdown 시간 초과")
 	}
 }
@@ -222,7 +223,7 @@ func TestRun_Warnings(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Warnings 상황 실행 중 에러 발생: %v", err)
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("Graceful Shutdown 시간 초과")
 	}
 }
@@ -310,7 +311,7 @@ func TestRun_ShutdownTimeout_Real(t *testing.T) {
 		if err == nil {
 			t.Fatal("종료 타임아웃 발생 시 run()이 에러를 반환해야 하지만, nil이 반환되었습니다")
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("타임아웃 발생 후에도 프로세스가 종료되지 않음")
 	}
 }
