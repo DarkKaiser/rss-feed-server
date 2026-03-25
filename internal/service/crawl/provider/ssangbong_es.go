@@ -61,7 +61,7 @@ func init() {
 				},
 			}
 
-			crawlerInstance.crawlingArticlesFn = crawlerInstance.crawlingArticles
+			crawlerInstance.crawler.crawlArticles = crawlerInstance.crawlArticles
 
 			applog.Debug(fmt.Sprintf("%s('%s') Crawler가 생성되었습니다.", crawlerInstance.site, crawlerInstance.siteID))
 
@@ -89,7 +89,7 @@ type ssangbongSchoolCrawler struct {
 }
 
 // noinspection GoErrorStringFormat,GoUnhandledErrorResult
-func (c *ssangbongSchoolCrawler) crawlingArticles(ctx context.Context) ([]*feed.Article, map[string]string, string, error) {
+func (c *ssangbongSchoolCrawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[string]string, string, error) {
 	var articles = make([]*feed.Article, 0)
 	var newLatestCrawledArticleIDsByBoard = make(map[string]string)
 

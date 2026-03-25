@@ -68,7 +68,7 @@ func init() {
 				crawlingDelayTimeMinutes: 40,
 			}
 
-			crawlerInstance.crawlingArticlesFn = crawlerInstance.crawlingArticles
+			crawlerInstance.crawler.crawlArticles = crawlerInstance.crawlArticles
 
 			applog.Debug(fmt.Sprintf("%s('%s') Crawler가 생성되었습니다.", crawlerInstance.site, crawlerInstance.siteID))
 
@@ -142,7 +142,7 @@ type naverCafeCrawler struct {
 	crawlingDelayTimeMinutes int
 }
 
-func (c *naverCafeCrawler) crawlingArticles(ctx context.Context) ([]*feed.Article, map[string]string, string, error) {
+func (c *naverCafeCrawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[string]string, string, error) {
 	idString, latestCrawledCreatedDate, err := c.feedRepo.GetLatestCrawledInfo(ctx, c.rssFeedProviderID, "")
 	if err != nil {
 		return nil, nil, fmt.Sprintf("%s('%s')에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", c.site, c.siteID), err
@@ -338,7 +338,7 @@ func (c *naverCafeCrawler) crawlingArticles(ctx context.Context) ([]*feed.Articl
 	}
 
 	var newLatestCrawledArticleIDsByBoard = map[string]string{
-		EmptyBoardIDKey: strconv.FormatInt(newLatestCrawledArticleID, 10),
+		DefaultBoardKey: strconv.FormatInt(newLatestCrawledArticleID, 10),
 	}
 
 	return articles, newLatestCrawledArticleIDsByBoard, "", nil

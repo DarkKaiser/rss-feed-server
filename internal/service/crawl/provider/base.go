@@ -13,24 +13,9 @@ import (
 	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/feed"
-	"github.com/robfig/cron/v3"
 	"golang.org/x/net/html"
 	"golang.org/x/text/encoding"
 )
-
-// component 크롤링 서비스의 Provider 로깅용 컴포넌트 이름
-const component = "crawl.provider"
-
-// @@@@@
-// NewCrawlerFunc 크롤러 생성 함수 타입
-type NewCrawlerFunc func(string, *config.ProviderDetailConfig, feed.Repository, *notify.Client) cron.Job
-
-// @@@@@
-// crawler
-const EmptyBoardIDKey = "#empty#"
-
-// @@@@@
-type crawlingArticlesFunc func(ctx context.Context) ([]*feed.Article, map[string]string, string, error)
 
 // @@@@@
 type crawler struct {
@@ -49,7 +34,7 @@ type crawler struct {
 	// 크롤링 할 최대 페이지 수
 	crawlingMaxPageCount int
 
-	crawlingArticlesFn crawlingArticlesFunc
+	crawlArticles crawlArticlesFunc
 }
 
 // @@@@@
@@ -84,7 +69,7 @@ func (c *crawler) Run() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
-	articles, latestCrawledArticleIDsByBoard, errOccurred, err := c.crawlingArticlesFn(ctx)
+	articles, latestCrawledArticleIDsByBoard, errOccurred, err := c.crawlArticles(ctx)
 	if err != nil {
 		c.sendErrorNotification(errOccurred, err)
 		return
@@ -151,7 +136,7 @@ func (c *crawler) sendErrorNotification(message string, err error) {
 // updateLatestCrawledIDs 크롤링 완료 후, 게시판별 최종 최신 게시글 ID를 DB에 갱신합니다.
 func (c *crawler) updateLatestCrawledIDs(ctx context.Context, latestCrawledArticleIDsByBoard map[string]string) {
 	for boardID, articleID := range latestCrawledArticleIDsByBoard {
-		if boardID == EmptyBoardIDKey {
+		if boardID == DefaultBoardKey {
 			boardID = ""
 		}
 
