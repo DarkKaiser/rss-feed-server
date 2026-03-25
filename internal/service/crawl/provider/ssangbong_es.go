@@ -39,8 +39,8 @@ type ssangbongSchoolCrawlerBoardTypeConfig struct {
 const ssangbongSchoolUrlPathReplaceStringWithBoardID = "#{board_id}"
 
 func init() {
-	SupportedCrawlers[config.ProviderSiteSsangbongElementarySchool] = &SupportedCrawlerConfig{
-		NewCrawlerFn: func(rssFeedProviderID string, providerConfig *config.ProviderDetailConfig, feedRepo feed.Repository, notifyClient *notify.Client) cron.Job {
+	MustRegister(config.ProviderSiteSsangbongElementarySchool, &CrawlerFactory{
+		NewCrawler: func(rssFeedProviderID string, providerConfig *config.ProviderDetailConfig, feedRepo feed.Repository, notifyClient *notify.Client) cron.Job {
 			site := "쌍봉초등학교 홈페이지"
 
 			crawlerInstance := &ssangbongSchoolCrawler{
@@ -67,7 +67,7 @@ func init() {
 
 			return crawlerInstance
 		},
-	}
+	})
 
 	// 게시판 유형별 설정정보를 초기화한다.
 	ssangbongSchoolCrawlerBoardTypes = map[string]*ssangbongSchoolCrawlerBoardTypeConfig{

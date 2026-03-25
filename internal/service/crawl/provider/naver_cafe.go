@@ -26,8 +26,8 @@ import (
 )
 
 func init() {
-	SupportedCrawlers[config.ProviderSiteNaverCafe] = &SupportedCrawlerConfig{
-		NewCrawlerFn: func(rssFeedProviderID string, providerConfig *config.ProviderDetailConfig, feedRepo feed.Repository, notifyClient *notify.Client) cron.Job {
+	MustRegister(config.ProviderSiteNaverCafe, &CrawlerFactory{
+		NewCrawler: func(rssFeedProviderID string, providerConfig *config.ProviderDetailConfig, feedRepo feed.Repository, notifyClient *notify.Client) cron.Job {
 			site := "네이버 카페"
 
 			data := naverCafeCrawlerConfigData{}
@@ -74,7 +74,7 @@ func init() {
 
 			return crawlerInstance
 		},
-	}
+	})
 }
 
 type naverCafeArticleAPIResult struct {
@@ -427,13 +427,7 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *feed.Article,
 	err = json.Unmarshal(bodyBytes, &apiResult)
 	if err != nil {
 		m := fmt.Sprintf("%s 응답 데이터의 JSON 변환이 실패하였습니다.", title)
-
-		applog.Warnf("%s (error:%s)", m, err)
-
-		if c.notifyClient != nil {
-			c.notifyClient.Notify(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
-		}
-
+		c.sendErrorNotification(m, err)
 		return
 	}
 
@@ -449,12 +443,7 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *feed.Article,
 				article.Content = strings.ReplaceAll(article.Content, fmt.Sprintf("[[[CONTENT-ELEMENT-%d]]]", i), linkString)
 			} else {
 				m := fmt.Sprintf("%s 응답 데이터에서 알 수 없는 LINK ContentElement Layout('%s')이 입력되었습니다.", title, element.JSON.Layout)
-
-				applog.Warn(m)
-
-				if c.notifyClient != nil {
-					c.notifyClient.Notify(context.Background(), m)
-				}
+				c.sendErrorNotification(m, nil)
 			}
 
 		case "STICKER":
@@ -463,12 +452,7 @@ func (c *naverCafeCrawler) crawlingArticleContentUsingAPI(article *feed.Article,
 
 		default:
 			m := fmt.Sprintf("%s 응답 데이터에서 알 수 없는 ContentElement Type('%s')이 입력되었습니다.", title, element.Type)
-
-			applog.Warn(m)
-
-			if c.notifyClient != nil {
-				c.notifyClient.Notify(context.Background(), m)
-			}
+			c.sendErrorNotification(m, nil)
 		}
 	}
 

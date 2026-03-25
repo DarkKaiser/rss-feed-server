@@ -43,8 +43,8 @@ type yeosuCityHallCrawlerBoardTypeConfig struct {
 const yeosuCityHallUrlPathReplaceStringWithBoardID = "#{board_id}"
 
 func init() {
-	SupportedCrawlers[config.ProviderSiteYeosuCityHall] = &SupportedCrawlerConfig{
-		NewCrawlerFn: func(rssFeedProviderID string, providerConfig *config.ProviderDetailConfig, feedRepo feed.Repository, notifyClient *notify.Client) cron.Job {
+	MustRegister(config.ProviderSiteYeosuCityHall, &CrawlerFactory{
+		NewCrawler: func(rssFeedProviderID string, providerConfig *config.ProviderDetailConfig, feedRepo feed.Repository, notifyClient *notify.Client) cron.Job {
 			site := "여수시청 홈페이지"
 
 			crawlerInstance := &yeosuCityHallCrawler{
@@ -71,7 +71,7 @@ func init() {
 
 			return crawlerInstance
 		},
-	}
+	})
 
 	// 게시판 유형별 설정정보를 초기화한다.
 	yeosuCityHallCrawlerBoardTypes = map[string]*yeosuCityHallCrawlerBoardTypeConfig{

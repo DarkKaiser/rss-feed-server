@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,32 +18,23 @@ import (
 	"golang.org/x/text/encoding"
 )
 
-var ErrNotSupportedCrawler = errors.New("지원하지 않는 Crawler입니다")
-
+// @@@@@
 // NewCrawlerFunc 크롤러 생성 함수 타입
 type NewCrawlerFunc func(string, *config.ProviderDetailConfig, feed.Repository, *notify.Client) cron.Job
 
-// SupportedCrawlers 지원되는 Crawler 목록
-var SupportedCrawlers = make(map[config.ProviderSite]*SupportedCrawlerConfig)
-
-type SupportedCrawlerConfig struct {
-	NewCrawlerFn NewCrawlerFunc
+// @@@@@
+type CrawlerFactory struct {
+	NewCrawler NewCrawlerFunc
 }
 
-func FindConfigFromSupportedCrawler(site config.ProviderSite) (*SupportedCrawlerConfig, error) {
-	crawlerConfig, exists := SupportedCrawlers[site]
-	if exists == true {
-		return crawlerConfig, nil
-	}
-
-	return nil, ErrNotSupportedCrawler
-}
-
+// @@@@@
 // crawler
 const EmptyBoardIDKey = "#empty#"
 
+// @@@@@
 type crawlingArticlesFunc func(ctx context.Context) ([]*feed.Article, map[string]string, string, error)
 
+// @@@@@
 type crawler struct {
 	config *config.ProviderDetailConfig
 
@@ -64,7 +54,33 @@ type crawler struct {
 	crawlingArticlesFn crawlingArticlesFunc
 }
 
+// @@@@@
 func (c *crawler) Run() {
+	// Task 실행 중 발생할 수 있는 런타임 패닉을 복구하여 스케줄러 메인 프로세스가 중단되지 않도록 방어합니다.
+	defer func() {
+		if r := recover(); r != nil {
+			m := fmt.Sprintf("%s('%s') 크롤링 작업 중 런타임 패닉(Panic)이 발생하였습니다.\n\n[오류 상세 내용]\n%v", c.site, c.siteID, r)
+			applog.Errorf(m)
+
+			// 알림 전송 로직에서 발생할 수 있는 2차 패닉 차단
+			func() {
+				defer func() {
+					if r2 := recover(); r2 != nil {
+						applog.Errorf("알림 처리 중단: 패닉 복구 중 2차 패닉 발생 (panic:%v)", r2)
+					}
+				}()
+
+				if c.notifyClient != nil {
+					// 패닉 발생 시 알림 전송을 동기적으로 수행하되, 최대 60초의 대기 시간을 제한하는 별도 컨텍스트 부여
+					notifyCtx, notifyCancel := context.WithTimeout(context.Background(), 60*time.Second)
+					defer notifyCancel()
+
+					c.notifyClient.NotifyError(notifyCtx, m)
+				}
+			}()
+		}
+	}()
+
 	applog.Debugf("%s('%s')의 크롤링 작업을 시작합니다.", c.site, c.siteID)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
@@ -72,17 +88,7 @@ func (c *crawler) Run() {
 
 	articles, latestCrawledArticleIDsByBoard, errOccurred, err := c.crawlingArticlesFn(ctx)
 	if err != nil {
-		applog.Errorf("%s (error:%s)", errOccurred, err)
-
-		if c.notifyClient != nil {
-			go func(msg string, e error) {
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer cancel()
-
-				c.notifyClient.NotifyError(ctx, fmt.Sprintf("%s\r\n\r\n%s", msg, e))
-			}(errOccurred, err)
-		}
-
+		c.sendErrorNotification(errOccurred, err)
 		return
 	}
 
@@ -93,36 +99,11 @@ func (c *crawler) Run() {
 			insertedCnt, err := c.feedRepo.InsertArticles(ctx, c.rssFeedProviderID, articles)
 			if err != nil {
 				m := fmt.Sprintf("%s('%s')의 신규 게시글을 DB에 추가하는 중에 오류가 발생하여 크롤링 작업이 실패하였습니다.", c.site, c.siteID)
-
-				applog.Errorf("%s (error:%s)", m, err)
-
-				if c.notifyClient != nil {
-					go func(msg string, e error) {
-						ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-						defer cancel()
-
-						c.notifyClient.NotifyError(ctx, fmt.Sprintf("%s\r\n\r\n%s", msg, e))
-					}(m, err)
-				}
-
+				c.sendErrorNotification(m, err)
 				return
 			}
 
-			for boardID, articleID := range latestCrawledArticleIDsByBoard {
-				if boardID == EmptyBoardIDKey {
-					boardID = ""
-				}
-
-				if err = c.feedRepo.UpdateLatestCrawledArticleID(ctx, c.rssFeedProviderID, boardID, articleID); err != nil {
-					m := fmt.Sprintf("%s('%s')의 크롤링 된 최근 게시글 ID의 DB 갱신이 실패하였습니다.", c.site, c.siteID)
-
-					applog.Errorf("%s (error:%s)", m, err)
-
-					if c.notifyClient != nil {
-						c.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
-					}
-				}
-			}
+			c.updateLatestCrawledIDs(ctx, latestCrawledArticleIDsByBoard)
 
 			if len(articles) != insertedCnt {
 				applog.Warnf("%s('%s')의 크롤링 작업을 종료합니다. 전체 %d건 중에서 %d건의 신규 게시글이 DB에 추가되었습니다.", c.site, c.siteID, len(articles), insertedCnt)
@@ -130,21 +111,7 @@ func (c *crawler) Run() {
 				applog.Debugf("%s('%s')의 크롤링 작업을 종료합니다. %d건의 신규 게시글이 DB에 추가되었습니다.", c.site, c.siteID, len(articles))
 			}
 		} else {
-			for boardID, articleID := range latestCrawledArticleIDsByBoard {
-				if boardID == EmptyBoardIDKey {
-					boardID = ""
-				}
-
-				if err = c.feedRepo.UpdateLatestCrawledArticleID(ctx, c.rssFeedProviderID, boardID, articleID); err != nil {
-					m := fmt.Sprintf("%s('%s')의 크롤링 된 최근 게시글 ID의 DB 갱신이 실패하였습니다.", c.site, c.siteID)
-
-					applog.Errorf("%s (error:%s)", m, err)
-
-					if c.notifyClient != nil {
-						c.notifyClient.NotifyError(context.Background(), fmt.Sprintf("%s\r\n\r\n%s", m, err))
-					}
-				}
-			}
+			c.updateLatestCrawledIDs(ctx, latestCrawledArticleIDsByBoard)
 
 			applog.Debugf("%s('%s')의 크롤링 작업을 종료합니다. 신규 게시글이 존재하지 않습니다.", c.site, c.siteID)
 		}
@@ -153,6 +120,51 @@ func (c *crawler) Run() {
 	}
 }
 
+// @@@@@
+// sendErrorNotification 작업 실행 중 발생한 에러를 로깅하고 사용자/관리자에게 알림으로 전송합니다.
+func (c *crawler) sendErrorNotification(message string, err error) {
+	if err != nil {
+		applog.Errorf("%s (error:%s)", message, err)
+	} else {
+		applog.Errorf("%s", message)
+	}
+
+	if c.notifyClient == nil {
+		return
+	}
+
+	// 알림 발송은 메인 흐름을 차단하지 않도록 별도의 고루틴에서 타임아웃과 함께 비동기로 실행합니다.
+	go func(msg string, e error) {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		var text string
+		if e != nil {
+			text = fmt.Sprintf("%s\r\n\r\n%s", msg, e)
+		} else {
+			text = msg
+		}
+
+		c.notifyClient.NotifyError(ctx, text)
+	}(message, err)
+}
+
+// @@@@@
+// updateLatestCrawledIDs 크롤링 완료 후, 게시판별 최종 최신 게시글 ID를 DB에 갱신합니다.
+func (c *crawler) updateLatestCrawledIDs(ctx context.Context, latestCrawledArticleIDsByBoard map[string]string) {
+	for boardID, articleID := range latestCrawledArticleIDsByBoard {
+		if boardID == EmptyBoardIDKey {
+			boardID = ""
+		}
+
+		if err := c.feedRepo.UpdateLatestCrawledArticleID(ctx, c.rssFeedProviderID, boardID, articleID); err != nil {
+			m := fmt.Sprintf("%s('%s')의 크롤링 된 최근 게시글 ID의 DB 갱신이 실패하였습니다.", c.site, c.siteID)
+			c.sendErrorNotification(m, err)
+		}
+	}
+}
+
+// @@@@@
 // noinspection GoUnhandledErrorResult
 func (c *crawler) getWebPageDocument(url, title string, decoder *encoding.Decoder) (*goquery.Document, string, error) {
 	res, err := http.Get(url)
