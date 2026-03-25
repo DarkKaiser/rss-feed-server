@@ -26,7 +26,7 @@ import (
 )
 
 func init() {
-	MustRegister(config.ProviderSiteNaverCafe, &CrawlerFactory{
+	MustRegister(config.ProviderSiteNaverCafe, &CrawlerConfig{
 		NewCrawler: func(rssFeedProviderID string, providerConfig *config.ProviderDetailConfig, feedRepo feed.Repository, notifyClient *notify.Client) cron.Job {
 			site := "네이버 카페"
 

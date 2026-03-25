@@ -43,7 +43,7 @@ type yeosuCityHallCrawlerBoardTypeConfig struct {
 const yeosuCityHallUrlPathReplaceStringWithBoardID = "#{board_id}"
 
 func init() {
-	MustRegister(config.ProviderSiteYeosuCityHall, &CrawlerFactory{
+	MustRegister(config.ProviderSiteYeosuCityHall, &CrawlerConfig{
 		NewCrawler: func(rssFeedProviderID string, providerConfig *config.ProviderDetailConfig, feedRepo feed.Repository, notifyClient *notify.Client) cron.Job {
 			site := "여수시청 홈페이지"
 
