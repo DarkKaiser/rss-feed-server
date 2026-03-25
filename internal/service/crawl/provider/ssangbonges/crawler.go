@@ -1,4 +1,4 @@
-package provider
+package ssangbonges
 
 import (
 	"bytes"
@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/darkkaiser/rss-feed-server/internal/service/crawl/provider"
 
 	"github.com/PuerkitoBio/goquery"
 	applog "github.com/darkkaiser/notify-server/pkg/log"
@@ -39,31 +41,31 @@ type ssangbongSchoolCrawlerBoardTypeConfig struct {
 const ssangbongSchoolUrlPathReplaceStringWithBoardID = "#{board_id}"
 
 func init() {
-	MustRegister(config.ProviderSiteSsangbongElementarySchool, &CrawlerConfig{
+	provider.MustRegister(config.ProviderSiteSsangbongElementarySchool, &provider.CrawlerConfig{
 		NewCrawler: func(rssFeedProviderID string, providerConfig *config.ProviderDetailConfig, feedRepo feed.Repository, notifyClient *notify.Client) cron.Job {
 			site := "쌍봉초등학교 홈페이지"
 
-			crawlerInstance := &ssangbongSchoolCrawler{
-				crawler: crawler{
-					config: providerConfig,
+			crawlerInstance := &crawler{
+				Base: provider.Base{
+					Config: providerConfig,
 
-					rssFeedProviderID: rssFeedProviderID,
-					feedRepo:          feedRepo,
-					notifyClient:      notifyClient,
+					RssFeedProviderID: rssFeedProviderID,
+					FeedRepo:          feedRepo,
+					NotifyClient:      notifyClient,
 
-					site:            site,
-					siteID:          providerConfig.ID,
-					siteName:        providerConfig.Name,
-					siteDescription: providerConfig.Description,
-					siteUrl:         providerConfig.URL,
+					Site:            site,
+					SiteID:          providerConfig.ID,
+					SiteName:        providerConfig.Name,
+					SiteDescription: providerConfig.Description,
+					SiteUrl:         providerConfig.URL,
 
-					crawlingMaxPageCount: 3,
+					CrawlingMaxPageCount: 3,
 				},
 			}
 
-			crawlerInstance.crawlingArticlesFn = crawlerInstance.crawlingArticles
+			crawlerInstance.Base.CrawlArticles = crawlerInstance.crawlArticles
 
-			applog.Debug(fmt.Sprintf("%s('%s') Crawler가 생성되었습니다.", crawlerInstance.site, crawlerInstance.siteID))
+			applog.Debug(fmt.Sprintf("%s('%s') Crawler가 생성되었습니다.", crawlerInstance.Site, crawlerInstance.SiteID))
 
 			return crawlerInstance
 		},
@@ -84,24 +86,24 @@ func init() {
 	}
 }
 
-type ssangbongSchoolCrawler struct {
-	crawler
+type crawler struct {
+	provider.Base
 }
 
 // noinspection GoErrorStringFormat,GoUnhandledErrorResult
-func (c *ssangbongSchoolCrawler) crawlingArticles(ctx context.Context) ([]*feed.Article, map[string]string, string, error) {
+func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[string]string, string, error) {
 	var articles = make([]*feed.Article, 0)
 	var newLatestCrawledArticleIDsByBoard = make(map[string]string)
 
-	for _, b := range c.config.Boards {
+	for _, b := range c.Config.Boards {
 		boardTypeConfig, exists := ssangbongSchoolCrawlerBoardTypes[b.Type]
 		if exists == false {
-			return nil, nil, fmt.Sprintf("%s('%s')의 게시판 Type별 정보를 구하는 중에 오류가 발생하였습니다.", c.site, c.siteID), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
+			return nil, nil, fmt.Sprintf("%s('%s')의 게시판 Type별 정보를 구하는 중에 오류가 발생하였습니다.", c.Site, c.SiteID), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
 		}
 
-		latestCrawledArticleID, latestCrawledCreatedDate, err := c.feedRepo.GetLatestCrawledInfo(ctx, c.rssFeedProviderID, b.ID)
+		latestCrawledArticleID, latestCrawledCreatedDate, err := c.FeedRepo.GetLatestCrawledInfo(ctx, c.RssFeedProviderID, b.ID)
 		if err != nil {
-			return nil, nil, fmt.Sprintf("%s('%s') %s 게시판에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", c.site, c.siteID, b.Name), err
+			return nil, nil, fmt.Sprintf("%s('%s') %s 게시판에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", c.Site, c.SiteID, b.Name), err
 		}
 
 		var newLatestCrawledArticleID = ""
@@ -109,10 +111,10 @@ func (c *ssangbongSchoolCrawler) crawlingArticles(ctx context.Context) ([]*feed.
 		//
 		// 게시글 크롤링
 		//
-		for pageNo := 1; pageNo <= c.crawlingMaxPageCount; pageNo++ {
-			ssangbongSchoolPageUrl := strings.ReplaceAll(fmt.Sprintf("%s%s&currPage=%d", c.siteUrl, boardTypeConfig.urlPath1, pageNo), ssangbongSchoolUrlPathReplaceStringWithBoardID, b.ID)
+		for pageNo := 1; pageNo <= c.CrawlingMaxPageCount; pageNo++ {
+			ssangbongSchoolPageUrl := strings.ReplaceAll(fmt.Sprintf("%s%s&currPage=%d", c.SiteUrl, boardTypeConfig.urlPath1, pageNo), ssangbongSchoolUrlPathReplaceStringWithBoardID, b.ID)
 
-			doc, errOccurred, err := c.getWebPageDocumentWithPOST(ssangbongSchoolPageUrl, fmt.Sprintf("%s('%s') %s 게시판", c.site, c.siteID, b.Name))
+			doc, errOccurred, err := c.GetWebPageDocumentWithPOST(ssangbongSchoolPageUrl, fmt.Sprintf("%s('%s') %s 게시판", c.Site, c.SiteID, b.Name))
 			if err != nil {
 				return nil, nil, errOccurred, err
 			}
@@ -162,7 +164,7 @@ func (c *ssangbongSchoolCrawler) crawlingArticles(ctx context.Context) ([]*feed.
 				return true
 			})
 			if err != nil {
-				return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.site, c.siteID, b.Name), err
+				return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.Site, c.SiteID, b.Name), err
 			}
 
 			if foundAlreadyCrawledArticle == true {
@@ -200,7 +202,7 @@ func (c *ssangbongSchoolCrawler) crawlingArticles(ctx context.Context) ([]*feed.
 }
 
 // noinspection GoErrorStringFormat
-func (c *ssangbongSchoolCrawler) extractArticle(boardID, boardType, urlDetailPathPath string, s *goquery.Selection) (*feed.Article, error) {
+func (c *crawler) extractArticle(boardID, boardType, urlDetailPathPath string, s *goquery.Selection) (*feed.Article, error) {
 	var exists bool
 	var article = &feed.Article{}
 
@@ -220,7 +222,7 @@ func (c *ssangbongSchoolCrawler) extractArticle(boardID, boardType, urlDetailPat
 		}
 
 		// 상세페이지 링크
-		article.Link = strings.ReplaceAll(fmt.Sprintf("%s%s&nttSn=%s", c.siteUrl, urlDetailPathPath, article.ArticleID), ssangbongSchoolUrlPathReplaceStringWithBoardID, boardID)
+		article.Link = strings.ReplaceAll(fmt.Sprintf("%s%s&nttSn=%s", c.SiteUrl, urlDetailPathPath, article.ArticleID), ssangbongSchoolUrlPathReplaceStringWithBoardID, boardID)
 
 		// 등록자
 		as = s.Find("td")
@@ -276,7 +278,7 @@ func (c *ssangbongSchoolCrawler) extractArticle(boardID, boardType, urlDetailPat
 		}
 
 		// 상세페이지 링크
-		article.Link = strings.ReplaceAll(fmt.Sprintf("%s%s&nttSn=%s", c.siteUrl, urlDetailPathPath, article.ArticleID), ssangbongSchoolUrlPathReplaceStringWithBoardID, boardID)
+		article.Link = strings.ReplaceAll(fmt.Sprintf("%s%s&nttSn=%s", c.SiteUrl, urlDetailPathPath, article.ArticleID), ssangbongSchoolUrlPathReplaceStringWithBoardID, boardID)
 
 		// 등록일
 		as = s.Find("a.selectNttInfo > p.txt > span.date")
@@ -310,8 +312,8 @@ func (c *ssangbongSchoolCrawler) extractArticle(boardID, boardType, urlDetailPat
 	}
 }
 
-func (c *ssangbongSchoolCrawler) crawlingArticleContent(article *feed.Article) {
-	doc, errOccurred, err := c.getWebPageDocumentWithPOST(article.Link, fmt.Sprintf("%s('%s') %s 게시판의 게시글('%s') 상세페이지", c.site, c.siteID, article.BoardName, article.ArticleID))
+func (c *crawler) crawlingArticleContent(article *feed.Article) {
+	doc, errOccurred, err := c.GetWebPageDocumentWithPOST(article.Link, fmt.Sprintf("%s('%s') %s 게시판의 게시글('%s') 상세페이지", c.Site, c.SiteID, article.BoardName, article.ArticleID))
 	if err != nil {
 		applog.Warnf("%s (error:%s)", errOccurred, err)
 		return
@@ -354,12 +356,12 @@ func (c *ssangbongSchoolCrawler) crawlingArticleContent(article *feed.Article) {
 		var src, _ = s.Attr("src")
 		if src != "" {
 			var alt, _ = s.Attr("alt")
-			article.Content += fmt.Sprintf(`%s<img src="%s%s" alt="%s">`, "\r\n", c.siteUrl, src, alt)
+			article.Content += fmt.Sprintf(`%s<img src="%s%s" alt="%s">`, "\r\n", c.SiteUrl, src, alt)
 		}
 	})
 }
 
-func (c *ssangbongSchoolCrawler) getWebPageDocumentWithPOST(url, title string) (*goquery.Document, string, error) {
+func (c *crawler) GetWebPageDocumentWithPOST(url, title string) (*goquery.Document, string, error) {
 	querySplitIndex := strings.Index(url, "?")
 	req, err := http.NewRequest("POST", url[:querySplitIndex], bytes.NewBufferString(url[querySplitIndex+1:]))
 	if err != nil {
@@ -371,8 +373,8 @@ func (c *ssangbongSchoolCrawler) getWebPageDocumentWithPOST(url, title string) (
 	req.Header.Set("Cache-Control", "max-age=0")
 	req.Header.Set("Connection", "keep-alive")
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Host", strings.ReplaceAll(strings.ReplaceAll(c.siteUrl, "http://", ""), "https://", ""))
-	req.Header.Set("Origin", c.siteUrl)
+	req.Header.Set("Host", strings.ReplaceAll(strings.ReplaceAll(c.SiteUrl, "http://", ""), "https://", ""))
+	req.Header.Set("Origin", c.SiteUrl)
 	req.Header.Set("Referer", url)
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Linux; Android 11.0; Surface Duo) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36")
 

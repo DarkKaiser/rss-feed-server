@@ -1,4 +1,4 @@
-package provider
+package yeosucityhall
 
 import (
 	"context"
@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/darkkaiser/rss-feed-server/internal/service/crawl/provider"
 
 	"github.com/PuerkitoBio/goquery"
 	applog "github.com/darkkaiser/notify-server/pkg/log"
@@ -43,31 +45,31 @@ type yeosuCityHallCrawlerBoardTypeConfig struct {
 const yeosuCityHallUrlPathReplaceStringWithBoardID = "#{board_id}"
 
 func init() {
-	MustRegister(config.ProviderSiteYeosuCityHall, &CrawlerConfig{
+	provider.MustRegister(config.ProviderSiteYeosuCityHall, &provider.CrawlerConfig{
 		NewCrawler: func(rssFeedProviderID string, providerConfig *config.ProviderDetailConfig, feedRepo feed.Repository, notifyClient *notify.Client) cron.Job {
 			site := "여수시청 홈페이지"
 
-			crawlerInstance := &yeosuCityHallCrawler{
-				crawler: crawler{
-					config: providerConfig,
+			crawlerInstance := &crawler{
+				Base: provider.Base{
+					Config: providerConfig,
 
-					rssFeedProviderID: rssFeedProviderID,
-					feedRepo:          feedRepo,
-					notifyClient:      notifyClient,
+					RssFeedProviderID: rssFeedProviderID,
+					FeedRepo:          feedRepo,
+					NotifyClient:      notifyClient,
 
-					site:            site,
-					siteID:          providerConfig.ID,
-					siteName:        providerConfig.Name,
-					siteDescription: providerConfig.Description,
-					siteUrl:         providerConfig.URL,
+					Site:            site,
+					SiteID:          providerConfig.ID,
+					SiteName:        providerConfig.Name,
+					SiteDescription: providerConfig.Description,
+					SiteUrl:         providerConfig.URL,
 
-					crawlingMaxPageCount: 3,
+					CrawlingMaxPageCount: 3,
 				},
 			}
 
-			crawlerInstance.crawlingArticlesFn = crawlerInstance.crawlingArticles
+			crawlerInstance.Base.CrawlArticles = crawlerInstance.crawlArticles
 
-			applog.Debug(fmt.Sprintf("%s('%s') Crawler가 생성되었습니다.", crawlerInstance.site, crawlerInstance.siteID))
+			applog.Debug(fmt.Sprintf("%s('%s') Crawler가 생성되었습니다.", crawlerInstance.Site, crawlerInstance.SiteID))
 
 			return crawlerInstance
 		},
@@ -98,24 +100,24 @@ func init() {
 	}
 }
 
-type yeosuCityHallCrawler struct {
-	crawler
+type crawler struct {
+	provider.Base
 }
 
 // noinspection GoErrorStringFormat,GoUnhandledErrorResult
-func (c *yeosuCityHallCrawler) crawlingArticles(ctx context.Context) ([]*feed.Article, map[string]string, string, error) {
+func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[string]string, string, error) {
 	var articles = make([]*feed.Article, 0)
 	var newLatestCrawledArticleIDsByBoard = make(map[string]string)
 
-	for _, b := range c.config.Boards {
+	for _, b := range c.Config.Boards {
 		boardTypeConfig, exists := yeosuCityHallCrawlerBoardTypes[b.Type]
 		if exists == false {
-			return nil, nil, fmt.Sprintf("%s('%s')의 게시판 Type별 정보를 구하는 중에 오류가 발생하였습니다.", c.site, c.siteID), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
+			return nil, nil, fmt.Sprintf("%s('%s')의 게시판 Type별 정보를 구하는 중에 오류가 발생하였습니다.", c.Site, c.SiteID), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
 		}
 
-		latestCrawledArticleID, latestCrawledCreatedDate, err := c.feedRepo.GetLatestCrawledInfo(ctx, c.rssFeedProviderID, b.ID)
+		latestCrawledArticleID, latestCrawledCreatedDate, err := c.FeedRepo.GetLatestCrawledInfo(ctx, c.RssFeedProviderID, b.ID)
 		if err != nil {
-			return nil, nil, fmt.Sprintf("%s('%s') %s 게시판에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", c.site, c.siteID, b.Name), err
+			return nil, nil, fmt.Sprintf("%s('%s') %s 게시판에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", c.Site, c.SiteID, b.Name), err
 		}
 
 		var newLatestCrawledArticleID = ""
@@ -123,10 +125,10 @@ func (c *yeosuCityHallCrawler) crawlingArticles(ctx context.Context) ([]*feed.Ar
 		//
 		// 게시글 크롤링
 		//
-		for pageNo := 1; pageNo <= c.crawlingMaxPageCount; pageNo++ {
-			ysPageUrl := strings.Replace(fmt.Sprintf("%s%s?page=%d", c.siteUrl, boardTypeConfig.urlPath, pageNo), yeosuCityHallUrlPathReplaceStringWithBoardID, b.ID, -1)
+		for pageNo := 1; pageNo <= c.CrawlingMaxPageCount; pageNo++ {
+			ysPageUrl := strings.Replace(fmt.Sprintf("%s%s?page=%d", c.SiteUrl, boardTypeConfig.urlPath, pageNo), yeosuCityHallUrlPathReplaceStringWithBoardID, b.ID, -1)
 
-			doc, errOccurred, err := c.getWebPageDocument(ysPageUrl, fmt.Sprintf("%s('%s') %s 게시판", c.site, c.siteID, b.Name), nil)
+			doc, errOccurred, err := c.GetWebPageDocument(ysPageUrl, fmt.Sprintf("%s('%s') %s 게시판", c.Site, c.SiteID, b.Name), nil)
 			if err != nil {
 				return nil, nil, errOccurred, err
 			}
@@ -154,11 +156,11 @@ func (c *yeosuCityHallCrawler) crawlingArticles(ctx context.Context) ([]*feed.Ar
 					// 리스트 타입의 경우 서버 이상이 발생한 경우에는 Selection(ysSelection) 노드의 갯수가 1개이므로, 서버 이상 유무를 아래쪽 IF 블럭에서 처리한다.
 
 				default:
-					return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다.", c.site, c.siteID, b.Name), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
+					return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다.", c.Site, c.SiteID, b.Name), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
 				}
 
 				// 게시글이 0건이라면 CSS 파싱이 실패한것으로 본다.
-				return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.site, c.siteID, b.Name), errors.New("게시글 추출이 실패하였습니다.")
+				return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.Site, c.SiteID, b.Name), errors.New("게시글 추출이 실패하였습니다.")
 			} else if ysSelection.Length() == 1 {
 				// 여수시청 서버의 이상으로 가끔씩 게시글을 불러오지 못하는 현상이 발생함!!!
 				// 만약 1번째 페이지에 이 현상이 발생하였으면 아무 처리도 하지 않고 다음 게시판을 크롤링한다.
@@ -192,7 +194,7 @@ func (c *yeosuCityHallCrawler) crawlingArticles(ctx context.Context) ([]*feed.Ar
 					}
 
 				default:
-					return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다.", c.site, c.siteID, b.Name), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
+					return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다.", c.Site, c.SiteID, b.Name), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
 				}
 			}
 
@@ -226,7 +228,7 @@ func (c *yeosuCityHallCrawler) crawlingArticles(ctx context.Context) ([]*feed.Ar
 				return true
 			})
 			if err != nil {
-				return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.site, c.siteID, b.Name), err
+				return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.Site, c.SiteID, b.Name), err
 			}
 
 			if foundAlreadyCrawledArticle == true {
@@ -265,7 +267,7 @@ func (c *yeosuCityHallCrawler) crawlingArticles(ctx context.Context) ([]*feed.Ar
 }
 
 // noinspection GoErrorStringFormat
-func (c *yeosuCityHallCrawler) extractArticle(boardType string, s *goquery.Selection) (*feed.Article, error) {
+func (c *crawler) extractArticle(boardType string, s *goquery.Selection) (*feed.Article, error) {
 	var exists bool
 	var article = &feed.Article{}
 
@@ -280,7 +282,7 @@ func (c *yeosuCityHallCrawler) extractArticle(boardType string, s *goquery.Selec
 		if exists == false {
 			return nil, errors.New("게시글에서 상세페이지 URL 추출이 실패하였습니다.")
 		}
-		article.Link = fmt.Sprintf("%s%s", c.siteUrl, article.Link)
+		article.Link = fmt.Sprintf("%s%s", c.SiteUrl, article.Link)
 
 		// 제목
 		as = s.Find("a.item_cont > div.cont_box > div.title_box")
@@ -345,7 +347,7 @@ func (c *yeosuCityHallCrawler) extractArticle(boardType string, s *goquery.Selec
 		if exists == false {
 			return nil, errors.New("게시글에서 상세페이지 URL 추출이 실패하였습니다.")
 		}
-		article.Link = fmt.Sprintf("%s%s", c.siteUrl, article.Link)
+		article.Link = fmt.Sprintf("%s%s", c.SiteUrl, article.Link)
 
 		if boardType == yeosuCityHallCrawlerBoardTypeList2 {
 			// 분류
@@ -413,7 +415,7 @@ func (c *yeosuCityHallCrawler) extractArticle(boardType string, s *goquery.Selec
 		if exists == false {
 			return nil, errors.New("게시글에서 상세페이지 URL 추출이 실패하였습니다.")
 		}
-		article.Link = fmt.Sprintf("%s%s", c.siteUrl, article.Link)
+		article.Link = fmt.Sprintf("%s%s", c.SiteUrl, article.Link)
 
 		// 제목
 		as = s.Find("div.cont_box > h3")
@@ -471,8 +473,8 @@ func (c *yeosuCityHallCrawler) extractArticle(boardType string, s *goquery.Selec
 	}
 }
 
-func (c *yeosuCityHallCrawler) crawlingArticleContent(article *feed.Article) {
-	doc, errOccurred, err := c.getWebPageDocument(article.Link, fmt.Sprintf("%s('%s') %s 게시판의 게시글('%s') 상세페이지", c.site, c.siteID, article.BoardName, article.ArticleID), nil)
+func (c *crawler) crawlingArticleContent(article *feed.Article) {
+	doc, errOccurred, err := c.GetWebPageDocument(article.Link, fmt.Sprintf("%s('%s') %s 게시판의 게시글('%s') 상세페이지", c.Site, c.SiteID, article.BoardName, article.ArticleID), nil)
 	if err != nil {
 		applog.Warnf("%s (error:%s)", errOccurred, err)
 		return
@@ -499,11 +501,11 @@ func (c *yeosuCityHallCrawler) crawlingArticleContent(article *feed.Article) {
 			} else if strings.HasPrefix(src, "./") == true {
 				boardTypeConfig, exists := yeosuCityHallCrawlerBoardTypes[article.BoardType]
 				if exists == true {
-					urlPath := strings.Replace(fmt.Sprintf("%s%s", c.siteUrl, boardTypeConfig.urlPath), yeosuCityHallUrlPathReplaceStringWithBoardID, article.BoardID, -1)
+					urlPath := strings.Replace(fmt.Sprintf("%s%s", c.SiteUrl, boardTypeConfig.urlPath), yeosuCityHallUrlPathReplaceStringWithBoardID, article.BoardID, -1)
 					article.Content += fmt.Sprintf(`%s<img src="%s%s" alt="%s" style="%s">`, "\r\n", urlPath, src[1:], alt, style)
 				}
 			} else {
-				article.Content += fmt.Sprintf(`%s<img src="%s%s" alt="%s" style="%s">`, "\r\n", c.config.URL, src, alt, style)
+				article.Content += fmt.Sprintf(`%s<img src="%s%s" alt="%s" style="%s">`, "\r\n", c.Config.URL, src, alt, style)
 			}
 		}
 	})
