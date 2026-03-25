@@ -14,6 +14,9 @@ import (
 	"github.com/darkkaiser/rss-feed-server/internal/feed"
 	"github.com/darkkaiser/rss-feed-server/internal/service"
 	"github.com/darkkaiser/rss-feed-server/internal/service/crawl/provider"
+	_ "github.com/darkkaiser/rss-feed-server/internal/service/crawl/provider/navercafe"
+	_ "github.com/darkkaiser/rss-feed-server/internal/service/crawl/provider/ssangbonges"
+	_ "github.com/darkkaiser/rss-feed-server/internal/service/crawl/provider/yeosucityhall"
 	"github.com/robfig/cron/v3"
 )
 
