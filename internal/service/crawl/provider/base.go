@@ -18,6 +18,9 @@ import (
 	"golang.org/x/text/encoding"
 )
 
+// component 크롤링 서비스의 Provider 로깅용 컴포넌트 이름
+const component = "crawl.provider"
+
 // @@@@@
 // NewCrawlerFunc 크롤러 생성 함수 타입
 type NewCrawlerFunc func(string, *config.ProviderDetailConfig, feed.Repository, *notify.Client) cron.Job

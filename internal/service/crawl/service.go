@@ -154,43 +154,43 @@ func (s *Service) stop() {
 // registerJobs 설정 파일에 정의된 모든 Provider를 순회하며 Cron 스케줄러에 등록합니다.
 func (s *Service) registerJobs(_ context.Context) error {
 	for _, p := range s.cfg.Providers {
-		// @@@@@
-		factory, err := provider.Lookup(config.ProviderSite(p.Site))
+		cfg, err := provider.Lookup(config.ProviderSite(p.Site))
 		if err != nil {
-			m := fmt.Sprintf("%s(ID:%s) 크롤링 작업의 스케쥴러 등록이 실패하였습니다. 구현된 Crawler가 존재하지 않습니다.", p.Site, p.ID)
-			s.logAndNotifyError(m)
-
-			return apperrors.Wrapf(err, apperrors.Internal, "구현된 Crawler가 존재하지 않습니다: %s", p.Site)
+			s.logAndNotifyError(fmt.Sprintf("Site(%s, ID: %s)에 매핑된 크롤러 구현체가 없어 스케줄 등록에 실패했습니다.", p.Site, p.ID), err)
+			return apperrors.Wrapf(err, apperrors.Internal, "크롤러 스케줄 등록 실패: Site(%s)에 매핑된 크롤러 구현체가 없습니다", p.Site)
 		}
 
-		if _, err := s.cron.AddJob(p.Scheduler.TimeSpec, factory.NewCrawler(p.ID, p.Config, s.feedRepo, s.notifyClient)); err != nil {
-			m := fmt.Sprintf("%s(ID:%s) 크롤링 작업의 스케쥴러 등록이 실패하였습니다. (error:%s)", p.Site, p.ID, err)
-			s.logAndNotifyError(m)
-
-			return apperrors.Wrapf(err, apperrors.Internal, "스케줄 등록 실패: 잘못된 Cron 표현식입니다 (Site=%s, ID=%s, TimeSpec='%s')", config.ProviderSite(p.Site), p.ID, p.Scheduler.TimeSpec)
+		if _, err := s.cron.AddJob(p.Scheduler.TimeSpec, cfg.NewCrawler(p.ID, p.Config, s.feedRepo, s.notifyClient)); err != nil {
+			s.logAndNotifyError(fmt.Sprintf("Site(%s, ID: %s)의 Cron 표현식 구문에 오류가 있어 스케줄 등록에 실패했습니다.", p.Site, p.ID), err)
+			return apperrors.Wrapf(err, apperrors.Internal, "크롤러 스케줄 등록 실패: Cron 표현식 구문이 잘못되었습니다 (Site: %s, ID: %s, TimeSpec: '%s')", config.ProviderSite(p.Site), p.ID, p.Scheduler.TimeSpec)
 		}
 	}
 
 	return nil
 }
 
-// @@@@@
-// logAndNotifyError 오류 메시지를 로그에 기록하고, notifyClient가 설정된 경우 관리자에게 알림을 발송합니다.
-//
-// 알림 전송은 네트워크 지연 등으로 메인 흐름(스케줄러 등록·종료)이 블로킹되지 않도록
-// 항상 별도의 고루틴에서 5초 타임아웃과 함께 비동기로 실행됩니다.
-func (s *Service) logAndNotifyError(message string) {
-	applog.WithComponent(component).Error(message)
+// logAndNotifyError 크롤러 실행 중 발생한 오류를 로깅하고 관리자에게 알림을 전송합니다.
+func (s *Service) logAndNotifyError(message string, err error) {
+	fields := applog.Fields{}
 
-	if s.notifyClient == nil {
-		return
+	if err != nil {
+		fields["error"] = err
+
+		// 에러 객체가 있으면 메시지에 상세 내용 추가
+		message = fmt.Sprintf("%s: %v", message, err)
 	}
 
-	// 알림 전송 대기로 인해 핵심 파이프라인(예: 스케줄러 등록/종료)이 차단되지 않도록 고루틴으로 실행합니다.
-	go func(msg string) {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
+	applog.WithComponentAndFields(component, fields).Error(message)
 
-		s.notifyClient.NotifyError(ctx, msg)
-	}(message)
+	// ========================================
+	// 에러 알림 전송
+	// ========================================
+	if s.notifyClient != nil {
+		go func(msg string) {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			s.notifyClient.NotifyError(ctx, msg)
+		}(message)
+	}
 }
