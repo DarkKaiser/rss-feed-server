@@ -38,6 +38,13 @@ func (s *Store) AutoMigrate() error {
 	if err := s.createTables(); err != nil {
 		return fmt.Errorf("초기 테이블 및 인덱스 생성 실패: %w", err)
 	}
+
+	// 어제(과거) 지워진 게시글의 빈 공간(Free Space)을 물리적으로 완전히 회수하고 압축합니다.
+	// (새벽 4시 서버 재실행 메커니즘과 맞물려 매일 1회 초기화 시점에 안전하게 용량이 관리됩니다.)
+	if _, err := s.db.Exec("VACUUM"); err != nil {
+		return fmt.Errorf("DB 용량 압축(VACUUM) 실패: %w", err)
+	}
+
 	return nil
 }
 
