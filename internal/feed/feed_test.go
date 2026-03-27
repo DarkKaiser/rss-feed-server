@@ -116,7 +116,7 @@ type mockRepository struct {
 // 컴파일 타임 인터페이스 준수 검증
 var _ feed.Repository = (*mockRepository)(nil)
 
-func (m *mockRepository) InsertArticles(ctx context.Context, providerID string, articles []*feed.Article) (int, error) {
+func (m *mockRepository) SaveArticles(ctx context.Context, providerID string, articles []*feed.Article) (int, error) {
 	return m.insertArticlesFn(ctx, providerID, articles)
 }
 
@@ -124,11 +124,11 @@ func (m *mockRepository) GetArticles(ctx context.Context, providerID string, boa
 	return m.getArticlesFn(ctx, providerID, boardIDs, limit)
 }
 
-func (m *mockRepository) GetLatestCrawledInfo(ctx context.Context, providerID, boardID string) (string, time.Time, error) {
+func (m *mockRepository) GetCrawlingCursor(ctx context.Context, providerID, boardID string) (string, time.Time, error) {
 	return m.getLatestCrawledInfoFn(ctx, providerID, boardID)
 }
 
-func (m *mockRepository) UpdateLatestCrawledArticleID(ctx context.Context, providerID, boardID, articleID string) error {
+func (m *mockRepository) UpsertLatestCrawledArticleID(ctx context.Context, providerID, boardID, articleID string) error {
 	return m.updateLatestCrawledArticleIDFn(ctx, providerID, boardID, articleID)
 }
 
@@ -159,7 +159,7 @@ func TestRepository_InterfaceContract(t *testing.T) {
 
 	t.Run("InsertArticles: 삽입 성공 수를 올바르게 반환한다", func(t *testing.T) {
 		t.Parallel()
-		n, err := repo.InsertArticles(context.Background(), "provider-1", articles)
+		n, err := repo.SaveArticles(context.Background(), "provider-1", articles)
 		assert.NoError(t, err)
 		assert.Equal(t, 1, n)
 	})
@@ -174,7 +174,7 @@ func TestRepository_InterfaceContract(t *testing.T) {
 
 	t.Run("GetLatestCrawledInfo: 마지막 크롤링 정보를 올바르게 반환한다", func(t *testing.T) {
 		t.Parallel()
-		id, at, err := repo.GetLatestCrawledInfo(context.Background(), "provider-1", "b1")
+		id, at, err := repo.GetCrawlingCursor(context.Background(), "provider-1", "b1")
 		assert.NoError(t, err)
 		assert.Equal(t, "a1", id)
 		assert.Equal(t, fixedTime, at)
@@ -182,7 +182,7 @@ func TestRepository_InterfaceContract(t *testing.T) {
 
 	t.Run("UpdateLatestCrawledArticleID: 오류 없이 완료된다", func(t *testing.T) {
 		t.Parallel()
-		err := repo.UpdateLatestCrawledArticleID(context.Background(), "provider-1", "b1", "a1")
+		err := repo.UpsertLatestCrawledArticleID(context.Background(), "provider-1", "b1", "a1")
 		assert.NoError(t, err)
 	})
 }

@@ -21,7 +21,7 @@ type MockFeedRepo struct {
 	mock.Mock
 }
 
-func (m *MockFeedRepo) InsertArticles(ctx context.Context, providerID string, articles []*feed.Article) (int, error) {
+func (m *MockFeedRepo) SaveArticles(ctx context.Context, providerID string, articles []*feed.Article) (int, error) {
 	args := m.Called(ctx, providerID, articles)
 	return args.Int(0), args.Error(1)
 }
@@ -35,12 +35,12 @@ func (m *MockFeedRepo) GetArticles(ctx context.Context, providerID string, board
 	return res, args.Error(1)
 }
 
-func (m *MockFeedRepo) GetLatestCrawledInfo(ctx context.Context, providerID, boardID string) (string, time.Time, error) {
+func (m *MockFeedRepo) GetCrawlingCursor(ctx context.Context, providerID, boardID string) (string, time.Time, error) {
 	args := m.Called(ctx, providerID, boardID)
 	return args.String(0), args.Get(1).(time.Time), args.Error(2)
 }
 
-func (m *MockFeedRepo) UpdateLatestCrawledArticleID(ctx context.Context, providerID, boardID, articleID string) error {
+func (m *MockFeedRepo) UpsertLatestCrawledArticleID(ctx context.Context, providerID, boardID, articleID string) error {
 	args := m.Called(ctx, providerID, boardID, articleID)
 	return args.Error(0)
 }

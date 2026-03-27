@@ -102,7 +102,7 @@ func (c *Base) Run() {
 		if len(articles) > 0 {
 			applog.Debugf("%s('%s')의 크롤링 작업 결과로 %d건의 신규 게시글이 추출되었습니다. 신규 게시글을 DB에 추가합니다.", c.Site, c.SiteID, len(articles))
 
-			insertedCnt, err := c.FeedRepo.InsertArticles(ctx, c.RssFeedProviderID, articles)
+			insertedCnt, err := c.FeedRepo.SaveArticles(ctx, c.RssFeedProviderID, articles)
 			if err != nil {
 				m := fmt.Sprintf("%s('%s')의 신규 게시글을 DB에 추가하는 중에 오류가 발생하여 크롤링 작업이 실패하였습니다.", c.Site, c.SiteID)
 				c.SendErrorNotification(m, err)
@@ -163,7 +163,7 @@ func (c *Base) UpdateLatestCrawledIDs(ctx context.Context, latestCrawledArticleI
 			boardID = ""
 		}
 
-		if err := c.FeedRepo.UpdateLatestCrawledArticleID(ctx, c.RssFeedProviderID, boardID, articleID); err != nil {
+		if err := c.FeedRepo.UpsertLatestCrawledArticleID(ctx, c.RssFeedProviderID, boardID, articleID); err != nil {
 			m := fmt.Sprintf("%s('%s')의 크롤링 된 최근 게시글 ID의 DB 갱신이 실패하였습니다.", c.Site, c.SiteID)
 			c.SendErrorNotification(m, err)
 		}

@@ -149,7 +149,7 @@ func run(testDB *sql.DB, testServices []service.Service, testTermC <-chan os.Sig
 	if testDB != nil {
 		db = testDB
 	} else {
-		db, err = sqlite.Open(context.Background(), fmt.Sprintf("./%s.db", config.AppName))
+		db, err = sqlite.Open(context.Background(), fmt.Sprintf("./%s.db?_fk=1&_journal_mode=WAL&_busy_timeout=5000", config.AppName))
 		if err != nil {
 			m := "SQLite 데이터베이스 초기화 중 치명적인 오류가 발생했습니다"
 
@@ -193,7 +193,7 @@ func run(testDB *sql.DB, testServices []service.Service, testTermC <-chan os.Sig
 	}
 
 	// 10. RSS Feed Store 스키마 마이그레이션
-	if err := store.AutoMigrate(); err != nil {
+	if err := store.Initialize(context.Background()); err != nil {
 		m := "RSS 피드 저장소 스키마 생성 중 치명적인 오류가 발생했습니다"
 
 		if notifyClient != nil {
@@ -204,7 +204,7 @@ func run(testDB *sql.DB, testServices []service.Service, testTermC <-chan os.Sig
 	}
 
 	// 11. RSS Feed Provider 설정 데이터 동기화
-	if err := store.SyncProviders(appConfig.RSSFeed.Providers); err != nil {
+	if err := store.SyncProviders(context.Background(), appConfig.RSSFeed.Providers); err != nil {
 		m := "RSS 피드 마스터 정보 동기화 중 치명적인 오류가 발생했습니다"
 
 		if notifyClient != nil {
@@ -215,7 +215,7 @@ func run(testDB *sql.DB, testServices []service.Service, testTermC <-chan os.Sig
 	}
 
 	// 12. RSS Feed 보관 기한 만료 데이터 정리
-	if err := store.PurgeOldArticles(appConfig.RSSFeed.Providers); err != nil {
+	if err := store.PurgeOldArticles(context.Background(), appConfig.RSSFeed.Providers); err != nil {
 		m := "RSS 피드 만료 데이터 정리 중 치명적인 오류가 발생했습니다"
 
 		if notifyClient != nil {

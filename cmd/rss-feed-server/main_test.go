@@ -233,7 +233,7 @@ func TestRun_SQLiteNewError(t *testing.T) {
 	setupEnv(t, defaultValidConfig)
 
 	// 이미 닫힌 DB 핸들을 주입하여 연산 실패 유도
-	db, _ := sqlite.Open(context.Background(), ":memory:")
+	db, _ := sqlite.Open(context.Background(), ":memory:?_fk=1")
 	_ = db.Close()
 
 	err := run(db, nil, nil)
@@ -323,7 +323,7 @@ func TestRun_RealSignal(t *testing.T) {
 	errCh := make(chan error, 1)
 
 	// 파일 DB 잠금 문제를 피하기 위해 메모리 DB 주입
-	db, _ := sqlite.Open(context.Background(), ":memory:")
+	db, _ := sqlite.Open(context.Background(), ":memory:?_fk=1")
 
 	// testTermC로 nil을 넘겨 내부에서 OS 시그널 채널을 생성하도록 함
 	go func() {
