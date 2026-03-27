@@ -22,7 +22,7 @@ type mockFeedRepository struct{}
 
 var _ feed.Repository = (*mockFeedRepository)(nil)
 
-func (m *mockFeedRepository) InsertArticles(ctx context.Context, _ string, _ []*feed.Article) (int, error) {
+func (m *mockFeedRepository) SaveArticles(ctx context.Context, _ string, _ []*feed.Article) (int, error) {
 	return 0, nil
 }
 
@@ -30,11 +30,11 @@ func (m *mockFeedRepository) GetArticles(ctx context.Context, _ string, _ []stri
 	return nil, nil
 }
 
-func (m *mockFeedRepository) GetLatestCrawledInfo(ctx context.Context, _ string, _ string) (string, time.Time, error) {
+func (m *mockFeedRepository) GetCrawlingCursor(ctx context.Context, _ string, _ string) (string, time.Time, error) {
 	return "", time.Time{}, nil
 }
 
-func (m *mockFeedRepository) UpdateLatestCrawledArticleID(ctx context.Context, _ string, _ string, _ string) error {
+func (m *mockFeedRepository) UpsertLatestCrawledArticleID(ctx context.Context, _ string, _ string, _ string) error {
 	return nil
 }
 
@@ -211,7 +211,7 @@ func TestService_startHTTPServer(t *testing.T) {
 		ctx := context.Background()
 
 		httpServerDone := make(chan struct{})
-		
+
 		// 인증서 파일이 없으므로 StartTLS 에서 즉시 에러가 발생하고 채널이 닫혀야 함
 		go svc.startHTTPServer(ctx, e, httpServerDone)
 
@@ -318,7 +318,7 @@ func TestService_waitForShutdown_GracefulShutdown(t *testing.T) {
 		e := NewEchoServer(ServerConfig{AllowOrigins: []string{"*"}}, views)
 
 		done := make(chan struct{})
-		
+
 		// waitForShutdown은 e.Shutdown(ctx) 를 호출한 후 <-httpServerDone 에 의해 블록되므로,
 		// e.Shutdown(ctx)가 트리거된 시점을 알기 위해 임의의 신호를 보내주도록 설정.
 		// Echo.Shutdown 은 현재 구동 중인 서버가 없더라도 즉시 에러 없이 리턴됨.
@@ -329,7 +329,7 @@ func TestService_waitForShutdown_GracefulShutdown(t *testing.T) {
 
 		// 즉시 취소 신호 전송
 		cancel()
-		
+
 		// HTTP 서버가 Shutdown 결과로 종료되었다고 가정하고 httpServerDone 채널을 닫음
 		close(httpServerDone)
 
