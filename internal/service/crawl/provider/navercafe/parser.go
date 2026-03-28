@@ -69,9 +69,9 @@ func (c *crawler) crawlingArticleContentUsingAPI(article *feed.Article, euckrDec
 	//
 	// 네이버 카페 상세페이지를 로드하여 art 쿼리 문자열을 구한다.
 	//
-	title := fmt.Sprintf("%s('%s > %s') 게시글('%s')의 상세페이지", c.Site, c.SiteID, article.BoardName, article.ArticleID)
+	title := fmt.Sprintf("%s('%s > %s') 게시글('%s')의 상세페이지", c.Site(), c.SiteID(), article.BoardName, article.ArticleID)
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s", c.SiteUrl, article.ArticleID), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s", c.SiteUrl(), article.ArticleID), nil)
 	if err != nil {
 		applog.Warnf("%s 접근이 실패하였습니다. (error:%s)", title, err)
 		return
@@ -112,7 +112,7 @@ func (c *crawler) crawlingArticleContentUsingAPI(article *feed.Article, euckrDec
 	//
 	// 구한 art 쿼리 문자열을 이용하여 네이버 카페 게시글 API를 호출한다.
 	//
-	title = fmt.Sprintf("%s('%s > %s') 게시글('%s')의 API 페이지", c.Site, c.SiteID, article.BoardName, article.ArticleID)
+	title = fmt.Sprintf("%s('%s > %s') 게시글('%s')의 API 페이지", c.Site(), c.SiteID(), article.BoardName, article.ArticleID)
 
 	res2, err := http.Get(fmt.Sprintf("https://apis.naver.com/cafe-web/cafe-articleapi/v2/cafes/%s/articles/%s?art=%s&useCafeId=true&requestFrom=A", c.siteClubID, article.ArticleID, artValue))
 	if err != nil {
@@ -177,7 +177,7 @@ func (c *crawler) crawlingArticleContentUsingAPI(article *feed.Article, euckrDec
 }
 
 func (c *crawler) crawlingArticleContentUsingLink(article *feed.Article, euckrDecoder *encoding.Decoder) {
-	doc, errOccurred, err := c.GetWebPageDocument(article.Link, fmt.Sprintf("%s('%s > %s') 게시글('%s')의 상세페이지", c.Site, c.SiteID, article.BoardName, article.ArticleID), euckrDecoder)
+	doc, errOccurred, err := c.GetWebPageDocument(article.Link, fmt.Sprintf("%s('%s > %s') 게시글('%s')의 상세페이지", c.Site(), c.SiteID(), article.BoardName, article.ArticleID), euckrDecoder)
 	if err != nil {
 		applog.Warnf("%s (error:%s)", errOccurred, err)
 		return
@@ -203,21 +203,21 @@ func (c *crawler) crawlingArticleContentUsingLink(article *feed.Article, euckrDe
 }
 
 func (c *crawler) crawlingArticleContentUsingNaverSearch(article *feed.Article) {
-	searchUrl := fmt.Sprintf("https://search.naver.com/search.naver?where=article&query=%s&ie=utf8&st=date&date_option=0&date_from=&date_to=&board=&srchby=title&dup_remove=0&cafe_url=%s&without_cafe_url=&sm=tab_opt&nso=so:dd,p:all,a:t&t=0&mson=0&prdtype=0", url.QueryEscape(article.Title), c.SiteID)
+	searchUrl := fmt.Sprintf("https://search.naver.com/search.naver?where=article&query=%s&ie=utf8&st=date&date_option=0&date_from=&date_to=&board=&srchby=title&dup_remove=0&cafe_url=%s&without_cafe_url=&sm=tab_opt&nso=so:dd,p:all,a:t&t=0&mson=0&prdtype=0", url.QueryEscape(article.Title), c.SiteID())
 
-	doc, errOccurred, err := c.GetWebPageDocument(searchUrl, fmt.Sprintf("%s('%s > %s') 게시글('%s')의 네이버 검색페이지", c.Site, c.SiteID, article.BoardName, article.ArticleID), nil)
+	doc, errOccurred, err := c.GetWebPageDocument(searchUrl, fmt.Sprintf("%s('%s > %s') 게시글('%s')의 네이버 검색페이지", c.Site(), c.SiteID(), article.BoardName, article.ArticleID), nil)
 	if err != nil {
 		applog.Warnf("%s (error:%s)", errOccurred, err)
 		return
 	}
 
-	ncSelection := doc.Find(fmt.Sprintf("a.total_dsc[href='%s/%s']", c.SiteUrl, article.ArticleID))
+	ncSelection := doc.Find(fmt.Sprintf("a.total_dsc[href='%s/%s']", c.SiteUrl(), article.ArticleID))
 	if ncSelection.Length() == 1 {
 		article.Content = strutil.NormalizeMultiline(ncSelection.Text())
 	}
 
 	// 내용에 이미지 태그가 포함되어 있다면 모두 추출한다.
-	doc.Find(fmt.Sprintf("a.thumb_single[href='%s/%s'] img", c.SiteUrl, article.ArticleID)).Each(func(i int, s *goquery.Selection) {
+	doc.Find(fmt.Sprintf("a.thumb_single[href='%s/%s'] img", c.SiteUrl(), article.ArticleID)).Each(func(i int, s *goquery.Selection) {
 		var src, _ = s.Attr("src")
 		if src != "" {
 			var alt, _ = s.Attr("alt")

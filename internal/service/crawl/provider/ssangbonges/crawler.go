@@ -42,7 +42,7 @@ func init() {
 			site := "쌍봉초등학교 홈페이지"
 
 			crawlerInstance := &crawler{
-				Base: provider.Base{
+				Base: provider.NewBase(provider.BaseParams{
 					Config: providerConfig,
 
 					RssFeedProviderID: rssFeedProviderID,
@@ -56,12 +56,12 @@ func init() {
 					SiteUrl:         providerConfig.URL,
 
 					CrawlingMaxPageCount: 3,
-				},
+				}),
 			}
 
-			crawlerInstance.Base.CrawlArticles = crawlerInstance.crawlArticles
+			crawlerInstance.SetCrawlArticles(crawlerInstance.crawlArticles)
 
-			applog.Debug(fmt.Sprintf("%s('%s') Crawler가 생성되었습니다.", crawlerInstance.Site, crawlerInstance.SiteID))
+			applog.Debug(fmt.Sprintf("%s('%s') Crawler가 생성되었습니다.", crawlerInstance.Site(), crawlerInstance.SiteID()))
 
 			return crawlerInstance
 		},
@@ -91,15 +91,15 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 	var articles = make([]*feed.Article, 0)
 	var newLatestCrawledArticleIDsByBoard = make(map[string]string)
 
-	for _, b := range c.Config.Boards {
+	for _, b := range c.Config().Boards {
 		boardTypeConfig, exists := ssangbongSchoolCrawlerBoardTypes[b.Type]
 		if exists == false {
-			return nil, nil, fmt.Sprintf("%s('%s')의 게시판 Type별 정보를 구하는 중에 오류가 발생하였습니다.", c.Site, c.SiteID), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
+			return nil, nil, fmt.Sprintf("%s('%s')의 게시판 Type별 정보를 구하는 중에 오류가 발생하였습니다.", c.Site(), c.SiteID()), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
 		}
 
-		latestCrawledArticleID, latestCrawledCreatedDate, err := c.FeedRepo.GetCrawlingCursor(ctx, c.RssFeedProviderID, b.ID)
+		latestCrawledArticleID, latestCrawledCreatedDate, err := c.FeedRepo().GetCrawlingCursor(ctx, c.RssFeedProviderID(), b.ID)
 		if err != nil {
-			return nil, nil, fmt.Sprintf("%s('%s') %s 게시판에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", c.Site, c.SiteID, b.Name), err
+			return nil, nil, fmt.Sprintf("%s('%s') %s 게시판에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", c.Site(), c.SiteID(), b.Name), err
 		}
 
 		var newLatestCrawledArticleID = ""
@@ -107,10 +107,10 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 		//
 		// 게시글 크롤링
 		//
-		for pageNo := 1; pageNo <= c.CrawlingMaxPageCount; pageNo++ {
-			ssangbongSchoolPageUrl := strings.ReplaceAll(fmt.Sprintf("%s%s&currPage=%d", c.SiteUrl, boardTypeConfig.urlPath1, pageNo), ssangbongSchoolUrlPathReplaceStringWithBoardID, b.ID)
+		for pageNo := 1; pageNo <= c.CrawlingMaxPageCount(); pageNo++ {
+			ssangbongSchoolPageUrl := strings.ReplaceAll(fmt.Sprintf("%s%s&currPage=%d", c.SiteUrl(), boardTypeConfig.urlPath1, pageNo), ssangbongSchoolUrlPathReplaceStringWithBoardID, b.ID)
 
-			doc, errOccurred, err := c.GetWebPageDocumentWithPOST(ssangbongSchoolPageUrl, fmt.Sprintf("%s('%s') %s 게시판", c.Site, c.SiteID, b.Name))
+			doc, errOccurred, err := c.GetWebPageDocumentWithPOST(ssangbongSchoolPageUrl, fmt.Sprintf("%s('%s') %s 게시판", c.Site(), c.SiteID(), b.Name))
 			if err != nil {
 				return nil, nil, errOccurred, err
 			}
@@ -160,7 +160,7 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 				return true
 			})
 			if err != nil {
-				return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.Site, c.SiteID, b.Name), err
+				return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.Site(), c.SiteID(), b.Name), err
 			}
 
 			if foundAlreadyCrawledArticle == true {
@@ -209,8 +209,8 @@ func (c *crawler) GetWebPageDocumentWithPOST(url, title string) (*goquery.Docume
 	req.Header.Set("Cache-Control", "max-age=0")
 	req.Header.Set("Connection", "keep-alive")
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Host", strings.ReplaceAll(strings.ReplaceAll(c.SiteUrl, "http://", ""), "https://", ""))
-	req.Header.Set("Origin", c.SiteUrl)
+	req.Header.Set("Host", strings.ReplaceAll(strings.ReplaceAll(c.SiteUrl(), "http://", ""), "https://", ""))
+	req.Header.Set("Origin", c.SiteUrl())
 	req.Header.Set("Referer", url)
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Linux; Android 11.0; Surface Duo) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36")
 

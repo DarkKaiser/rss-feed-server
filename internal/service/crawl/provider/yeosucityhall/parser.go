@@ -30,7 +30,7 @@ func (c *crawler) extractArticle(boardType string, s *goquery.Selection) (*feed.
 		if exists == false {
 			return nil, errors.New("게시글에서 상세페이지 URL 추출이 실패하였습니다.")
 		}
-		article.Link = fmt.Sprintf("%s%s", c.SiteUrl, article.Link)
+		article.Link = fmt.Sprintf("%s%s", c.SiteUrl(), article.Link)
 
 		// 제목
 		as = s.Find("a.item_cont > div.cont_box > div.title_box")
@@ -95,7 +95,7 @@ func (c *crawler) extractArticle(boardType string, s *goquery.Selection) (*feed.
 		if exists == false {
 			return nil, errors.New("게시글에서 상세페이지 URL 추출이 실패하였습니다.")
 		}
-		article.Link = fmt.Sprintf("%s%s", c.SiteUrl, article.Link)
+		article.Link = fmt.Sprintf("%s%s", c.SiteUrl(), article.Link)
 
 		if boardType == yeosuCityHallCrawlerBoardTypeList2 {
 			// 분류
@@ -163,7 +163,7 @@ func (c *crawler) extractArticle(boardType string, s *goquery.Selection) (*feed.
 		if exists == false {
 			return nil, errors.New("게시글에서 상세페이지 URL 추출이 실패하였습니다.")
 		}
-		article.Link = fmt.Sprintf("%s%s", c.SiteUrl, article.Link)
+		article.Link = fmt.Sprintf("%s%s", c.SiteUrl(), article.Link)
 
 		// 제목
 		as = s.Find("div.cont_box > h3")
@@ -222,7 +222,7 @@ func (c *crawler) extractArticle(boardType string, s *goquery.Selection) (*feed.
 }
 
 func (c *crawler) crawlingArticleContent(article *feed.Article) {
-	doc, errOccurred, err := c.GetWebPageDocument(article.Link, fmt.Sprintf("%s('%s') %s 게시판의 게시글('%s') 상세페이지", c.Site, c.SiteID, article.BoardName, article.ArticleID), nil)
+	doc, errOccurred, err := c.GetWebPageDocument(article.Link, fmt.Sprintf("%s('%s') %s 게시판의 게시글('%s') 상세페이지", c.Site(), c.SiteID(), article.BoardName, article.ArticleID), nil)
 	if err != nil {
 		applog.Warnf("%s (error:%s)", errOccurred, err)
 		return
@@ -249,11 +249,11 @@ func (c *crawler) crawlingArticleContent(article *feed.Article) {
 			} else if strings.HasPrefix(src, "./") == true {
 				boardTypeConfig, exists := yeosuCityHallCrawlerBoardTypes[article.BoardType]
 				if exists == true {
-					urlPath := strings.Replace(fmt.Sprintf("%s%s", c.SiteUrl, boardTypeConfig.urlPath), yeosuCityHallUrlPathReplaceStringWithBoardID, article.BoardID, -1)
+					urlPath := strings.Replace(fmt.Sprintf("%s%s", c.SiteUrl(), boardTypeConfig.urlPath), yeosuCityHallUrlPathReplaceStringWithBoardID, article.BoardID, -1)
 					article.Content += fmt.Sprintf(`%s<img src="%s%s" alt="%s" style="%s">`, "\r\n", urlPath, src[1:], alt, style)
 				}
 			} else {
-				article.Content += fmt.Sprintf(`%s<img src="%s%s" alt="%s" style="%s">`, "\r\n", c.Config.URL, src, alt, style)
+				article.Content += fmt.Sprintf(`%s<img src="%s%s" alt="%s" style="%s">`, "\r\n", c.Config().URL, src, alt, style)
 			}
 		}
 	})

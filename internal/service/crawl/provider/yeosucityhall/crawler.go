@@ -46,7 +46,7 @@ func init() {
 			site := "여수시청 홈페이지"
 
 			crawlerInstance := &crawler{
-				Base: provider.Base{
+				Base: provider.NewBase(provider.BaseParams{
 					Config: providerConfig,
 
 					RssFeedProviderID: rssFeedProviderID,
@@ -60,12 +60,12 @@ func init() {
 					SiteUrl:         providerConfig.URL,
 
 					CrawlingMaxPageCount: 3,
-				},
+				}),
 			}
 
-			crawlerInstance.Base.CrawlArticles = crawlerInstance.crawlArticles
+			crawlerInstance.SetCrawlArticles(crawlerInstance.crawlArticles)
 
-			applog.Debug(fmt.Sprintf("%s('%s') Crawler가 생성되었습니다.", crawlerInstance.Site, crawlerInstance.SiteID))
+			applog.Debug(fmt.Sprintf("%s('%s') Crawler가 생성되었습니다.", crawlerInstance.Site(), crawlerInstance.SiteID()))
 
 			return crawlerInstance
 		},
@@ -105,15 +105,15 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 	var articles = make([]*feed.Article, 0)
 	var newLatestCrawledArticleIDsByBoard = make(map[string]string)
 
-	for _, b := range c.Config.Boards {
+	for _, b := range c.Config().Boards {
 		boardTypeConfig, exists := yeosuCityHallCrawlerBoardTypes[b.Type]
 		if exists == false {
-			return nil, nil, fmt.Sprintf("%s('%s')의 게시판 Type별 정보를 구하는 중에 오류가 발생하였습니다.", c.Site, c.SiteID), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
+			return nil, nil, fmt.Sprintf("%s('%s')의 게시판 Type별 정보를 구하는 중에 오류가 발생하였습니다.", c.Site(), c.SiteID()), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
 		}
 
-		latestCrawledArticleID, latestCrawledCreatedDate, err := c.FeedRepo.GetCrawlingCursor(ctx, c.RssFeedProviderID, b.ID)
+		latestCrawledArticleID, latestCrawledCreatedDate, err := c.FeedRepo().GetCrawlingCursor(ctx, c.RssFeedProviderID(), b.ID)
 		if err != nil {
-			return nil, nil, fmt.Sprintf("%s('%s') %s 게시판에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", c.Site, c.SiteID, b.Name), err
+			return nil, nil, fmt.Sprintf("%s('%s') %s 게시판에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", c.Site(), c.SiteID(), b.Name), err
 		}
 
 		var newLatestCrawledArticleID = ""
@@ -121,10 +121,10 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 		//
 		// 게시글 크롤링
 		//
-		for pageNo := 1; pageNo <= c.CrawlingMaxPageCount; pageNo++ {
-			ysPageUrl := strings.Replace(fmt.Sprintf("%s%s?page=%d", c.SiteUrl, boardTypeConfig.urlPath, pageNo), yeosuCityHallUrlPathReplaceStringWithBoardID, b.ID, -1)
+		for pageNo := 1; pageNo <= c.CrawlingMaxPageCount(); pageNo++ {
+			ysPageUrl := strings.Replace(fmt.Sprintf("%s%s?page=%d", c.SiteUrl(), boardTypeConfig.urlPath, pageNo), yeosuCityHallUrlPathReplaceStringWithBoardID, b.ID, -1)
 
-			doc, errOccurred, err := c.GetWebPageDocument(ysPageUrl, fmt.Sprintf("%s('%s') %s 게시판", c.Site, c.SiteID, b.Name), nil)
+			doc, errOccurred, err := c.GetWebPageDocument(ysPageUrl, fmt.Sprintf("%s('%s') %s 게시판", c.Site(), c.SiteID(), b.Name), nil)
 			if err != nil {
 				return nil, nil, errOccurred, err
 			}
@@ -152,11 +152,11 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 					// 리스트 타입의 경우 서버 이상이 발생한 경우에는 Selection(ysSelection) 노드의 갯수가 1개이므로, 서버 이상 유무를 아래쪽 IF 블럭에서 처리한다.
 
 				default:
-					return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다.", c.Site, c.SiteID, b.Name), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
+					return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다.", c.Site(), c.SiteID(), b.Name), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
 				}
 
 				// 게시글이 0건이라면 CSS 파싱이 실패한것으로 본다.
-				return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.Site, c.SiteID, b.Name), errors.New("게시글 추출이 실패하였습니다.")
+				return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.Site(), c.SiteID(), b.Name), errors.New("게시글 추출이 실패하였습니다.")
 			} else if ysSelection.Length() == 1 {
 				// 여수시청 서버의 이상으로 가끔씩 게시글을 불러오지 못하는 현상이 발생함!!!
 				// 만약 1번째 페이지에 이 현상이 발생하였으면 아무 처리도 하지 않고 다음 게시판을 크롤링한다.
@@ -190,7 +190,7 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 					}
 
 				default:
-					return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다.", c.Site, c.SiteID, b.Name), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
+					return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다.", c.Site(), c.SiteID(), b.Name), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
 				}
 			}
 
@@ -224,7 +224,7 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 				return true
 			})
 			if err != nil {
-				return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.Site, c.SiteID, b.Name), err
+				return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.Site(), c.SiteID(), b.Name), err
 			}
 
 			if foundAlreadyCrawledArticle == true {

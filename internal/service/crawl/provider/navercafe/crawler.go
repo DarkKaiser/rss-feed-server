@@ -44,7 +44,7 @@ func init() {
 			}
 
 			crawlerInstance := &crawler{
-				Base: provider.Base{
+				Base: provider.NewBase(provider.BaseParams{
 					Config: providerConfig,
 
 					RssFeedProviderID: rssFeedProviderID,
@@ -58,16 +58,16 @@ func init() {
 					SiteUrl:         providerConfig.URL,
 
 					CrawlingMaxPageCount: 10,
-				},
+				}),
 
 				siteClubID: data.ClubID,
 
 				crawlingDelayTimeMinutes: 40,
 			}
 
-			crawlerInstance.Base.CrawlArticles = crawlerInstance.crawlArticles
+			crawlerInstance.SetCrawlArticles(crawlerInstance.crawlArticles)
 
-			applog.Debug(fmt.Sprintf("%s('%s') Crawler가 생성되었습니다.", crawlerInstance.Site, crawlerInstance.SiteID))
+			applog.Debug(fmt.Sprintf("%s('%s') Crawler가 생성되었습니다.", crawlerInstance.Site(), crawlerInstance.SiteID()))
 
 			return crawlerInstance
 		},
@@ -102,15 +102,15 @@ type crawler struct {
 }
 
 func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[string]string, string, error) {
-	idString, latestCrawledCreatedDate, err := c.FeedRepo.GetCrawlingCursor(ctx, c.RssFeedProviderID, "")
+	idString, latestCrawledCreatedDate, err := c.FeedRepo().GetCrawlingCursor(ctx, c.RssFeedProviderID(), "")
 	if err != nil {
-		return nil, nil, fmt.Sprintf("%s('%s')에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", c.Site, c.SiteID), err
+		return nil, nil, fmt.Sprintf("%s('%s')에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", c.Site(), c.SiteID()), err
 	}
 	var latestCrawledArticleID int64 = 0
 	if idString != "" {
 		latestCrawledArticleID, err = strconv.ParseInt(idString, 10, 64)
 		if err != nil {
-			return nil, nil, fmt.Sprintf("%s('%s')에 마지막으로 추가된 게시글 ID를 숫자로 변환하는 중에 오류가 발생하였습니다.", c.Site, c.SiteID), err
+			return nil, nil, fmt.Sprintf("%s('%s')에 마지막으로 추가된 게시글 ID를 숫자로 변환하는 중에 오류가 발생하였습니다.", c.Site(), c.SiteID()), err
 		}
 	}
 
@@ -122,17 +122,17 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 	// 게시글 크롤링
 	//
 	euckrDecoder := korean.EUCKR.NewDecoder()
-	for pageNo := 1; pageNo <= c.CrawlingMaxPageCount; pageNo++ {
-		ncPageUrl := fmt.Sprintf("%s/ArticleList.nhn?search.clubid=%s&userDisplay=50&search.boardtype=L&search.totalCount=501&search.page=%d", c.SiteUrl, c.siteClubID, pageNo)
+	for pageNo := 1; pageNo <= c.CrawlingMaxPageCount(); pageNo++ {
+		ncPageUrl := fmt.Sprintf("%s/ArticleList.nhn?search.clubid=%s&userDisplay=50&search.boardtype=L&search.totalCount=501&search.page=%d", c.SiteUrl(), c.siteClubID, pageNo)
 
-		doc, errOccurred, err := c.GetWebPageDocument(ncPageUrl, fmt.Sprintf("%s('%s') 페이지", c.Site, c.SiteID), euckrDecoder)
+		doc, errOccurred, err := c.GetWebPageDocument(ncPageUrl, fmt.Sprintf("%s('%s') 페이지", c.Site(), c.SiteID()), euckrDecoder)
 		if err != nil {
 			return nil, nil, errOccurred, err
 		}
 
 		ncSelection := doc.Find("div.article-board > table > tbody > tr:not(.board-notice)")
 		if len(ncSelection.Nodes) == 0 { // 전체글보기의 게시글이 0건이라면 CSS 파싱이 실패한것으로 본다.
-			return nil, nil, fmt.Sprintf("%s('%s')의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.Site, c.SiteID), errors.New("게시글 추출이 실패하였습니다.")
+			return nil, nil, fmt.Sprintf("%s('%s')의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.Site(), c.SiteID()), errors.New("게시글 추출이 실패하였습니다.")
 		}
 
 		var foundAlreadyCrawledArticle = false
@@ -240,7 +240,7 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 			}
 
 			// 추출해야 할 게시판인지 확인한다.
-			if c.Config.HasBoard(boardID) == false {
+			if c.Config().HasBoard(boardID) == false {
 				return true
 			}
 
@@ -268,7 +268,7 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 				ArticleID: strconv.FormatInt(articleID, 10),
 				Title:     title,
 				Content:   "",
-				Link:      fmt.Sprintf("%s/ArticleRead.nhn?articleid=%d&clubid=%s", c.SiteUrl, articleID, c.siteClubID),
+				Link:      fmt.Sprintf("%s/ArticleRead.nhn?articleid=%d&clubid=%s", c.SiteUrl(), articleID, c.siteClubID),
 				Author:    author,
 				CreatedAt: createdDate,
 			})
@@ -276,7 +276,7 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 			return true
 		})
 		if err != nil {
-			return nil, nil, fmt.Sprintf("%s('%s')의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.Site, c.SiteID), err
+			return nil, nil, fmt.Sprintf("%s('%s')의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.Site(), c.SiteID()), err
 		}
 
 		if foundAlreadyCrawledArticle == true {

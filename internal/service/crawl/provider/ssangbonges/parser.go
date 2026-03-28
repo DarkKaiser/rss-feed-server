@@ -34,7 +34,7 @@ func (c *crawler) extractArticle(boardID, boardType, urlDetailPathPath string, s
 		}
 
 		// 상세페이지 링크
-		article.Link = strings.ReplaceAll(fmt.Sprintf("%s%s&nttSn=%s", c.SiteUrl, urlDetailPathPath, article.ArticleID), ssangbongSchoolUrlPathReplaceStringWithBoardID, boardID)
+		article.Link = strings.ReplaceAll(fmt.Sprintf("%s%s&nttSn=%s", c.SiteUrl(), urlDetailPathPath, article.ArticleID), ssangbongSchoolUrlPathReplaceStringWithBoardID, boardID)
 
 		// 등록자
 		as = s.Find("td")
@@ -90,7 +90,7 @@ func (c *crawler) extractArticle(boardID, boardType, urlDetailPathPath string, s
 		}
 
 		// 상세페이지 링크
-		article.Link = strings.ReplaceAll(fmt.Sprintf("%s%s&nttSn=%s", c.SiteUrl, urlDetailPathPath, article.ArticleID), ssangbongSchoolUrlPathReplaceStringWithBoardID, boardID)
+		article.Link = strings.ReplaceAll(fmt.Sprintf("%s%s&nttSn=%s", c.SiteUrl(), urlDetailPathPath, article.ArticleID), ssangbongSchoolUrlPathReplaceStringWithBoardID, boardID)
 
 		// 등록일
 		as = s.Find("a.selectNttInfo > p.txt > span.date")
@@ -125,7 +125,7 @@ func (c *crawler) extractArticle(boardID, boardType, urlDetailPathPath string, s
 }
 
 func (c *crawler) crawlingArticleContent(article *feed.Article) {
-	doc, errOccurred, err := c.GetWebPageDocumentWithPOST(article.Link, fmt.Sprintf("%s('%s') %s 게시판의 게시글('%s') 상세페이지", c.Site, c.SiteID, article.BoardName, article.ArticleID))
+	doc, errOccurred, err := c.GetWebPageDocumentWithPOST(article.Link, fmt.Sprintf("%s('%s') %s 게시판의 게시글('%s') 상세페이지", c.Site(), c.SiteID(), article.BoardName, article.ArticleID))
 	if err != nil {
 		applog.Warnf("%s (error:%s)", errOccurred, err)
 		return
@@ -168,7 +168,7 @@ func (c *crawler) crawlingArticleContent(article *feed.Article) {
 		var src, _ = s.Attr("src")
 		if src != "" {
 			var alt, _ = s.Attr("alt")
-			article.Content += fmt.Sprintf(`%s<img src="%s%s" alt="%s">`, "\r\n", c.SiteUrl, src, alt)
+			article.Content += fmt.Sprintf(`%s<img src="%s%s" alt="%s">`, "\r\n", c.SiteUrl(), src, alt)
 		}
 	})
 }
