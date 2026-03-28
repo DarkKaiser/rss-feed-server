@@ -1,6 +1,7 @@
 package yeosucityhall
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
@@ -221,10 +222,11 @@ func (c *crawler) extractArticle(boardType string, s *goquery.Selection) (*feed.
 	}
 }
 
-func (c *crawler) crawlingArticleContent(article *feed.Article) {
-	doc, errOccurred, err := c.GetWebPageDocument(article.Link, fmt.Sprintf("%s('%s') %s 게시판의 게시글('%s') 상세페이지", c.Site(), c.SiteID(), article.BoardName, article.ArticleID), nil)
+func (c *crawler) crawlingArticleContent(ctx context.Context, article *feed.Article) {
+	doc, err := c.Scraper().FetchHTMLDocument(ctx, article.Link, nil)
 	if err != nil {
-		applog.Warnf("%s (error:%s)", errOccurred, err)
+		errOccurred := fmt.Sprintf("%s('%s') %s 게시판의 게시글('%s') 상세페이지 접근이 실패하였습니다.", c.Site(), c.SiteID(), article.BoardName, article.ArticleID)
+		applog.Warnf("%s (error:%v)", errOccurred, err)
 		return
 	}
 

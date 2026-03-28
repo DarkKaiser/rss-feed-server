@@ -124,9 +124,9 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 		for pageNo := 1; pageNo <= c.CrawlingMaxPageCount(); pageNo++ {
 			ysPageUrl := strings.Replace(fmt.Sprintf("%s%s?page=%d", c.SiteUrl(), boardTypeConfig.urlPath, pageNo), yeosuCityHallUrlPathReplaceStringWithBoardID, b.ID, -1)
 
-			doc, errOccurred, err := c.GetWebPageDocument(ysPageUrl, fmt.Sprintf("%s('%s') %s 게시판", c.Site(), c.SiteID(), b.Name), nil)
+			doc, err := c.Scraper().FetchHTMLDocument(ctx, ysPageUrl, nil)
 			if err != nil {
-				return nil, nil, errOccurred, err
+				return nil, nil, fmt.Sprintf("%s('%s') %s 게시판 접근이 실패하였습니다.", c.Site(), c.SiteID(), b.Name), err
 			}
 
 			ysSelection := doc.Find(boardTypeConfig.articleSelector)
@@ -249,7 +249,7 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 	for i := 0; i < 2; i++ {
 		for _, article := range articles {
 			if article.Content == "" {
-				c.crawlingArticleContent(article)
+				c.crawlingArticleContent(ctx, article)
 			}
 		}
 	}

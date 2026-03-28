@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
@@ -24,6 +23,9 @@ const (
 
 	// 포토 1
 	ssangbongSchoolCrawlerBoardTypePhoto1 string = "P_1"
+
+	// 회원제(비공개) 처리된 학교앨범 게시판 고유 ID
+	ssangbongSchoolCrawlerBoardIDSchoolAlbum string = "156453"
 )
 
 var ssangbongSchoolCrawlerBoardTypes map[string]*ssangbongSchoolCrawlerBoardTypeConfig
@@ -110,9 +112,9 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 		for pageNo := 1; pageNo <= c.CrawlingMaxPageCount(); pageNo++ {
 			ssangbongSchoolPageUrl := strings.ReplaceAll(fmt.Sprintf("%s%s&currPage=%d", c.SiteUrl(), boardTypeConfig.urlPath1, pageNo), ssangbongSchoolUrlPathReplaceStringWithBoardID, b.ID)
 
-			doc, errOccurred, err := c.GetWebPageDocumentWithPOST(ssangbongSchoolPageUrl, fmt.Sprintf("%s('%s') %s 게시판", c.Site(), c.SiteID(), b.Name))
+			doc, err := c.fetchDocumentWithPOST(ctx, ssangbongSchoolPageUrl, fmt.Sprintf("%s('%s') %s 게시판 접근이 실패하였습니다.", c.Site(), c.SiteID(), b.Name))
 			if err != nil {
-				return nil, nil, errOccurred, err
+				return nil, nil, err.Error(), err
 			}
 
 			ssangbongSchoolSelection := doc.Find(boardTypeConfig.articleSelector)
@@ -184,7 +186,7 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 	for i := 0; i < 2; i++ {
 		for _, article := range articles {
 			if article.Content == "" {
-				c.crawlingArticleContent(article)
+				c.crawlingArticleContent(ctx, article)
 			}
 		}
 	}
@@ -197,44 +199,24 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 	return articles, newLatestCrawledArticleIDsByBoard, "", nil
 }
 
-func (c *crawler) GetWebPageDocumentWithPOST(url, title string) (*goquery.Document, string, error) {
+func (c *crawler) fetchDocumentWithPOST(ctx context.Context, url, title string) (*goquery.Document, error) {
 	querySplitIndex := strings.Index(url, "?")
-	req, err := http.NewRequest("POST", url[:querySplitIndex], bytes.NewBufferString(url[querySplitIndex+1:]))
-	if err != nil {
-		return nil, fmt.Sprintf("%s 접근이 실패하였습니다.", title), err
-	}
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
-	req.Header.Set("Accept-Encoding", "gzip, deflate, br, zstd")
-	req.Header.Set("Accept-Language", "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7")
-	req.Header.Set("Cache-Control", "max-age=0")
-	req.Header.Set("Connection", "keep-alive")
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Host", strings.ReplaceAll(strings.ReplaceAll(c.SiteUrl(), "http://", ""), "https://", ""))
-	req.Header.Set("Origin", c.SiteUrl())
-	req.Header.Set("Referer", url)
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Linux; Android 11.0; Surface Duo) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36")
-
-	client := &http.Client{}
-	res, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Sprintf("%s 접근이 실패하였습니다.", title), err
-	}
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Sprintf("%s 접근이 실패하였습니다.", title), fmt.Errorf("HTTP Response StatusCode %d", res.StatusCode)
-	}
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(res.Body)
-
-	resBodyBytes, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, fmt.Sprintf("%s의 내용을 읽을 수 없습니다.", title), err
+	if querySplitIndex == -1 {
+		return nil, fmt.Errorf("%s URL에서 쿼리스트링을 찾을 수 없습니다.", title)
 	}
 
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(resBodyBytes)))
+	reqBody := bytes.NewBufferString(url[querySplitIndex+1:])
+
+	head := make(http.Header)
+	head.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+	head.Set("Content-Type", "application/x-www-form-urlencoded")
+	// Host와 Origin 헤더 등은 fetcher가 자동으로 설정하거나 기본 클라이언트 정책을 따릅니다.
+
+	doc, err := c.Scraper().FetchHTML(ctx, "POST", url[:querySplitIndex], reqBody, head)
 	if err != nil {
-		return nil, fmt.Sprintf("%s의 HTML 파싱이 실패하였습니다.", title), err
+		return nil, fmt.Errorf("%s (error:%v)", title, err)
 	}
 
-	return doc, "", nil
+	return doc, nil
 }
+

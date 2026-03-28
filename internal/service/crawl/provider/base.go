@@ -5,14 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/PuerkitoBio/goquery"
 	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/feed"
 	"github.com/darkkaiser/rss-feed-server/internal/service/crawl/fetcher"
 	"github.com/darkkaiser/rss-feed-server/internal/service/crawl/scraper"
-	"golang.org/x/text/encoding"
 )
 
 // component 크롤링 서비스의 Provider 로깅용 컴포넌트 이름
@@ -23,7 +21,6 @@ const component = "crawl.provider"
 // DB 갱신 시 이 값을 감지하면 빈 문자열("")로 변환되어 저장됩니다.
 // 예: UpdateLatestCrawledIDs 함수에서 boardID == DefaultBoardKey 조건으로 처리됩니다.
 const DefaultBoardKey = "#empty#"
-
 
 // CrawlArticlesFunc는 실제 웹 페이지 크롤링을 수행하는 함수의 타입입니다.
 // 전략 패턴(Strategy Pattern)을 통해 base crawler가 구체적인 크롤링 구현에 의존하지
@@ -135,6 +132,7 @@ func (c *Base) SiteName() string                     { return c.siteName }
 func (c *Base) SiteDescription() string              { return c.siteDescription }
 func (c *Base) SiteUrl() string                      { return c.siteUrl }
 func (c *Base) CrawlingMaxPageCount() int            { return c.crawlingMaxPageCount }
+func (c *Base) Scraper() scraper.Scraper             { return c.scraper }
 
 // SetCrawlArticles 개별 크롤러 구현체가 실제 크롤링 로직을 바인딩할 수 있도록 제공하는 Setter 입니다.
 func (c *Base) SetCrawlArticles(fn CrawlArticlesFunc) {
@@ -291,25 +289,4 @@ func (c *Base) UpdateLatestCrawledIDs(ctx context.Context, latestCrawledArticleI
 			c.SendErrorNotification(m, err)
 		}
 	}
-}
-
-// GetWebPageDocument (Deprecated: Fetcher/Scraper 도입에 따라 곧 제거될 예정입니다.)
-// 지정된 URL로 HTTP GET 요청을 보내고, 응답 본문을 파싱하여 
-// goquery.Document 객체로 반환하는 HTTP/HTML 스크래핑 유틸리티입니다.
-//
-// 본 플로우는 이미 새로 구축된 scraper 계층에서 네트워크 오류 감지, 재시도 제어 및
-// 문자열 인코딩 변환(CP949, EUC-KR 등)을 모두 관할하게 되어 더 이상 decoder의 주입 및
-// 직접적인 HTTP 패키지 의존 로직이 필요하지 않습니다. (하위 호환성 유지를 위해 시그니처만 일시 유지)
-func (c *Base) GetWebPageDocument(urlStr, title string, decoder *encoding.Decoder) (*goquery.Document, string, error) {
-	if c.scraper == nil {
-		return nil, fmt.Sprintf("%s 접근이 실패하였습니다.", title), fmt.Errorf("scraper가 초기화되지 않았습니다")
-	}
-
-	doc, err := c.scraper.FetchHTMLDocument(context.Background(), urlStr, nil)
-	if err != nil {
-		c.logger.Errorf("GetWebPageDocument: HTTP 요청 또는 파싱 실패 (url: %s, error: %v)", urlStr, err)
-		return nil, fmt.Sprintf("%s 접근이 실패하였습니다.", title), err
-	}
-
-	return doc, "", nil
 }

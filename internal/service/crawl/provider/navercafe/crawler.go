@@ -19,7 +19,6 @@ import (
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/feed"
 	"github.com/robfig/cron/v3"
-	"golang.org/x/text/encoding/korean"
 )
 
 func init() {
@@ -121,13 +120,12 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 	//
 	// 게시글 크롤링
 	//
-	euckrDecoder := korean.EUCKR.NewDecoder()
 	for pageNo := 1; pageNo <= c.CrawlingMaxPageCount(); pageNo++ {
 		ncPageUrl := fmt.Sprintf("%s/ArticleList.nhn?search.clubid=%s&userDisplay=50&search.boardtype=L&search.totalCount=501&search.page=%d", c.SiteUrl(), c.siteClubID, pageNo)
 
-		doc, errOccurred, err := c.GetWebPageDocument(ncPageUrl, fmt.Sprintf("%s('%s') 페이지", c.Site(), c.SiteID()), euckrDecoder)
+		doc, err := c.Scraper().FetchHTMLDocument(ctx, ncPageUrl, nil)
 		if err != nil {
-			return nil, nil, errOccurred, err
+			return nil, nil, fmt.Sprintf("%s('%s') 페이지 접근이 실패하였습니다.", c.Site(), c.SiteID()), err
 		}
 
 		ncSelection := doc.Find("div.article-board > table > tbody > tr:not(.board-notice)")
@@ -288,7 +286,7 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 	// 게시글 내용 크롤링 : 내용은 크롤링이 실패해도 에러를 발생하지 않고 무시한다.
 	//
 	for _, article := range articles {
-		c.crawlingArticleContent(article, euckrDecoder)
+		c.crawlingArticleContent(ctx, article)
 	}
 
 	// DB에 오래된 게시글부터 추가되도록 하기 위해 역순으로 재배열한다.

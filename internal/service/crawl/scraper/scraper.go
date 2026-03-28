@@ -9,7 +9,7 @@ import (
 	"github.com/darkkaiser/rss-feed-server/internal/service/crawl/fetcher"
 )
 
-// component Task 서비스의 Scraper 로깅용 컴포넌트 이름
+// component 크롤링 서비스의 Scraper 로깅용 컴포넌트 이름
 const component = "crawl.scraper"
 
 // defaultMaxBodySize HTTP 요청/응답 본문의 기본 최대 크기입니다.

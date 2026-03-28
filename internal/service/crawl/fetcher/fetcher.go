@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-// component Task 서비스의 Fetcher 로깅용 컴포넌트 이름
+// component 크롤링 서비스의 Fetcher 로깅용 컴포넌트 이름
 const component = "crawl.fetcher"
 
 // Fetcher HTTP 요청을 수행하는 핵심 인터페이스입니다.
