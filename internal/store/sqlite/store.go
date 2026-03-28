@@ -14,11 +14,11 @@ import (
 )
 
 // Store RSS 피드 도메인의 데이터를 영속성(Persistence) 있게 관리하기 위한 SQLite 전용 저장소입니다.
-// feed.Repository 인터페이스를 구현하고 있으며, 프로바이더, 보드, 게시글 및 크롤링 메타데이터에 대한
-// 모든 데이터베이스 조작(삽입, 조회, 갱신, 삭제)을 담당합니다.
+// feed.Repository 인터페이스를 구현하며, 공급자(Provider), 게시판(Board), 게시글(Article) 및
+// 크롤링 메타데이터에 대한 모든 데이터베이스 조작(삽입, 조회, 갱신, 삭제)을 담당합니다.
 //
 // 내부적으로 Go 표준 라이브러리의 *sql.DB 커넥션 풀을 활용하므로, 다중 고루틴(Goroutine)
-// 요청 환경에서도 안전한 동시성(Concurrency) 접근 및 제어를 보장합니다.
+// 환경에서도 안전한 동시성(Concurrency) 제어가 보장됩니다.
 type Store struct {
 	// db 활성화된 SQLite 데이터베이스 커넥션 풀입니다.
 	// 이 커넥션의 라이프사이클(Open/Close)은 Store의 책임이 아니며, 최상위 호출자(Caller) 측에서 관리해야 합니다.
@@ -63,11 +63,11 @@ func (s *Store) Initialize(ctx context.Context) error {
 }
 
 // autoMigrate 시스템 구동에 필요한 데이터베이스 테이블 및 인덱스의 존재 여부를 확인하고, 누락된 항목을 일괄 생성합니다.
-// 내부적으로 도메인 엔티티(프로바이더, 보드, 게시글, 크롤링 메타데이터)를 위한 스키마 DDL 스크립트를 단일 트랜잭션 단위로 실행하여,
-// 'IF NOT EXISTS' 제약 조건을 통해 안전하고 멱등성(Idempotence)이 보장된 스키마 초기화를 수행합니다.
+// 내부적으로 공급자(Provider), 게시판(Board), 게시글(Article), 크롤링 메타데이터를 위한
+// DDL 스크립트를 단일 트랜잭션 단위로 실행하며, 'IF NOT EXISTS' 조건 덕분에 이미 존재하는
+// 테이블/인덱스는 건드리지 않아 멱등성(Idempotence)이 보장됩니다.
 //
-// 주의: DDL 쿼리 실행 중 오류가 발생할 경우, 데이터베이스의 파편화 및 불일치를 막기 위해
-// 생성 과정에서 변경된 내역은 즉시 롤백(Rollback) 처리됩니다.
+// 주의: DDL 실행 중 오류가 발생하면 불완전한 스키마 상태를 남기지 않도록 즉시 롤백(Rollback)합니다.
 func (s *Store) autoMigrate(ctx context.Context) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -354,7 +354,7 @@ func (s *Store) PurgeOldArticles(ctx context.Context, providers []*config.Provid
 			return fmt.Errorf("보관 기한 초과 레코드 일괄 삭제 작업 중 실행 컨텍스트가 취소되었습니다: %w", err)
 		}
 
-		// DB 점유율(Lock) 최소화를 위해 각 Provider 별로 트랜잭션을 분리하여 삭제합니다.
+		// DB 잠금(Lock) 시간을 최소화하기 위해, 공급자별로 독립된 트랜잭션을 만들어 삭제합니다.
 		err := func() error {
 			tx, err := s.db.BeginTx(ctx, nil)
 			if err != nil {
@@ -376,23 +376,21 @@ func (s *Store) PurgeOldArticles(ctx context.Context, providers []*config.Provid
 		}()
 
 		if err != nil {
-			errs = append(errs, fmt.Errorf("단일 프로바이더(providerID: %s)의 보관 기한 초과 레코드 일괄 삭제 실패: %w", p.ID, err))
+			errs = append(errs, fmt.Errorf("공급자(providerID: %s)의 보관 기한 초과 게시글 삭제 실패: %w", p.ID, err))
 		}
 	}
 
 	return errors.Join(errs...)
 }
 
-// deleteOldArticles 진행 중인 트랜잭션(tx) 내에서 특정 Provider의 설정된 보관 기한(archiveDays)이 지난
-// 과거 게시글들을 물리적으로 영구 삭제합니다.
+// deleteOldArticles 진행 중인 트랜잭션(tx) 안에서, 특정 공급자의 보관 기한(archiveDays)이 지난
+// 게시글을 데이터베이스에서 영구 삭제하는 내부 헬퍼 함수입니다.
 //
-// 외부 API인 PurgeOldArticles에서 각 Provider별 격리된 트랜잭션과 함께 호출되며,
-// SQLite 내장 함수인 `strftime`을 사용하여 현재 시각('now')을 기준으로 만료 대상 레코드를 데이터베이스
-// 엔진 레벨에서 효율적으로 필터링 후 삭제(DELETE)합니다.
+// PurgeOldArticles에서 공급자별 전용 트랜잭션과 함께 호출되며, SQLite 내장 함수 `strftime`을
+// 활용하여 '현재 시각 - archiveDays일' 이전 게시글을 DB 엔진 레벨에서 직접 필터링합니다.
 //
-// 최적화 포인트:
-// archiveDays 값이 0으로 전달되는 경우는 데이터 보관 기한이 '무제한'임을 뜻합니다.
-// 이 때는 어떠한 불필요한 I/O 작업이나 쿼리도 실행하지 않고 즉시 성공(nil)을 반환합니다.
+// 최적화: archiveDays가 0이면 '보관 기한 없음(무제한)'을 의미하므로,
+// 불필요한 쿼리 실행 없이 즉시 반환합니다.
 func (s *Store) deleteOldArticles(ctx context.Context, tx *sql.Tx, providerID string, archiveDays uint) error {
 	// archiveDays가 0인 경우는 보관 기간 '무제한(보존)'을 의미하므로, 불필요한 DB 쿼리 오버헤드를 막기 위해 즉시 반환합니다.
 	if archiveDays == 0 {
@@ -426,7 +424,7 @@ func (s *Store) SaveArticles(ctx context.Context, providerID string, articles []
 	// defer로 등록된 Rollback()은 Commit()이 먼저 성공하면 자동으로 무시됩니다.
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return 0, fmt.Errorf("게시글 저장(SaveArticles) 트랜잭션 BeginTx 실패: %w", err)
+		return 0, fmt.Errorf("게시글 저장(SaveArticles) 트랜잭션 시작(BeginTx) 실패: %w", err)
 	}
 	defer func() {
 		_ = tx.Rollback()
@@ -490,7 +488,7 @@ func (s *Store) SaveArticles(ctx context.Context, providerID string, articles []
 }
 
 // GetArticles 지정한 공급자(providerID)의 게시판들(boardIDs)에서 게시글을 최신순으로 최대 limit개 반환합니다.
-// boardIDs가 비어 있으면 DB를 조회하지 않고 빈 목록을 반환합니다.
+// boardIDs가 비어 있으면 DB를 조회하지 않고 즉시 빈 목록을 반환합니다.
 func (s *Store) GetArticles(ctx context.Context, providerID string, boardIDs []string, limit uint) ([]*feed.Article, error) {
 	// 조회할 게시판이 없으면 DB 통신 없이 즉시 빈 목록을 반환합니다.
 	if len(boardIDs) == 0 {
@@ -530,7 +528,7 @@ func (s *Store) GetArticles(ctx context.Context, providerID string, boardIDs []s
 
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("GetArticles 쿼리 실행 실패 (providerID: %s): %w", providerID, err)
+		return nil, fmt.Errorf("게시글 목록 조회(GetArticles) 쿼리 실행 실패 (providerID: %s): %w", providerID, err)
 	}
 	defer rows.Close()
 
@@ -542,7 +540,7 @@ func (s *Store) GetArticles(ctx context.Context, providerID string, boardIDs []s
 		var rawCreatedDate sql.NullString
 
 		if err = rows.Scan(&article.BoardID, &article.BoardName, &article.ArticleID, &article.Title, &article.Content, &article.Link, &article.Author, &rawCreatedDate); err != nil {
-			return nil, fmt.Errorf("GetArticles 결과 스캔 실패: %w", err)
+			return nil, fmt.Errorf("게시글 목록 조회(GetArticles) 결과 행 스캔 실패: %w", err)
 		}
 		if rawCreatedDate.Valid {
 			if parsed, err := time.Parse(time.RFC3339, rawCreatedDate.String); err == nil {
@@ -556,19 +554,20 @@ func (s *Store) GetArticles(ctx context.Context, providerID string, boardIDs []s
 	// rows.Next() 루프 종료 후, 루프 도중 발생한 내부 에러를 확인합니다.
 	// rows.Scan 에러와는 다른 종류의 실패이므로 반드시 체크해야 합니다.
 	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("GetArticles 결과 행 반복 중 에러 발생: %w", err)
+		return nil, fmt.Errorf("게시글 목록 조회(GetArticles) 결과 행 순회 중 오류 발생: %w", err)
 	}
 
 	return articles, nil
 }
 
 // GetCrawlingCursor 이전 크롤링에서 마지막으로 수집한 게시글의 ID와 작성일시를 반환합니다.
-// 결과가 없으면 ID는 빈 문자열(""), 작성일시는 zero value(time.Time{})를 반환합니다.
+// 저장된 커서가 없으면 ID는 빈 문자열(""), 작성일시는 zero value(time.Time{})를 반환합니다.
 //
 // boardID가 빈 문자열("")이면 특정 게시판이 아닌 해당 공급자(Provider) 전체를 대상으로 조회합니다.
 //
 // 참고: 내부 쿼리는 `SELECT (서브쿼리1), (서브쿼리2)` 구조를 사용합니다.
-// 이 방식은 결과가 없어도 항상 (NULL, NULL) 한 행을 반환하므로, sql.ErrNoRows가 발생하지 않으며 sql.Null* 타입으로 안전하게 처리됩니다.
+// 이 방식은 결과가 없어도 항상 (NULL, NULL) 한 행을 반환하므로,
+// sql.ErrNoRows 없이 sql.Null* 타입으로 안전하게 처리할 수 있습니다.
 func (s *Store) GetCrawlingCursor(ctx context.Context, providerID, boardID string) (string, time.Time, error) {
 	var err error
 	var rawArticleID sql.NullString
@@ -626,9 +625,9 @@ func (s *Store) GetCrawlingCursor(ctx context.Context, providerID, boardID strin
 }
 
 // UpsertLatestCrawledArticleID 이번 크롤링에서 수집한 가장 최신 게시글의 ID를 저장합니다.
-// 다음번 크롤링 때 이 ID 이후 게시글부터 수집하므로, 이미 가져온 게시글을 다시 가져오는 일이 없어집니다.
+// 다음 크롤링 시 이 ID 이후 게시글부터 수집하므로, 중복 수집을 방지할 수 있습니다.
 //
-// boardID를 빈 문자열("")로 전달하면 특정 게시판이 아닌 공급자 전체에 대한 기준 ID로 저장됩니다.
+// boardID를 빈 문자열("")로 전달하면 특정 게시판이 아닌 공급자 전체 범위의 기준 ID로 저장됩니다.
 func (s *Store) UpsertLatestCrawledArticleID(ctx context.Context, providerID, boardID, articleID string) error {
 	query := `
 		INSERT INTO
