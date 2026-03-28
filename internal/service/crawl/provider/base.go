@@ -3,9 +3,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"io"
-	"net/http"
-	"strings"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -13,7 +10,8 @@ import (
 	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/feed"
-	"golang.org/x/net/html"
+	"github.com/darkkaiser/rss-feed-server/internal/service/crawl/fetcher"
+	"github.com/darkkaiser/rss-feed-server/internal/service/crawl/scraper"
 	"golang.org/x/text/encoding"
 )
 
@@ -59,6 +57,9 @@ type BaseParams struct {
 
 	// CrawlingMaxPageCount 크롤링 할 최대 페이지 수
 	CrawlingMaxPageCount int
+
+	// Scraper 웹스크래핑을 수행하는 외부 컴포넌트입니다. 주입하지 않으면 기본값이 생성됩니다.
+	Scraper scraper.Scraper
 }
 
 // NewBase BaseParams를 받아 완전히 초기화된 Base 인스턴스를 생성하는 팩토리 함수입니다.
@@ -66,6 +67,13 @@ type BaseParams struct {
 // 이 함수는 개별 크롤러(예: navercafe) 초기화 시 호출되며, 구조체 필드의 무분별한 접근을
 // 막기 위한 캡슐화 패턴(Encapsulation Pattern)을 강제합니다.
 func NewBase(p BaseParams) Base {
+	scr := p.Scraper
+	if scr == nil {
+		// 기본 Fetcher 및 Scraper 생성 (향후 각 Provider 생성 시 주입받도록 개선 예정)
+		f := fetcher.New(3, 2*time.Second, 10*1024*1024, fetcher.WithTimeout(15*time.Second))
+		scr = scraper.New(f)
+	}
+
 	return Base{
 		config:               p.Config,
 		rssFeedProviderID:    p.RssFeedProviderID,
@@ -77,6 +85,8 @@ func NewBase(p BaseParams) Base {
 		siteDescription:      p.SiteDescription,
 		siteUrl:              p.SiteUrl,
 		crawlingMaxPageCount: p.CrawlingMaxPageCount,
+
+		scraper: scr,
 
 		logger: applog.WithFields(applog.Fields{
 			"site":    p.Site,
@@ -107,6 +117,9 @@ type Base struct {
 	crawlingMaxPageCount int
 
 	crawlArticles CrawlArticlesFunc
+
+	// scraper 웹스크래핑을 수행하는 컴포넌트입니다.
+	scraper scraper.Scraper
 
 	// logger 고정 필드가 바인딩된 로거 인스턴스입니다.
 	logger *applog.Entry
@@ -160,51 +173,70 @@ func (c *Base) Run() {
 		}
 	}()
 
+	ctx, cancel := c.prepareExecution()
+	defer cancel()
+
+	articles, latestIDs := c.execute(ctx)
+	c.finalizeExecution(ctx, articles, latestIDs)
+}
+
+// prepareExecution 크롤링 작업에 필요한 초기 설정, 의존성 검증 및 컨텍스트 타임아웃 설정을 수행합니다.
+func (c *Base) prepareExecution() (context.Context, context.CancelFunc) {
 	c.logger.Debugf("%s('%s')의 크롤링 작업을 시작합니다.", c.site, c.siteID)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-	defer cancel()
 
 	if c.crawlArticles == nil {
 		c.logger.Panic("CrawlArticles 함수가 주입되지 않았습니다. SetCrawlArticles를 확인해 주세요.")
 	}
 
-	c.execute(ctx)
+	return ctx, cancel
 }
 
-// execute 실제 게시글 스크래핑과 DB 저장, 그리고 포인터 갱신을 순차적으로 수행하는 비즈니스 진입점입니다.
-func (c *Base) execute(ctx context.Context) {
+// execute 실제 게시글 스크래핑 비즈니스 로직을 호출하여 신규 게시글 목록과 최신 커서(ID)를 반환합니다.
+func (c *Base) execute(ctx context.Context) ([]*feed.Article, map[string]string) {
 	articles, latestCrawledArticleIDsByBoard, errOccurred, err := c.crawlArticles(ctx)
 	if err != nil {
 		c.SendErrorNotification(errOccurred, err)
+		return nil, nil
+	}
+
+	if articles == nil {
+		c.logger.Warnf("%s('%s')의 크롤링 작업을 종료합니다. 서버의 일시적인 오류로 인하여 신규 게시글 추출이 실패하였습니다.", c.site, c.siteID)
+		return nil, nil
+	}
+
+	return articles, latestCrawledArticleIDsByBoard
+}
+
+// finalizeExecution 크롤링된 결과를 데이터베이스에 저장하고, 알림을 발송하며, 상태 마커를 업데이트하고 리소스를 정리합니다.
+func (c *Base) finalizeExecution(ctx context.Context, articles []*feed.Article, latestCrawledArticleIDsByBoard map[string]string) {
+	if articles == nil {
+		// 오류 발생으로 인해 articles가 없는 경우는 이미 execute 단계에서 로깅/알림 완료됨
 		return
 	}
 
-	if articles != nil {
-		if len(articles) > 0 {
-			c.logger.Debugf("%s('%s')의 크롤링 작업 결과로 %d건의 신규 게시글이 추출되었습니다. 신규 게시글을 DB에 추가합니다.", c.site, c.siteID, len(articles))
+	if len(articles) > 0 {
+		c.logger.Debugf("%s('%s')의 크롤링 작업 결과로 %d건의 신규 게시글이 추출되었습니다. 신규 게시글을 DB에 추가합니다.", c.site, c.siteID, len(articles))
 
-			insertedCnt, err := c.feedRepo.SaveArticles(ctx, c.rssFeedProviderID, articles)
-			if err != nil {
-				m := fmt.Sprintf("%s('%s')의 신규 게시글을 DB에 추가하는 중에 오류가 발생하여 크롤링 작업이 실패하였습니다.😱", c.site, c.siteID)
-				c.SendErrorNotification(m, err)
-				return
-			}
+		insertedCnt, err := c.feedRepo.SaveArticles(ctx, c.rssFeedProviderID, articles)
+		if err != nil {
+			m := fmt.Sprintf("%s('%s')의 신규 게시글을 DB에 추가하는 중에 오류가 발생하여 크롤링 작업이 실패하였습니다.😱", c.site, c.siteID)
+			c.SendErrorNotification(m, err)
+			return
+		}
 
-			c.UpdateLatestCrawledIDs(ctx, latestCrawledArticleIDsByBoard)
+		c.UpdateLatestCrawledIDs(ctx, latestCrawledArticleIDsByBoard)
 
-			if len(articles) != insertedCnt {
-				c.logger.Warnf("%s('%s')의 크롤링 작업을 종료합니다. 전체 %d건 중에서 %d건의 신규 게시글이 DB에 추가되었습니다.", c.site, c.siteID, len(articles), insertedCnt)
-			} else {
-				c.logger.Debugf("%s('%s')의 크롤링 작업을 종료합니다. %d건의 신규 게시글이 DB에 추가되었습니다.", c.site, c.siteID, len(articles))
-			}
+		if len(articles) != insertedCnt {
+			c.logger.Warnf("%s('%s')의 크롤링 작업을 종료합니다. 전체 %d건 중에서 %d건의 신규 게시글이 DB에 추가되었습니다.", c.site, c.siteID, len(articles), insertedCnt)
 		} else {
-			c.UpdateLatestCrawledIDs(ctx, latestCrawledArticleIDsByBoard)
-
-			c.logger.Debugf("%s('%s')의 크롤링 작업을 종료합니다. 신규 게시글이 존재하지 않습니다.", c.site, c.siteID)
+			c.logger.Debugf("%s('%s')의 크롤링 작업을 종료합니다. %d건의 신규 게시글이 DB에 추가되었습니다.", c.site, c.siteID, len(articles))
 		}
 	} else {
-		c.logger.Warnf("%s('%s')의 크롤링 작업을 종료합니다. 서버의 일시적인 오류로 인하여 신규 게시글 추출이 실패하였습니다.", c.site, c.siteID)
+		c.UpdateLatestCrawledIDs(ctx, latestCrawledArticleIDsByBoard)
+
+		c.logger.Debugf("%s('%s')의 크롤링 작업을 종료합니다. 신규 게시글이 존재하지 않습니다.", c.site, c.siteID)
 	}
 }
 
@@ -261,67 +293,23 @@ func (c *Base) UpdateLatestCrawledIDs(ctx context.Context, latestCrawledArticleI
 	}
 }
 
-// GetWebPageDocument 지정된 URL로 HTTP GET 요청을 보내고, 응답 본문을 파싱하여 
+// GetWebPageDocument (Deprecated: Fetcher/Scraper 도입에 따라 곧 제거될 예정입니다.)
+// 지정된 URL로 HTTP GET 요청을 보내고, 응답 본문을 파싱하여 
 // goquery.Document 객체로 반환하는 HTTP/HTML 스크래핑 유틸리티입니다.
 //
-// 대상 서버의 일시적인 순단(Connection Reset by Peer 등) 방어를 위해 일정 시간 슬립 후
-// 통신을 1회 재시도(Retry)하는 로직이 내장되어 있습니다. 또한 웹페이지의 문자 인코딩(예: EUC-KR)에 
-// 대응하기 위해 decoder를 선택적으로 주입할 수 있습니다.
-//
-// 반환값:
-//   - *goquery.Document: HTML DOM 트리를 파싱 완료한 객체 (성공 시)
-//   - string: 오류 발생 시 사용자/관리자에게 전달할 한글 오류 메시지
-//   - error: 컨텍스트나 네트워크 통신, HTML 파싱 과정의 구체적 에러 구조체
-// noinspection GoUnhandledErrorResult
-func (c *Base) GetWebPageDocument(url, title string, decoder *encoding.Decoder) (*goquery.Document, string, error) {
-	res, err := http.Get(url)
+// 본 플로우는 이미 새로 구축된 scraper 계층에서 네트워크 오류 감지, 재시도 제어 및
+// 문자열 인코딩 변환(CP949, EUC-KR 등)을 모두 관할하게 되어 더 이상 decoder의 주입 및
+// 직접적인 HTTP 패키지 의존 로직이 필요하지 않습니다. (하위 호환성 유지를 위해 시그니처만 일시 유지)
+func (c *Base) GetWebPageDocument(urlStr, title string, decoder *encoding.Decoder) (*goquery.Document, string, error) {
+	if c.scraper == nil {
+		return nil, fmt.Sprintf("%s 접근이 실패하였습니다.", title), fmt.Errorf("scraper가 초기화되지 않았습니다")
+	}
+
+	doc, err := c.scraper.FetchHTMLDocument(context.Background(), urlStr, nil)
 	if err != nil {
-		// 2022년 10월 중순경부터 네이버카페의 글을 일정 시간이 지난후에 http.Get()을 호출하게 되면 'connection reset by peer' 에러가 발생함!
-		// 그래서 http.Get()에서 에러가 발생하면 최대 2번 호출하도록 변경함!!
-		for i := 1; i <= 2; i++ {
-			time.Sleep(100 * time.Millisecond)
-
-			res, err = http.Get(url)
-			if err == nil {
-				goto SUCCEED
-			}
-		}
-
+		c.logger.Errorf("GetWebPageDocument: HTTP 요청 또는 파싱 실패 (url: %s, error: %v)", urlStr, err)
 		return nil, fmt.Sprintf("%s 접근이 실패하였습니다.", title), err
 	}
-SUCCEED:
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Sprintf("%s 접근이 실패하였습니다.", title), fmt.Errorf("HTTP Response StatusCode %d", res.StatusCode)
-	}
-	defer res.Body.Close()
 
-	bodyBytes, err := io.ReadAll(res.Body)
-	if err != nil {
-		if strings.Contains(err.Error(), "unexpected EOF") && len(bodyBytes) != 0 {
-			goto pars
-		}
-		return nil, fmt.Sprintf("%s의 내용을 읽을 수 없습니다.", title), err
-	}
-
-pars:
-	if decoder != nil {
-		bodyString, err := decoder.String(string(bodyBytes))
-		if err != nil {
-			return nil, fmt.Sprintf("%s의 문자열 디코딩이 실패하였습니다.", title), err
-		}
-
-		root, err := html.Parse(strings.NewReader(bodyString))
-		if err != nil {
-			return nil, fmt.Sprintf("%s의 HTML 파싱이 실패하였습니다.", title), err
-		}
-
-		return goquery.NewDocumentFromNode(root), "", nil
-	} else {
-		root, err := html.Parse(strings.NewReader(string(bodyBytes)))
-		if err != nil {
-			return nil, fmt.Sprintf("%s의 HTML 파싱이 실패하였습니다.", title), err
-		}
-
-		return goquery.NewDocumentFromNode(root), "", nil
-	}
+	return doc, "", nil
 }
