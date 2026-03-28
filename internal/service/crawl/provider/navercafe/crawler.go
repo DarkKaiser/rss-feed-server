@@ -18,12 +18,11 @@ import (
 	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/feed"
-	"github.com/robfig/cron/v3"
 )
 
 func init() {
 	provider.MustRegister(config.ProviderSiteNaverCafe, &provider.CrawlerConfig{
-		NewCrawler: func(rssFeedProviderID string, providerConfig *config.ProviderDetailConfig, feedRepo feed.Repository, notifyClient *notify.Client) cron.Job {
+		NewCrawler: func(rssFeedProviderID string, providerConfig *config.ProviderDetailConfig, feedRepo feed.Repository, notifyClient *notify.Client) provider.Crawler {
 			site := "네이버 카페"
 
 			data := naverCafeCrawlerConfigData{}

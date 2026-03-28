@@ -51,8 +51,8 @@ func TestNewService(t *testing.T) {
 func TestService_StartAndStop(t *testing.T) {
 	// 정상 흐름 검증을 위한 가짜 크롤러 레지스트리 사전 등록
 	provider.MustRegister("test_start_site", &provider.CrawlerConfig{
-		NewCrawler: func(id string, c *config.ProviderDetailConfig, r feed.Repository, n *notify.Client) cron.Job {
-			return cron.FuncJob(func() {}) // 실행되지 않을 빈 작업
+		NewCrawler: func(id string, c *config.ProviderDetailConfig, r feed.Repository, n *notify.Client) provider.Crawler {
+			return nil // null pointer nil 로 테스트 시 addJob에는 오류 없도록
 		},
 	})
 
@@ -131,8 +131,8 @@ func TestService_registerJobs_Exceptions(t *testing.T) {
 
 	t.Run("잘못된 Cron 문자열(표현식) 지정 시 구조적 결함 식별", func(t *testing.T) {
 		provider.MustRegister("bad_cron_site", &provider.CrawlerConfig{
-			NewCrawler: func(id string, c *config.ProviderDetailConfig, r feed.Repository, n *notify.Client) cron.Job {
-				return cron.FuncJob(func() {})
+			NewCrawler: func(id string, c *config.ProviderDetailConfig, r feed.Repository, n *notify.Client) provider.Crawler {
+				return nil
 			},
 		})
 

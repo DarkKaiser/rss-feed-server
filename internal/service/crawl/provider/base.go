@@ -143,46 +143,34 @@ func (c *Base) SetCrawlArticles(fn CrawlArticlesFunc) {
 //
 // 핵심 역할:
 //   - 런타임 패닉(Panic)을 복구하여 스케줄러(cron 등)가 중단되는 것을 방지합니다.
-//   - 타임아웃 컨텍스트(context)를 설정하여 무한 대기 현상을 차단합니다.
+//   - 상위 호출 계층(스케줄러 등)의 컨텍스트를 받아 크롤러 생명주기와 동기화합니다.
+//   - 상위 컨텍스트에 추가 타임아웃 컨텍스트(context)를 설정하여 무한 대기 현상을 차단합니다.
 //   - 크롤링 로직을 호출하고, DB 갱신 및 오류 알림 등의 후처리 작업을 조율합니다.
-func (c *Base) Run() {
+func (c *Base) Run(ctx context.Context) {
 	// Task 실행 중 발생할 수 있는 런타임 패닉을 복구하여 스케줄러 메인 프로세스가 중단되지 않도록 방어합니다.
 	defer func() {
 		if r := recover(); r != nil {
-			m := fmt.Sprintf("%s('%s') 크롤링 작업 중 런타임 패닉(Panic)이 발생하였습니다.😱\n\n[오류 상세 내용]\n%v", c.site, c.siteID, r)
+			m := c.formatMessage("크롤링 작업 중 런타임 패닉(Panic)이 발생하였습니다.😱\n\n[오류 상세 내용]\n%v", r)
 			c.logger.Error(m)
 
-			// 알림 전송 로직에서 발생할 수 있는 2차 패닉 차단
-			func() {
-				defer func() {
-					if r2 := recover(); r2 != nil {
-						c.logger.Errorf("알림 처리 중단: 패닉 복구 중 2차 패닉 발생 (panic:%v)", r2)
-					}
-				}()
-
-				if c.notifyClient != nil {
-					// 패닉 발생 시 알림 전송을 동기적으로 수행하되, 최대 60초의 대기 시간을 제한하는 별도 컨텍스트 부여
-					notifyCtx, notifyCancel := context.WithTimeout(context.Background(), 60*time.Second)
-					defer notifyCancel()
-
-					c.notifyClient.NotifyError(notifyCtx, m)
-				}
-			}()
+			// SendErrorNotification 안에서 타임아웃 및 2차 패닉 차단을 알아서 처리하게 위임
+			c.SendErrorNotification(m, nil)
 		}
 	}()
 
-	ctx, cancel := c.prepareExecution()
+	execCtx, cancel := c.prepareExecution(ctx)
 	defer cancel()
 
-	articles, latestIDs := c.execute(ctx)
-	c.finalizeExecution(ctx, articles, latestIDs)
+	articles, latestIDs := c.execute(execCtx)
+	c.finalizeExecution(execCtx, articles, latestIDs)
 }
 
 // prepareExecution 크롤링 작업에 필요한 초기 설정, 의존성 검증 및 컨텍스트 타임아웃 설정을 수행합니다.
-func (c *Base) prepareExecution() (context.Context, context.CancelFunc) {
-	c.logger.Debugf("%s('%s')의 크롤링 작업을 시작합니다.", c.site, c.siteID)
+// 외부에서 주입된 parentCtx를 바탕으로 10분의 제한 시간을 부여한 새로운 컨텍스트를 생성합니다.
+func (c *Base) prepareExecution(parentCtx context.Context) (context.Context, context.CancelFunc) {
+	c.logger.Debug(c.formatMessage("크롤링 작업을 시작합니다."))
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(parentCtx, 10*time.Minute)
 
 	if c.crawlArticles == nil {
 		c.logger.Panic("CrawlArticles 함수가 주입되지 않았습니다. SetCrawlArticles를 확인해 주세요.")
@@ -200,7 +188,7 @@ func (c *Base) execute(ctx context.Context) ([]*feed.Article, map[string]string)
 	}
 
 	if articles == nil {
-		c.logger.Warnf("%s('%s')의 크롤링 작업을 종료합니다. 서버의 일시적인 오류로 인하여 신규 게시글 추출이 실패하였습니다.", c.site, c.siteID)
+		c.logger.Warn(c.formatMessage("크롤링 작업을 종료합니다. 서버의 일시적인 오류로 인하여 신규 게시글 추출이 실패하였습니다."))
 		return nil, nil
 	}
 
@@ -215,11 +203,11 @@ func (c *Base) finalizeExecution(ctx context.Context, articles []*feed.Article, 
 	}
 
 	if len(articles) > 0 {
-		c.logger.Debugf("%s('%s')의 크롤링 작업 결과로 %d건의 신규 게시글이 추출되었습니다. 신규 게시글을 DB에 추가합니다.", c.site, c.siteID, len(articles))
+		c.logger.Debug(c.formatMessage("크롤링 작업 결과로 %d건의 신규 게시글이 추출되었습니다. 신규 게시글을 DB에 추가합니다.", len(articles)))
 
 		insertedCnt, err := c.feedRepo.SaveArticles(ctx, c.rssFeedProviderID, articles)
 		if err != nil {
-			m := fmt.Sprintf("%s('%s')의 신규 게시글을 DB에 추가하는 중에 오류가 발생하여 크롤링 작업이 실패하였습니다.😱", c.site, c.siteID)
+			m := c.formatMessage("신규 게시글을 DB에 추가하는 중에 오류가 발생하여 크롤링 작업이 실패하였습니다.😱")
 			c.SendErrorNotification(m, err)
 			return
 		}
@@ -227,14 +215,14 @@ func (c *Base) finalizeExecution(ctx context.Context, articles []*feed.Article, 
 		c.UpdateLatestCrawledIDs(ctx, latestCrawledArticleIDsByBoard)
 
 		if len(articles) != insertedCnt {
-			c.logger.Warnf("%s('%s')의 크롤링 작업을 종료합니다. 전체 %d건 중에서 %d건의 신규 게시글이 DB에 추가되었습니다.", c.site, c.siteID, len(articles), insertedCnt)
+			c.logger.Warn(c.formatMessage("크롤링 작업을 종료합니다. 전체 %d건 중에서 %d건의 신규 게시글이 DB에 추가되었습니다.", len(articles), insertedCnt))
 		} else {
-			c.logger.Debugf("%s('%s')의 크롤링 작업을 종료합니다. %d건의 신규 게시글이 DB에 추가되었습니다.", c.site, c.siteID, len(articles))
+			c.logger.Debug(c.formatMessage("크롤링 작업을 종료합니다. %d건의 신규 게시글이 DB에 추가되었습니다.", len(articles)))
 		}
 	} else {
 		c.UpdateLatestCrawledIDs(ctx, latestCrawledArticleIDsByBoard)
 
-		c.logger.Debugf("%s('%s')의 크롤링 작업을 종료합니다. 신규 게시글이 존재하지 않습니다.", c.site, c.siteID)
+		c.logger.Debug(c.formatMessage("크롤링 작업을 종료합니다. 신규 게시글이 존재하지 않습니다."))
 	}
 }
 
@@ -259,7 +247,15 @@ func (c *Base) SendErrorNotification(message string, err error) {
 
 	// 알림 발송은 메인 흐름을 차단하지 않도록 별도의 고루틴에서 타임아웃과 함께 비동기로 실행합니다.
 	go func(msg string, e error) {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		// 예약 외의 치명적 2차 패닉(예: notifyClient 연결 과정 문제 등)을 방지
+		defer func() {
+			if r := recover(); r != nil {
+				c.logger.Errorf("알림 발송 중단: 패닉 복구 (panic:%v)", r)
+			}
+		}()
+
+		// 타임아웃을 설정한 컨텍스트 (기존 5초에서 시스템 유연성을 위해 60초 사용)
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 
 		var text string
@@ -285,8 +281,15 @@ func (c *Base) UpdateLatestCrawledIDs(ctx context.Context, latestCrawledArticleI
 		}
 
 		if err := c.feedRepo.UpsertLatestCrawledArticleID(ctx, c.rssFeedProviderID, boardID, articleID); err != nil {
-			m := fmt.Sprintf("%s('%s')의 크롤링 된 최근 게시글 ID의 DB 갱신이 실패하였습니다.😱", c.site, c.siteID)
+			m := c.formatMessage("크롤링 된 최근 게시글 ID의 DB 갱신이 실패하였습니다.😱")
 			c.SendErrorNotification(m, err)
 		}
 	}
+}
+
+// formatMessage 알림이나 로깅에 사용할 일반적인 메시지 형식을 생성합니다.
+// site와 siteID를 일관되게 포함하여 가독성을 높입니다.
+func (c *Base) formatMessage(format string, args ...any) string {
+	msg := fmt.Sprintf(format, args...)
+	return fmt.Sprintf("%s('%s')의 %s", c.site, c.siteID, msg)
 }

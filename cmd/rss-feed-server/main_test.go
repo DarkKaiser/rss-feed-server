@@ -286,6 +286,14 @@ func TestRun_ShutdownTimeout_Real(t *testing.T) {
 	shutdownTimeout = 1 * time.Second
 	defer func() { shutdownTimeout = origTimeout }()
 
+	// Jenkins 등 CI 환경에서 실제 파일 DB I/O 지연을 제거하기 위해 메모리 DB를 주입합니다.
+	// 실제 파일 DB를 사용하면 DB 초기화 단계(Initialize, SyncProviders 등)가 오래 걸려
+	// 전체 테스트 수행 시간이 타임아웃을 초과할 수 있습니다.
+	db, err := sqlite.Open(context.Background(), ":memory:?_fk=1")
+	if err != nil {
+		t.Fatalf("메모리 DB 초기화 실패: %v", err)
+	}
+
 	// 종료 신호를 무시하고 셧다운 완료를 지연시키는 서비스
 	testTermC := make(chan os.Signal, 1)
 	errCh := make(chan error, 1)
@@ -300,18 +308,22 @@ func TestRun_ShutdownTimeout_Real(t *testing.T) {
 	}
 
 	go func() {
-		errCh <- run(nil, mockServices, testTermC)
+		errCh <- run(db, mockServices, testTermC)
 	}()
 
-	time.Sleep(500 * time.Millisecond)
+	// DB 초기화 및 서비스 기동이 완료될 때까지 충분히 대기합니다.
+	// CI 환경의 CPU 경합을 감안하여 1초로 설정합니다.
+	time.Sleep(1 * time.Second)
 	testTermC <- syscall.SIGTERM
 
+	// shutdownTimeout(1s) + StopFunc 대기(3s) + 여유 마진 = 약 5~6초 내에 run()이 반환되어야 합니다.
+	// 충분한 마진을 주어 CI 환경 오버헤드를 흡수합니다.
 	select {
 	case err := <-errCh:
 		if err == nil {
 			t.Fatal("종료 타임아웃 발생 시 run()이 에러를 반환해야 하지만, nil이 반환되었습니다")
 		}
-	case <-time.After(10 * time.Second):
+	case <-time.After(20 * time.Second):
 		t.Fatal("타임아웃 발생 후에도 프로세스가 종료되지 않음")
 	}
 }
