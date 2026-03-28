@@ -1,6 +1,7 @@
 package ssangbonges
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"regexp"
@@ -34,7 +35,7 @@ func (c *crawler) extractArticle(boardID, boardType, urlDetailPathPath string, s
 		}
 
 		// 상세페이지 링크
-		article.Link = strings.ReplaceAll(fmt.Sprintf("%s%s&nttSn=%s", c.SiteUrl, urlDetailPathPath, article.ArticleID), ssangbongSchoolUrlPathReplaceStringWithBoardID, boardID)
+		article.Link = strings.ReplaceAll(fmt.Sprintf("%s%s&nttSn=%s", c.SiteUrl(), urlDetailPathPath, article.ArticleID), ssangbongSchoolUrlPathReplaceStringWithBoardID, boardID)
 
 		// 등록자
 		as = s.Find("td")
@@ -90,7 +91,21 @@ func (c *crawler) extractArticle(boardID, boardType, urlDetailPathPath string, s
 		}
 
 		// 상세페이지 링크
-		article.Link = strings.ReplaceAll(fmt.Sprintf("%s%s&nttSn=%s", c.SiteUrl, urlDetailPathPath, article.ArticleID), ssangbongSchoolUrlPathReplaceStringWithBoardID, boardID)
+		article.Link = strings.ReplaceAll(fmt.Sprintf("%s%s&nttSn=%s", c.SiteUrl(), urlDetailPathPath, article.ArticleID), ssangbongSchoolUrlPathReplaceStringWithBoardID, boardID)
+
+		// 특수 처리: 학교앨범(156453)은 비공개 게시판이므로 상세 조회 시 막힘.
+		// 목록 화면에 있는 썸네일로 본문을 대체하고 Author를 고정하여 상세페이지 조회를 스킵(Bypass)함.
+		if boardID == ssangbongSchoolCrawlerBoardIDSchoolAlbum {
+			imgSelection := s.Find("img").First()
+			if imgSelection.Length() > 0 {
+				src, _ := imgSelection.Attr("src")
+				alt, _ := imgSelection.Attr("alt")
+				if src != "" {
+					article.Content = fmt.Sprintf(`<img src="%s%s" alt="%s">`, c.SiteUrl(), src, alt)
+				}
+			}
+			article.Author = "쌍봉초등학교"
+		}
 
 		// 등록일
 		as = s.Find("a.selectNttInfo > p.txt > span.date")
@@ -124,10 +139,10 @@ func (c *crawler) extractArticle(boardID, boardType, urlDetailPathPath string, s
 	}
 }
 
-func (c *crawler) crawlingArticleContent(article *feed.Article) {
-	doc, errOccurred, err := c.GetWebPageDocumentWithPOST(article.Link, fmt.Sprintf("%s('%s') %s 게시판의 게시글('%s') 상세페이지", c.Site, c.SiteID, article.BoardName, article.ArticleID))
+func (c *crawler) crawlingArticleContent(ctx context.Context, article *feed.Article) {
+	doc, err := c.fetchDocumentWithPOST(ctx, article.Link, fmt.Sprintf("%s('%s') %s 게시판의 게시글('%s') 상세페이지 접근이 실패하였습니다.", c.Site(), c.SiteID(), article.BoardName, article.ArticleID))
 	if err != nil {
-		applog.Warnf("%s (error:%s)", errOccurred, err)
+		applog.Warnf("%s", err.Error())
 		return
 	}
 
@@ -135,11 +150,13 @@ func (c *crawler) crawlingArticleContent(article *feed.Article) {
 	if article.Author == "" {
 		acSelection := doc.Find("div.bbs_ViewA > ul.bbsV_data > li")
 		if acSelection.Length() != 3 {
-			applog.Warnf("게시글('%s')에서 작성자 파싱이 실패하였습니다.", article.ArticleID)
+			applog.Debugf("게시글('%s')에서 작성자 파싱이 실패하였습니다. (게시글 비공개/권한 없음 추정)", article.ArticleID)
+			article.Author = "쌍봉초등학교"
 		} else {
 			author := strings.TrimSpace(acSelection.Eq(0).Text())
 			if strings.HasPrefix(author, "작성자") == false {
-				applog.Warnf("게시글('%s')에서 작성자 파싱이 실패하였습니다.", article.ArticleID)
+				applog.Debugf("게시글('%s')에서 작성자 파싱이 실패하였습니다. (게시글 비공개/권한 없음 추정)", article.ArticleID)
+				article.Author = "쌍봉초등학교"
 			} else {
 				article.Author = strings.TrimSpace(strings.Replace(author, "작성자", "", -1))
 			}
@@ -148,7 +165,7 @@ func (c *crawler) crawlingArticleContent(article *feed.Article) {
 
 	acSelection := doc.Find("div.bbs_ViewA > div.bbsV_cont")
 	if acSelection.Length() == 0 {
-		applog.Warnf("게시글('%s')에서 내용 정보를 찾을 수 없습니다.", article.ArticleID)
+		applog.Debugf("게시글('%s')에서 내용 정보를 찾을 수 없습니다. (게시글 비공개/권한 없음 추정)", article.ArticleID)
 		return
 	}
 
@@ -168,7 +185,7 @@ func (c *crawler) crawlingArticleContent(article *feed.Article) {
 		var src, _ = s.Attr("src")
 		if src != "" {
 			var alt, _ = s.Attr("alt")
-			article.Content += fmt.Sprintf(`%s<img src="%s%s" alt="%s">`, "\r\n", c.SiteUrl, src, alt)
+			article.Content += fmt.Sprintf(`%s<img src="%s%s" alt="%s">`, "\r\n", c.SiteUrl(), src, alt)
 		}
 	})
 }

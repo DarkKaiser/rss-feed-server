@@ -115,7 +115,7 @@ func (s *Service) Start(serviceStopCtx context.Context, serviceStopWG *sync.Wait
 		"configured_providers": len(s.cfg.Providers),
 		"registered_schedules": len(s.cron.Entries()),
 		"notify_enabled":       s.notifyClient != nil,
-	}).Info("서비스 시작 완료: Scheduler 서비스가 정상적으로 초기화되었습니다")
+	}).Info("서비스 시작 완료: 크롤링 서비스가 정상적으로 초기화되었습니다")
 
 	// 4. 종료 신호 대기 (고루틴)
 	// 서비스 생명주기 컨텍스트(serviceStopCtx)의 취소 이벤트를 비동기로 모니터링합니다.
