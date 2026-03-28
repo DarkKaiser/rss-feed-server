@@ -5,7 +5,6 @@ import (
 
 	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/feed"
-	"github.com/robfig/cron/v3"
 
 	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
@@ -13,7 +12,7 @@ import (
 )
 
 // NewCrawlerFunc 새로운 크롤러 인스턴스를 생성하는 팩토리 함수 타입입니다.
-type NewCrawlerFunc func(string, *config.ProviderDetailConfig, feed.Repository, *notify.Client) cron.Job
+type NewCrawlerFunc func(string, *config.ProviderDetailConfig, feed.Repository, *notify.Client) Crawler
 
 // CrawlerConfig 크롤러 생성 및 실행 구성을 위한 메타데이터를 정의하는 구조체입니다.
 type CrawlerConfig struct {

@@ -8,13 +8,12 @@ import (
 	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/feed"
-	"github.com/robfig/cron/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // mockCrawlerFunc는 테스트를 위해 최소한의 시그니처만 맞춘 팩토리 함수입니다.
-func mockCrawlerFunc(_ string, _ *config.ProviderDetailConfig, _ feed.Repository, _ *notify.Client) cron.Job {
+func mockCrawlerFunc(_ string, _ *config.ProviderDetailConfig, _ feed.Repository, _ *notify.Client) Crawler {
 	return nil
 }
 

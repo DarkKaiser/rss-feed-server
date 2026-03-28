@@ -155,7 +155,7 @@ func (s *Service) stop() {
 }
 
 // registerJobs 설정 파일에 정의된 모든 Provider를 순회하며 Cron 스케줄러에 등록합니다.
-func (s *Service) registerJobs(_ context.Context) error {
+func (s *Service) registerJobs(ctx context.Context) error {
 	for _, p := range s.cfg.Providers {
 		cfg, err := provider.Lookup(config.ProviderSite(p.Site))
 		if err != nil {
@@ -163,7 +163,11 @@ func (s *Service) registerJobs(_ context.Context) error {
 			return apperrors.Wrapf(err, apperrors.Internal, "크롤러 스케줄 등록 실패: Site(%s)에 매핑된 크롤러 구현체가 없습니다", p.Site)
 		}
 
-		if _, err := s.cron.AddJob(p.Scheduler.TimeSpec, cfg.NewCrawler(p.ID, p.Config, s.feedRepo, s.notifyClient)); err != nil {
+		crawler := cfg.NewCrawler(p.ID, p.Config, s.feedRepo, s.notifyClient)
+
+		if _, err := s.cron.AddFunc(p.Scheduler.TimeSpec, func() {
+			crawler.Run(ctx)
+		}); err != nil {
 			s.logAndNotifyError(fmt.Sprintf("Site(%s, ID: %s)의 Cron 표현식 구문에 오류가 있어 스케줄 등록에 실패했습니다.", p.Site, p.ID), err)
 			return apperrors.Wrapf(err, apperrors.Internal, "크롤러 스케줄 등록 실패: Cron 표현식 구문이 잘못되었습니다 (Site: %s, ID: %s, TimeSpec: '%s')", config.ProviderSite(p.Site), p.ID, p.Scheduler.TimeSpec)
 		}

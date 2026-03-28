@@ -1,6 +1,8 @@
 package provider
 
 import (
+	"context"
+
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 )
 
@@ -19,6 +21,6 @@ type Crawler interface {
 	CrawlingMaxPageCount() int
 
 	// Run 크롤링 작업의 핵심 비즈니스 로직을 실행합니다.
-	// 이 메서드는 동기적으로 실행되며, 작업이 완료되거나 취소될 때까지 블로킹됩니다.
-	Run()
+	// 이 메서드는 동기적으로 실행되며, 파라미터로 전달된 ctx가 취소되거나 작업이 완료될 때 정상 반환됩니다.
+	Run(ctx context.Context)
 }
