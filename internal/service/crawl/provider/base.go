@@ -13,84 +13,11 @@ import (
 	"github.com/darkkaiser/rss-feed-server/internal/service/crawl/scraper"
 )
 
-// component 크롤링 서비스의 Provider 로깅용 컴포넌트 이름
-const component = "crawl.provider"
-
 // DefaultBoardKey는 게시판 구분이 없는 단일 게시판 Provider에서
 // 게시판 ID를 대신하여 사용하는 sentinel(기본값 표식) 상수입니다.
 // DB 갱신 시 이 값을 감지하면 빈 문자열("")로 변환되어 저장됩니다.
 // 예: UpdateLatestCrawledIDs 함수에서 boardID == DefaultBoardKey 조건으로 처리됩니다.
 const DefaultBoardKey = "#empty#"
-
-// CrawlArticlesFunc는 실제 웹 페이지 크롤링을 수행하는 함수의 타입입니다.
-// 전략 패턴(Strategy Pattern)을 통해 base crawler가 구체적인 크롤링 구현에 의존하지
-// 않도록 분리하며, 각 크롤러 구조체(예: crawler)는 자신의 crawlArticles
-// 메서드를 이 타입으로 Base.CrawlArticles 필드에 주입합니다.
-//
-// 반환값:
-//   - []*feed.Article:      새로 발견된 신규 게시글 목록 (서버 오류 시 nil 반환)
-//   - map[string]string:    게시판별 최신 크롤링 게시글 ID 맵 (key: boardID, value: articleID)
-//   - string:               오류 발생 시 사용자/관리자에게 전달할 오류 메시지 문자열
-//   - error:                오류 객체 (정상 처리 시 nil)
-type CrawlArticlesFunc func(ctx context.Context) ([]*feed.Article, map[string]string, string, error)
-
-// BaseParams Base 구조체 초기화에 필요한 매개변수들을 그룹화한 구조체입니다.
-//
-// 설계 목적:
-//   - Base 구조체 초기화에 필요한 매개변수들을 하나의 구조체로 묶어 함수 시그니처를 간결하게 유지합니다.
-//   - 필드 캡슐화를 통해 구조체 내부 상태를 보호하고, 객체 생성 이후 의도치 않은 수정을 방지합니다.
-type BaseParams struct {
-	Config *config.ProviderDetailConfig
-
-	RssFeedProviderID string
-	FeedRepo          feed.Repository
-	NotifyClient      *notify.Client
-
-	Site            string
-	SiteID          string
-	SiteName        string
-	SiteDescription string
-	SiteUrl         string
-
-	// CrawlingMaxPageCount 크롤링 할 최대 페이지 수
-	CrawlingMaxPageCount int
-
-	// Scraper 웹스크래핑을 수행하는 외부 컴포넌트입니다. 주입하지 않으면 기본값이 생성됩니다.
-	Scraper scraper.Scraper
-}
-
-// NewBase BaseParams를 받아 완전히 초기화된 Base 인스턴스를 생성하는 팩토리 함수입니다.
-//
-// 이 함수는 개별 크롤러(예: navercafe) 초기화 시 호출되며, 구조체 필드의 무분별한 접근을
-// 막기 위한 캡슐화 패턴(Encapsulation Pattern)을 강제합니다.
-func NewBase(p BaseParams) Base {
-	scr := p.Scraper
-	if scr == nil {
-		// 기본 Fetcher 및 Scraper 생성 (향후 각 Provider 생성 시 주입받도록 개선 예정)
-		f := fetcher.New(3, 2*time.Second, 10*1024*1024, fetcher.WithTimeout(15*time.Second))
-		scr = scraper.New(f)
-	}
-
-	return Base{
-		config:               p.Config,
-		rssFeedProviderID:    p.RssFeedProviderID,
-		feedRepo:             p.FeedRepo,
-		notifyClient:         p.NotifyClient,
-		site:                 p.Site,
-		siteID:               p.SiteID,
-		siteName:             p.SiteName,
-		siteDescription:      p.SiteDescription,
-		siteUrl:              p.SiteUrl,
-		crawlingMaxPageCount: p.CrawlingMaxPageCount,
-
-		scraper: scr,
-
-		logger: applog.WithFields(applog.Fields{
-			"site":    p.Site,
-			"site_id": p.SiteID,
-		}),
-	}
-}
 
 // Base 개별 크롤링 Provider의 공통 속성과 동작을 캡슐화한 핵심 기본(Base) 구조체입니다.
 //
@@ -98,11 +25,10 @@ func NewBase(p BaseParams) Base {
 // 그리고 대상 웹사이트의 기본 정보 등을 담고 있습니다. 각각의 구체적인 크롤러(예: navercafe)는
 // 이 Base 구조체를 내장(Embed)하거나 포함시켜 공통 로직을 재사용합니다.
 type Base struct {
-	config *config.ProviderDetailConfig
-
-	rssFeedProviderID string
-	feedRepo          feed.Repository
-	notifyClient      *notify.Client
+	providerID   string
+	config       *config.ProviderDetailConfig
+	feedRepo     feed.Repository
+	notifyClient *notify.Client
 
 	site            string
 	siteID          string
@@ -122,9 +48,99 @@ type Base struct {
 	logger *applog.Entry
 }
 
+// 컴파일 타임에 인터페이스 구현 여부를 검증합니다.
+var _ Crawler = (*Base)(nil)
+
+// baseParams Base 구조체 초기화에 필요한 매개변수들을 그룹화한 내부 구조체입니다.
+//
+// 설계 목적:
+//   - Base 구조체 초기화에 필요한 매개변수들을 하나의 구조체로 묶어 함수 시그니처를 간결하게 유지합니다.
+//   - 향후 Base 구조체 필드 추가 시 기존 호출 코드를 수정하지 않아도 되는 확장성을 제공합니다.
+//   - 필드 캡슐화를 통해 구조체 내부 상태를 보호하고, 객체 생성 이후 의도치 않은 수정을 방지합니다.
+type baseParams struct {
+	ProviderID string
+	Config     *config.ProviderDetailConfig
+
+	FeedRepo     feed.Repository
+	NotifyClient *notify.Client
+
+	Site            string
+	SiteID          string
+	SiteName        string
+	SiteDescription string
+	SiteUrl         string
+
+	CrawlingMaxPageCount int
+
+	Scraper scraper.Scraper
+}
+
+// newBase baseParams를 받아 Base 인스턴스를 생성하는 내부 팩토리 함수입니다.
+//
+// 이 함수는 패키지 내부에서만 사용되며, 외부에서는 NewBase() 함수를 통해 간접적으로 호출됩니다.
+// Base 구조체의 모든 필드를 초기화하며, 특히 logger는 생성 시점에 고정 필드를 바인딩하여
+// 이후 로깅 시 매번 필드를 복사하는 오버헤드를 방지합니다.
+func newBase(p baseParams) Base {
+	scr := p.Scraper
+	if scr == nil {
+		// 기본 Fetcher 및 Scraper 생성 (향후 각 Provider 생성 시 주입받도록 개선 예정)
+		f := fetcher.New(3, 2*time.Second, 10*1024*1024, fetcher.WithTimeout(15*time.Second))
+		scr = scraper.New(f)
+	}
+
+	return Base{
+		providerID:           p.ProviderID,
+		config:               p.Config,
+		feedRepo:             p.FeedRepo,
+		notifyClient:         p.NotifyClient,
+		site:                 p.Site,
+		siteID:               p.SiteID,
+		siteName:             p.SiteName,
+		siteDescription:      p.SiteDescription,
+		siteUrl:              p.SiteUrl,
+		crawlingMaxPageCount: p.CrawlingMaxPageCount,
+
+		scraper: scr,
+
+		logger: applog.WithFields(applog.Fields{
+			"site":    p.Site,
+			"site_id": p.SiteID,
+		}),
+	}
+}
+
+// NewBase NewCrawlerParams와 사이트 메타데이터를 기반으로 Base 인스턴스를 생성하는 공개 팩토리 함수입니다.
+//
+// 이 함수는 개별 크롤러(예: navercafe) 설정부에서 호출되며, 반복적으로 나타나는
+// Base 초기화 코드를 간소화하고 패키지 내부(baseParams) 의존성을 숨김으로써 구조를 통일합니다.
+func NewBase(
+	p NewCrawlerParams,
+	site string,
+	siteID string,
+	siteName string,
+	siteDescription string,
+	siteUrl string,
+	crawlingMaxPageCount int,
+	scraper scraper.Scraper,
+) Base {
+	return newBase(baseParams{
+		ProviderID:           p.ProviderID,
+		Config:               p.Config,
+		FeedRepo:             p.FeedRepo,
+		NotifyClient:         p.NotifyClient,
+		Site:                 site,
+		SiteID:               siteID,
+		SiteName:             siteName,
+		SiteDescription:      siteDescription,
+		SiteUrl:              siteUrl,
+		CrawlingMaxPageCount: crawlingMaxPageCount,
+		Scraper:              scraper,
+	})
+}
+
 // Getter 메서드들 (캡슐화 및 읽기 전용 속성 제공)
+func (c *Base) ProviderID() string                   { return c.providerID }
 func (c *Base) Config() *config.ProviderDetailConfig { return c.config }
-func (c *Base) RssFeedProviderID() string            { return c.rssFeedProviderID }
 func (c *Base) FeedRepo() feed.Repository            { return c.feedRepo }
 func (c *Base) Site() string                         { return c.site }
 func (c *Base) SiteID() string                       { return c.siteID }
@@ -205,7 +221,7 @@ func (c *Base) finalizeExecution(ctx context.Context, articles []*feed.Article, 
 	if len(articles) > 0 {
 		c.logger.Debug(c.formatMessage("크롤링 작업 결과로 %d건의 신규 게시글이 추출되었습니다. 신규 게시글을 DB에 추가합니다.", len(articles)))
 
-		insertedCnt, err := c.feedRepo.SaveArticles(ctx, c.rssFeedProviderID, articles)
+		insertedCnt, err := c.feedRepo.SaveArticles(ctx, c.providerID, articles)
 		if err != nil {
 			m := c.formatMessage("신규 게시글을 DB에 추가하는 중에 오류가 발생하여 크롤링 작업이 실패하였습니다.😱")
 			c.SendErrorNotification(m, err)
@@ -280,7 +296,7 @@ func (c *Base) UpdateLatestCrawledIDs(ctx context.Context, latestCrawledArticleI
 			boardID = ""
 		}
 
-		if err := c.feedRepo.UpsertLatestCrawledArticleID(ctx, c.rssFeedProviderID, boardID, articleID); err != nil {
+		if err := c.feedRepo.UpsertLatestCrawledArticleID(ctx, c.providerID, boardID, articleID); err != nil {
 			m := c.formatMessage("크롤링 된 최근 게시글 ID의 DB 갱신이 실패하였습니다.😱")
 			c.SendErrorNotification(m, err)
 		}

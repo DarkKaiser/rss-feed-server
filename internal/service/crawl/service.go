@@ -163,7 +163,12 @@ func (s *Service) registerJobs(ctx context.Context) error {
 			return apperrors.Wrapf(err, apperrors.Internal, "크롤러 스케줄 등록 실패: Site(%s)에 매핑된 크롤러 구현체가 없습니다", p.Site)
 		}
 
-		crawler := cfg.NewCrawler(p.ID, p.Config, s.feedRepo, s.notifyClient)
+		crawler := cfg.NewCrawler(provider.NewCrawlerParams{
+			ProviderID:   p.ID,
+			Config:       p.Config,
+			FeedRepo:     s.feedRepo,
+			NotifyClient: s.notifyClient,
+		})
 
 		if _, err := s.cron.AddFunc(p.Scheduler.TimeSpec, func() {
 			crawler.Run(ctx)
