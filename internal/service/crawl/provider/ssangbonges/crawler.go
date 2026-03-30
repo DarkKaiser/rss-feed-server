@@ -38,27 +38,19 @@ const ssangbongSchoolUrlPathReplaceStringWithBoardID = "#{board_id}"
 
 func init() {
 	provider.MustRegister(config.ProviderSiteSsangbongElementarySchool, &provider.CrawlerConfig{
-		NewCrawler: func(params provider.NewCrawlerParams) provider.Crawler {
-			site := "쌍봉초등학교 홈페이지"
-
+		NewCrawler: func(params provider.NewCrawlerParams) (provider.Crawler, error) {
 			crawlerInstance := &crawler{
 				Base: provider.NewBase(
 					params,
-					site,
-					params.Config.ID,
-					params.Config.Name,
-					params.Config.Description,
-					params.Config.URL,
 					3,
-					nil,
 				),
 			}
 
 			crawlerInstance.SetCrawlArticles(crawlerInstance.crawlArticles)
 
-			applog.Debug(fmt.Sprintf("%s('%s') Crawler가 생성되었습니다.", crawlerInstance.Site(), crawlerInstance.SiteID()))
+			applog.Debug(crawlerInstance.FormatMessage("Crawler가 생성되었습니다."))
 
-			return crawlerInstance
+			return crawlerInstance, nil
 		},
 	})
 
@@ -78,7 +70,7 @@ func init() {
 }
 
 type crawler struct {
-	provider.Base
+	*provider.Base
 }
 
 // noinspection GoErrorStringFormat,GoUnhandledErrorResult
@@ -89,12 +81,12 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 	for _, b := range c.Config().Boards {
 		boardTypeConfig, exists := ssangbongSchoolCrawlerBoardTypes[b.Type]
 		if exists == false {
-			return nil, nil, fmt.Sprintf("%s('%s')의 게시판 Type별 정보를 구하는 중에 오류가 발생하였습니다.", c.Site(), c.SiteID()), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
+			return nil, nil, c.FormatMessage("게시판 Type별 정보를 구하는 중에 오류가 발생하였습니다."), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
 		}
 
 		latestCrawledArticleID, latestCrawledCreatedDate, err := c.FeedRepo().GetCrawlingCursor(ctx, c.ProviderID(), b.ID)
 		if err != nil {
-			return nil, nil, fmt.Sprintf("%s('%s') %s 게시판에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", c.Site(), c.SiteID(), b.Name), err
+			return nil, nil, c.FormatMessage("%s 게시판에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", b.Name), err
 		}
 
 		var newLatestCrawledArticleID = ""
@@ -102,10 +94,10 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 		//
 		// 게시글 크롤링
 		//
-		for pageNo := 1; pageNo <= c.CrawlingMaxPageCount(); pageNo++ {
-			ssangbongSchoolPageUrl := strings.ReplaceAll(fmt.Sprintf("%s%s&currPage=%d", c.SiteUrl(), boardTypeConfig.urlPath1, pageNo), ssangbongSchoolUrlPathReplaceStringWithBoardID, b.ID)
+		for pageNo := 1; pageNo <= c.MaxPageCount(); pageNo++ {
+			ssangbongSchoolPageUrl := strings.ReplaceAll(fmt.Sprintf("%s%s&currPage=%d", c.Config().URL, boardTypeConfig.urlPath1, pageNo), ssangbongSchoolUrlPathReplaceStringWithBoardID, b.ID)
 
-			doc, err := c.fetchDocumentWithPOST(ctx, ssangbongSchoolPageUrl, fmt.Sprintf("%s('%s') %s 게시판 접근이 실패하였습니다.", c.Site(), c.SiteID(), b.Name))
+			doc, err := c.fetchDocumentWithPOST(ctx, ssangbongSchoolPageUrl, c.FormatMessage("%s 게시판 접근이 실패하였습니다.", b.Name))
 			if err != nil {
 				return nil, nil, err.Error(), err
 			}
@@ -155,7 +147,7 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 				return true
 			})
 			if err != nil {
-				return nil, nil, fmt.Sprintf("%s('%s') %s 게시판의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", c.Site(), c.SiteID(), b.Name), err
+				return nil, nil, c.FormatMessage("%s 게시판의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", b.Name), err
 			}
 
 			if foundAlreadyCrawledArticle == true {

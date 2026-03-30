@@ -35,7 +35,7 @@ func (c *crawler) extractArticle(boardID, boardType, urlDetailPathPath string, s
 		}
 
 		// 상세페이지 링크
-		article.Link = strings.ReplaceAll(fmt.Sprintf("%s%s&nttSn=%s", c.SiteUrl(), urlDetailPathPath, article.ArticleID), ssangbongSchoolUrlPathReplaceStringWithBoardID, boardID)
+		article.Link = strings.ReplaceAll(fmt.Sprintf("%s%s&nttSn=%s", c.Config().URL, urlDetailPathPath, article.ArticleID), ssangbongSchoolUrlPathReplaceStringWithBoardID, boardID)
 
 		// 등록자
 		as = s.Find("td")
@@ -91,7 +91,7 @@ func (c *crawler) extractArticle(boardID, boardType, urlDetailPathPath string, s
 		}
 
 		// 상세페이지 링크
-		article.Link = strings.ReplaceAll(fmt.Sprintf("%s%s&nttSn=%s", c.SiteUrl(), urlDetailPathPath, article.ArticleID), ssangbongSchoolUrlPathReplaceStringWithBoardID, boardID)
+		article.Link = strings.ReplaceAll(fmt.Sprintf("%s%s&nttSn=%s", c.Config().URL, urlDetailPathPath, article.ArticleID), ssangbongSchoolUrlPathReplaceStringWithBoardID, boardID)
 
 		// 특수 처리: 학교앨범(156453)은 비공개 게시판이므로 상세 조회 시 막힘.
 		// 목록 화면에 있는 썸네일로 본문을 대체하고 Author를 고정하여 상세페이지 조회를 스킵(Bypass)함.
@@ -101,7 +101,7 @@ func (c *crawler) extractArticle(boardID, boardType, urlDetailPathPath string, s
 				src, _ := imgSelection.Attr("src")
 				alt, _ := imgSelection.Attr("alt")
 				if src != "" {
-					article.Content = fmt.Sprintf(`<img src="%s%s" alt="%s">`, c.SiteUrl(), src, alt)
+					article.Content = fmt.Sprintf(`<img src="%s%s" alt="%s">`, c.Config().URL, src, alt)
 				}
 			}
 			article.Author = "쌍봉초등학교"
@@ -140,7 +140,7 @@ func (c *crawler) extractArticle(boardID, boardType, urlDetailPathPath string, s
 }
 
 func (c *crawler) crawlingArticleContent(ctx context.Context, article *feed.Article) {
-	doc, err := c.fetchDocumentWithPOST(ctx, article.Link, fmt.Sprintf("%s('%s') %s 게시판의 게시글('%s') 상세페이지 접근이 실패하였습니다.", c.Site(), c.SiteID(), article.BoardName, article.ArticleID))
+	doc, err := c.fetchDocumentWithPOST(ctx, article.Link, c.FormatMessage("%s 게시판의 게시글('%s') 상세페이지 접근이 실패하였습니다.", article.BoardName, article.ArticleID))
 	if err != nil {
 		applog.Warnf("%s", err.Error())
 		return
@@ -185,7 +185,7 @@ func (c *crawler) crawlingArticleContent(ctx context.Context, article *feed.Arti
 		var src, _ = s.Attr("src")
 		if src != "" {
 			var alt, _ = s.Attr("alt")
-			article.Content += fmt.Sprintf(`%s<img src="%s%s" alt="%s">`, "\r\n", c.SiteUrl(), src, alt)
+			article.Content += fmt.Sprintf(`%s<img src="%s%s" alt="%s">`, "\r\n", c.Config().URL, src, alt)
 		}
 	})
 }
