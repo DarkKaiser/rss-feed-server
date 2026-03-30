@@ -15,26 +15,25 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	applog "github.com/darkkaiser/notify-server/pkg/log"
-	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/feed"
 )
 
 func init() {
 	provider.MustRegister(config.ProviderSiteNaverCafe, &provider.CrawlerConfig{
-		NewCrawler: func(rssFeedProviderID string, providerConfig *config.ProviderDetailConfig, feedRepo feed.Repository, notifyClient *notify.Client) provider.Crawler {
+		NewCrawler: func(params provider.NewCrawlerParams) provider.Crawler {
 			site := "네이버 카페"
 
 			data := naverCafeCrawlerConfigData{}
-			if err := data.fillFromMap(providerConfig.Data); err != nil {
-				m := fmt.Sprintf("작업 데이터가 유효하지 않아 %s('%s') Crawler 생성이 실패하였습니다. (error:%s)", site, providerConfig.ID, err)
+			if err := data.fillFromMap(params.Config.Data); err != nil {
+				m := fmt.Sprintf("작업 데이터가 유효하지 않아 %s('%s') Crawler 생성이 실패하였습니다. (error:%s)", site, params.Config.ID, err)
 
-				if notifyClient != nil {
+				if params.NotifyClient != nil {
 					go func(msg string) {
 						ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 						defer cancel()
 
-						notifyClient.NotifyError(ctx, msg)
+						params.NotifyClient.NotifyError(ctx, msg)
 					}(m)
 				}
 
@@ -42,21 +41,16 @@ func init() {
 			}
 
 			crawlerInstance := &crawler{
-				Base: provider.NewBase(provider.BaseParams{
-					Config: providerConfig,
-
-					RssFeedProviderID: rssFeedProviderID,
-					FeedRepo:          feedRepo,
-					NotifyClient:      notifyClient,
-
-					Site:            site,
-					SiteID:          providerConfig.ID,
-					SiteName:        providerConfig.Name,
-					SiteDescription: providerConfig.Description,
-					SiteUrl:         providerConfig.URL,
-
-					CrawlingMaxPageCount: 10,
-				}),
+				Base: provider.NewBase(
+					params,
+					site,
+					params.Config.ID,
+					params.Config.Name,
+					params.Config.Description,
+					params.Config.URL,
+					10,
+					nil,
+				),
 
 				siteClubID: data.ClubID,
 
@@ -100,7 +94,7 @@ type crawler struct {
 }
 
 func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[string]string, string, error) {
-	idString, latestCrawledCreatedDate, err := c.FeedRepo().GetCrawlingCursor(ctx, c.RssFeedProviderID(), "")
+	idString, latestCrawledCreatedDate, err := c.FeedRepo().GetCrawlingCursor(ctx, c.ProviderID(), "")
 	if err != nil {
 		return nil, nil, fmt.Sprintf("%s('%s')에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", c.Site(), c.SiteID()), err
 	}

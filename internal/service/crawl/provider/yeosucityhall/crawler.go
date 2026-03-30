@@ -10,7 +10,6 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	applog "github.com/darkkaiser/notify-server/pkg/log"
-	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/feed"
 )
@@ -41,25 +40,20 @@ const yeosuCityHallUrlPathReplaceStringWithBoardID = "#{board_id}"
 
 func init() {
 	provider.MustRegister(config.ProviderSiteYeosuCityHall, &provider.CrawlerConfig{
-		NewCrawler: func(rssFeedProviderID string, providerConfig *config.ProviderDetailConfig, feedRepo feed.Repository, notifyClient *notify.Client) provider.Crawler {
+		NewCrawler: func(params provider.NewCrawlerParams) provider.Crawler {
 			site := "여수시청 홈페이지"
 
 			crawlerInstance := &crawler{
-				Base: provider.NewBase(provider.BaseParams{
-					Config: providerConfig,
-
-					RssFeedProviderID: rssFeedProviderID,
-					FeedRepo:          feedRepo,
-					NotifyClient:      notifyClient,
-
-					Site:            site,
-					SiteID:          providerConfig.ID,
-					SiteName:        providerConfig.Name,
-					SiteDescription: providerConfig.Description,
-					SiteUrl:         providerConfig.URL,
-
-					CrawlingMaxPageCount: 3,
-				}),
+				Base: provider.NewBase(
+					params,
+					site,
+					params.Config.ID,
+					params.Config.Name,
+					params.Config.Description,
+					params.Config.URL,
+					3,
+					nil,
+				),
 			}
 
 			crawlerInstance.SetCrawlArticles(crawlerInstance.crawlArticles)
@@ -110,7 +104,7 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 			return nil, nil, fmt.Sprintf("%s('%s')의 게시판 Type별 정보를 구하는 중에 오류가 발생하였습니다.", c.Site(), c.SiteID()), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
 		}
 
-		latestCrawledArticleID, latestCrawledCreatedDate, err := c.FeedRepo().GetCrawlingCursor(ctx, c.RssFeedProviderID(), b.ID)
+		latestCrawledArticleID, latestCrawledCreatedDate, err := c.FeedRepo().GetCrawlingCursor(ctx, c.ProviderID(), b.ID)
 		if err != nil {
 			return nil, nil, fmt.Sprintf("%s('%s') %s 게시판에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", c.Site(), c.SiteID(), b.Name), err
 		}
