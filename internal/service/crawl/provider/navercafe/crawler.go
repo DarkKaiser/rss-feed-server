@@ -11,13 +11,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/darkkaiser/rss-feed-server/internal/service/crawl/provider"
-
 	"github.com/PuerkitoBio/goquery"
 	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/feed"
+	"github.com/darkkaiser/rss-feed-server/internal/service/crawl/provider"
 )
+
+// component 크롤링 서비스의 네이버 카페 Provider 로깅용 컴포넌트 이름
+const component = "crawl.provider.navercafe"
 
 func init() {
 	provider.MustRegister(config.ProviderSiteNaverCafe, &provider.CrawlerConfig{
@@ -73,6 +75,9 @@ type crawler struct {
 	// 검색이 가능하므로 크롤링 지연 시간을 둔다.
 	crawlingDelayTimeMinutes int
 }
+
+// 컴파일 타임에 인터페이스 구현 여부를 검증합니다.
+var _ provider.Crawler = (*crawler)(nil)
 
 func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[string]string, string, error) {
 	idString, latestCrawledCreatedDate, err := c.FeedRepo().GetCrawlingCursor(ctx, c.ProviderID(), "")
@@ -159,12 +164,15 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 				err = errors.New("게시글에서 게시판 URL 추출이 실패하였습니다.")
 				return false
 			}
-			u, err := url.Parse(boardUrl)
+			var u *url.URL
+			u, err = url.Parse(boardUrl)
 			if err != nil {
 				err = fmt.Errorf("게시글에서 게시판 URL 파싱이 실패하였습니다. (error:%s)", err)
 				return false
 			}
-			q, err := url.ParseQuery(u.RawQuery)
+
+			var q url.Values
+			q, err = url.ParseQuery(u.RawQuery)
 			if err != nil {
 				err = fmt.Errorf("게시글에서 게시판 URL 파싱이 실패하였습니다. (error:%s)", err)
 				return false
@@ -200,7 +208,8 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 				err = fmt.Errorf("게시글에서 상세페이지 URL 파싱이 실패하였습니다. (error:%s)", err)
 				return false
 			}
-			articleID, err := strconv.ParseInt(q.Get("articleid"), 10, 64)
+			var articleID int64
+			articleID, err = strconv.ParseInt(q.Get("articleid"), 10, 64)
 			if err != nil {
 				err = fmt.Errorf("게시글에서 게시글 ID 추출이 실패하였습니다. (error:%s)", err)
 				return false
@@ -257,10 +266,11 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 	}
 
 	//
-	// 게시글 내용 크롤링 : 내용은 크롤링이 실패해도 에러를 발생하지 않고 무시한다.
+	// 게시글 내용 크롤링 (Worker Pool 방식을 통한 제한적 동시 수집 및 개별 재시도)
+	// 내용은 크롤링이 실패해도 에러를 발생하지 않고 무시한다.
 	//
-	for _, article := range articles {
-		c.crawlingArticleContent(ctx, article)
+	if err := c.CrawlArticleContentsConcurrently(ctx, articles, 3, c.crawlingArticleContent); err != nil {
+		return nil, nil, c.FormatMessage("시스템 종료 시그널 또는 타임아웃이 발생하여 크롤링 작업이 중단되었습니다."), err
 	}
 
 	// DB에 오래된 게시글부터 추가되도록 하기 위해 역순으로 재배열한다.

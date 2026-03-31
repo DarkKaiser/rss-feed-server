@@ -2,8 +2,11 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"github.com/darkkaiser/notify-server/pkg/notify"
@@ -262,7 +265,7 @@ func (b *Base) finalizeExecution(ctx context.Context, articles []*feed.Article, 
 			return
 		}
 
-		b.UpdateLatestCrawledIDs(ctx, latestCrawledArticleIDsByBoard)
+		b.updateLatestCrawledIDs(ctx, latestCrawledArticleIDsByBoard)
 
 		if len(articles) != insertedCnt {
 			b.logger.Warn(b.FormatMessage("크롤링 작업을 종료합니다. 전체 %d건 중에서 %d건의 신규 게시글이 DB에 추가되었습니다.", len(articles), insertedCnt))
@@ -270,7 +273,7 @@ func (b *Base) finalizeExecution(ctx context.Context, articles []*feed.Article, 
 			b.logger.Debug(b.FormatMessage("크롤링 작업을 종료합니다. %d건의 신규 게시글이 DB에 추가되었습니다.", len(articles)))
 		}
 	} else {
-		b.UpdateLatestCrawledIDs(ctx, latestCrawledArticleIDsByBoard)
+		b.updateLatestCrawledIDs(ctx, latestCrawledArticleIDsByBoard)
 
 		b.logger.Debug(b.FormatMessage("크롤링 작업을 종료합니다. 신규 게시글이 존재하지 않습니다."))
 	}
@@ -321,12 +324,12 @@ func (b *Base) SendErrorNotification(message string, err error) {
 }
 
 // @@@@@
-// UpdateLatestCrawledIDs 크롤링 완료 후, 다음 크롤링 시점의 중복 수집을 방지하기 위해
+// updateLatestCrawledIDs 크롤링 완료 후, 다음 크롤링 시점의 중복 수집을 방지하기 위해
 // 게시판별 가장 마지막에 확인된 (가장 최신의) 게시글 ID 커서를 데이터베이스에 갱신(Upsert)합니다.
 //
 // 게시판 구분이 없는 단일 게시판(DefaultBoardKey) 환경의 경우 빈 문자열("")로 치환하여 저장됩니다.
 // 단일 건 저장에 실패하더라도 전체 워크플로우를 중단하지 않고 로깅 및 에러 알림 후 다음 건을 계속 처리합니다.
-func (b *Base) UpdateLatestCrawledIDs(ctx context.Context, latestCrawledArticleIDsByBoard map[string]string) {
+func (b *Base) updateLatestCrawledIDs(ctx context.Context, latestCrawledArticleIDsByBoard map[string]string) {
 	for boardID, articleID := range latestCrawledArticleIDsByBoard {
 		if boardID == EmptyBoardID {
 			boardID = ""
@@ -345,4 +348,60 @@ func (b *Base) UpdateLatestCrawledIDs(ctx context.Context, latestCrawledArticleI
 func (b *Base) FormatMessage(format string, args ...any) string {
 	msg := fmt.Sprintf(format, args...)
 	return fmt.Sprintf("%s('%s')의 %s", b.config.Name, b.config.ID, msg)
+}
+
+// @@@@@
+// CrawlArticleContentsConcurrently 여러 게시글의 본문을 지정된 동시성 제한 내에서 병렬로 수집합니다.
+// 본문 수집 실패 시 최대 3회까지 백오프를 주며 재시도합니다.
+// 시스템 에러(context.Canceled, context.DeadlineExceeded)가 발생하면 즉시 외부로 에러를 전파합니다.
+func (b *Base) CrawlArticleContentsConcurrently(
+	ctx context.Context,
+	articles []*feed.Article,
+	limit int,
+	fetchContent func(ctx context.Context, article *feed.Article),
+) error {
+	if len(articles) == 0 {
+		return nil
+	}
+
+	g, gCtx := errgroup.WithContext(ctx)
+	if limit > 0 {
+		g.SetLimit(limit)
+	}
+
+	for _, article := range articles {
+		a := article
+		g.Go(func() error {
+			// 최대 3회 재시도 (재시도 간 짧은 백오프 대기)
+			maxRetries := 3
+			for attempt := 1; attempt <= maxRetries; attempt++ {
+				if a.Content != "" {
+					break // 이미 성공했거나 내용이 채워져 있으면 루프 탈출
+				}
+
+				fetchContent(gCtx, a)
+
+				if a.Content != "" {
+					break // 이번에 성공했으면 루프 탈출
+				}
+
+				if attempt < maxRetries {
+					select {
+					case <-gCtx.Done():
+						return gCtx.Err() // 컨텍스트 취소 시 즉시 종료
+					case <-time.After(time.Duration(attempt) * 500 * time.Millisecond):
+					}
+				}
+			}
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
+	}
+
+	return nil
 }
