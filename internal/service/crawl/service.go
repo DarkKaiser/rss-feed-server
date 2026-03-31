@@ -13,6 +13,7 @@ import (
 	apperrors "github.com/darkkaiser/rss-feed-server/internal/errors"
 	"github.com/darkkaiser/rss-feed-server/internal/feed"
 	"github.com/darkkaiser/rss-feed-server/internal/service"
+	"github.com/darkkaiser/rss-feed-server/internal/service/crawl/fetcher"
 	"github.com/darkkaiser/rss-feed-server/internal/service/crawl/provider"
 	_ "github.com/darkkaiser/rss-feed-server/internal/service/crawl/provider/navercafe"
 	_ "github.com/darkkaiser/rss-feed-server/internal/service/crawl/provider/ssangbonges"
@@ -28,6 +29,9 @@ type Service struct {
 	cfg *config.RSSFeedConfig
 
 	cron *cron.Cron
+
+	// fetcher 모든 크롤러가 공유하는 HTTP 클라이언트입니다.
+	fetcher fetcher.Fetcher
 
 	feedRepo feed.Repository
 
@@ -51,6 +55,10 @@ func NewService(cfg *config.RSSFeedConfig, feedRepo feed.Repository, notifyClien
 
 	return &Service{
 		cfg: cfg,
+
+		// @@@@@ 초기값 정하기
+		// 모든 크롤러가 공유하는 HTTP 클라이언트(Fetcher)를 초기화합니다.
+		fetcher: fetcher.New(3, 2*time.Second, 10*1024*1024, fetcher.WithTimeout(15*time.Second)),
 
 		feedRepo: feedRepo,
 
@@ -151,6 +159,15 @@ func (s *Service) stop() {
 	s.cron = nil
 	s.running = false
 
+	// 소켓 누수(Resource Leak) 방지를 위해 공유 Fetcher의 HTTP 커넥션 풀을 안전하게 회수합니다.
+	if s.fetcher != nil {
+		if err := s.fetcher.Close(); err != nil {
+			applog.WithComponentAndFields(component, applog.Fields{
+				"error": err,
+			}).Errorf("Fetcher 리소스 정리 실패: 커넥션 풀 해제 과정에서 오류 발생")
+		}
+	}
+
 	applog.WithComponent(component).Info("크롤링 서비스 종료 완료: 모든 리소스가 정리되었습니다")
 }
 
@@ -159,21 +176,26 @@ func (s *Service) registerJobs(ctx context.Context) error {
 	for _, p := range s.cfg.Providers {
 		cfg, err := provider.Lookup(config.ProviderSite(p.Site))
 		if err != nil {
-			s.logAndNotifyError(fmt.Sprintf("Site(%s, ID: %s)에 매핑된 크롤러 구현체가 없어 스케줄 등록에 실패했습니다.", p.Site, p.ID), err)
+			s.logAndNotifyError(fmt.Sprintf("지정된 Provider Site(%s, 식별자: %s)에 매핑된 크롤러 구현체가 없어 스케줄 등록에 실패했습니다.", p.Site, p.ID), err)
 			return apperrors.Wrapf(err, apperrors.Internal, "크롤러 스케줄 등록 실패: Site(%s)에 매핑된 크롤러 구현체가 없습니다", p.Site)
 		}
 
-		crawler := cfg.NewCrawler(provider.NewCrawlerParams{
+		crawler, err := cfg.NewCrawler(provider.NewCrawlerParams{
 			ProviderID:   p.ID,
 			Config:       p.Config,
+			Fetcher:      s.fetcher,
 			FeedRepo:     s.feedRepo,
 			NotifyClient: s.notifyClient,
 		})
+		if err != nil {
+			s.logAndNotifyError(fmt.Sprintf("지정된 Provider Site(%s, 식별자: %s)에 대한 크롤러 인스턴스 초기화 과정에서 오류가 발생하였습니다.", p.Site, p.ID), err)
+			return apperrors.Wrapf(err, apperrors.Internal, "크롤러 인스턴스 생성 및 초기화 실패 (대상 Site: %s, 식별자: %s)", p.Site, p.ID)
+		}
 
 		if _, err := s.cron.AddFunc(p.Scheduler.TimeSpec, func() {
 			crawler.Run(ctx)
 		}); err != nil {
-			s.logAndNotifyError(fmt.Sprintf("Site(%s, ID: %s)의 Cron 표현식 구문에 오류가 있어 스케줄 등록에 실패했습니다.", p.Site, p.ID), err)
+			s.logAndNotifyError(fmt.Sprintf("지정된 Provider Site(%s, 식별자: %s)의 Cron 표현식 구문에 오류가 있어 스케줄 등록에 실패했습니다.", p.Site, p.ID), err)
 			return apperrors.Wrapf(err, apperrors.Internal, "크롤러 스케줄 등록 실패: Cron 표현식 구문이 잘못되었습니다 (Site: %s, ID: %s, TimeSpec: '%s')", config.ProviderSite(p.Site), p.ID, p.Scheduler.TimeSpec)
 		}
 	}

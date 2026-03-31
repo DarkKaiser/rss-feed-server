@@ -11,8 +11,8 @@ import (
 )
 
 // mockCrawlerFunc는 테스트를 위해 최소한의 시그니처만 맞춘 팩토리 함수입니다.
-func mockCrawlerFunc(_ NewCrawlerParams) Crawler {
-	return nil
+func mockCrawlerFunc(_ NewCrawlerParams) (Crawler, error) {
+	return nil, nil
 }
 
 func TestCrawlerConfig_Validate(t *testing.T) {
