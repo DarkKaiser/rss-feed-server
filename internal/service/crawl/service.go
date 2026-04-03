@@ -56,9 +56,8 @@ func NewService(cfg *config.RSSFeedConfig, feedRepo feed.Repository, notifyClien
 	return &Service{
 		cfg: cfg,
 
-		// @@@@@ 초기값 정하기
 		// 모든 크롤러가 공유하는 HTTP 클라이언트(Fetcher)를 초기화합니다.
-		fetcher: fetcher.New(3, 2*time.Second, 10*1024*1024, fetcher.WithTimeout(15*time.Second)),
+		fetcher: fetcher.New(3, 5*time.Second, 10*1024*1024),
 
 		feedRepo: feedRepo,
 

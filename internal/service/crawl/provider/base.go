@@ -221,26 +221,28 @@ func (b *Base) Run(ctx context.Context) {
 func (b *Base) prepareExecution(parentCtx context.Context) (context.Context, context.CancelFunc) {
 	b.logger.Debug(b.FormatMessage("크롤링 작업을 시작합니다."))
 
-	ctx, cancel := context.WithTimeout(parentCtx, 10*time.Minute)
-
+	// context.WithTimeout 호출 이전에 사전 조건을 검증합니다.
+	// panic 이 WithTimeout 이후 발생하면 cancel() 이 defer 등록되지 않아 context 리소스가 누수됩니다.
 	if b.crawlArticles == nil {
 		b.logger.Panic("CrawlArticles 함수가 주입되지 않았습니다. SetCrawlArticles를 확인해 주세요.")
 	}
+
+	ctx, cancel := context.WithTimeout(parentCtx, 10*time.Minute)
 
 	return ctx, cancel
 }
 
 // @@@@@
 // execute 실제 게시글 스크래핑 비즈니스 로직을 호출하여 신규 게시글 목록과 최신 커서(ID)를 반환합니다.
+//
+// 계약:
+//   - CrawlArticlesFunc 구현체는 에러 없이 성공한 경우 반드시 non-nil articles(빈 슬라이스 포함)를 반환해야 합니다.
+//   - 서버 일시 오류 등 파싱 자체가 불가한 경우 반드시 non-nil error를 함께 반환해야 합니다.
+//   - err != nil 인 경우에만 articles 가 nil 이어야 합니다.
 func (b *Base) execute(ctx context.Context) ([]*feed.Article, map[string]string) {
 	articles, latestCrawledArticleIDsByBoard, errOccurred, err := b.crawlArticles(ctx)
 	if err != nil {
 		b.SendErrorNotification(errOccurred, err)
-		return nil, nil
-	}
-
-	if articles == nil {
-		b.logger.Warn(b.FormatMessage("크롤링 작업을 종료합니다. 서버의 일시적인 오류로 인하여 신규 게시글 추출이 실패하였습니다."))
 		return nil, nil
 	}
 
@@ -255,17 +257,28 @@ func (b *Base) finalizeExecution(ctx context.Context, articles []*feed.Article, 
 		return
 	}
 
+	// 기존 (크롤링 작업 시 사용된) 만료 가능성 있는 Context 대신 1분짜리 신규 DB 트랜잭션용 컨텍스트를 생성합니다.
+	storeCtx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancel()
+
 	if len(articles) > 0 {
 		b.logger.Debug(b.FormatMessage("크롤링 작업 결과로 %d건의 신규 게시글이 추출되었습니다. 신규 게시글을 DB에 추가합니다.", len(articles)))
 
-		insertedCnt, err := b.feedRepo.SaveArticles(ctx, b.providerID, articles)
+		insertedCnt, err := b.feedRepo.SaveArticles(storeCtx, b.providerID, articles)
 		if err != nil {
 			m := b.FormatMessage("신규 게시글을 DB에 추가하는 중에 오류가 발생하여 크롤링 작업이 실패하였습니다.😱")
 			b.SendErrorNotification(m, err)
+			
+			// 부분 실패 시, 삽입에 실패하여 누락된 게시글이 있음에도 불구하고 
+			// 수집 결과를 기반으로 미리 계산된 최고(Max) 커서로 갱신해 버리면 
+			// 누락된 게시글이 영구적으로 유실되는 버그가 존재합니다.
+			// 따라서 부분 저장(insertedCnt > 0)에 성공했더라도, 데이터 무결성 보장을 위해 
+			// 이번 사이클의 커서 전진을 취소합니다. (중복 재처리는 DB 제약조건에서 안전하게 방어됨)
+			b.logger.Warn(b.FormatMessage("게시물 DB 추가 중 발생한 부분 실패로 인해 데이터 유실 방지 차원에서 커서 전진을 취소합니다."))
 			return
 		}
 
-		b.updateLatestCrawledIDs(ctx, latestCrawledArticleIDsByBoard)
+		b.updateLatestCrawledIDs(storeCtx, latestCrawledArticleIDsByBoard)
 
 		if len(articles) != insertedCnt {
 			b.logger.Warn(b.FormatMessage("크롤링 작업을 종료합니다. 전체 %d건 중에서 %d건의 신규 게시글이 DB에 추가되었습니다.", len(articles), insertedCnt))
@@ -273,7 +286,7 @@ func (b *Base) finalizeExecution(ctx context.Context, articles []*feed.Article, 
 			b.logger.Debug(b.FormatMessage("크롤링 작업을 종료합니다. %d건의 신규 게시글이 DB에 추가되었습니다.", len(articles)))
 		}
 	} else {
-		b.updateLatestCrawledIDs(ctx, latestCrawledArticleIDsByBoard)
+		b.updateLatestCrawledIDs(storeCtx, latestCrawledArticleIDsByBoard)
 
 		b.logger.Debug(b.FormatMessage("크롤링 작업을 종료합니다. 신규 게시글이 존재하지 않습니다."))
 	}
@@ -358,7 +371,7 @@ func (b *Base) CrawlArticleContentsConcurrently(
 	ctx context.Context,
 	articles []*feed.Article,
 	limit int,
-	fetchContent func(ctx context.Context, article *feed.Article),
+	fetchContent func(ctx context.Context, article *feed.Article) error,
 ) error {
 	if len(articles) == 0 {
 		return nil
@@ -371,7 +384,14 @@ func (b *Base) CrawlArticleContentsConcurrently(
 
 	for _, article := range articles {
 		a := article
-		g.Go(func() error {
+		g.Go(func() (err error) {
+			defer func() {
+				if r := recover(); r != nil {
+					b.logger.Errorf("병렬 게시글 본문 크롤링 중 고루틴 패닉 발생 (ArticleID: %s): %v", a.ArticleID, r)
+					err = nil // 패닉이 발생하더라도 롤백되지 않고, 부분 실패(빈 본문)로 처리되도록 에러 전파를 무시합니다.
+				}
+			}()
+
 			// 최대 3회 재시도 (재시도 간 짧은 백오프 대기)
 			maxRetries := 3
 			for attempt := 1; attempt <= maxRetries; attempt++ {
@@ -379,10 +399,19 @@ func (b *Base) CrawlArticleContentsConcurrently(
 					break // 이미 성공했거나 내용이 채워져 있으면 루프 탈출
 				}
 
-				fetchContent(gCtx, a)
+				err := fetchContent(gCtx, a)
 
-				if a.Content != "" {
-					break // 이번에 성공했으면 루프 탈출
+				// 외부 시스템에 의해 전체 작업 컨텍스트가 취소되거나 타임아웃된 경우 전체 작업을 즉시 중지합니다.
+				// (개별 게시글 수집 시 발생한 HTTP 내부 타임아웃 오류가 errgroup 전체를 취소시키지 않도록 방어)
+				if gCtx.Err() != nil {
+					return gCtx.Err()
+				}
+
+				if err == nil {
+					break // 에러 없이 완전히 처리가 끝났다면(정상 빈 값일지라도) 재시도 중단
+				}
+				if errors.Is(err, ErrSkipContentRetry) {
+					break // 권한 부족, 삭제글 등 영구적인 오류이므로 재시도 중단
 				}
 
 				if attempt < maxRetries {
@@ -397,11 +426,8 @@ func (b *Base) CrawlArticleContentsConcurrently(
 		})
 	}
 
-	if err := g.Wait(); err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return err
-		}
-	}
-
-	return nil
+	// fetchContent 콜백 내부의 에러는 해당 고루틴의 재시도 로직에서만 처리/로깅되며 외부로 전파되지 않도록 설계되었습니다.
+	// 따라서 g.Wait()이 반환하는 에러는 컨텍스트 취소(Canceled) 또는 타임아웃(DeadlineExceeded)뿐입니다.
+	// 시스템 인터럽트에 의한 의도치 않은 에러 묵살을 방지하기 위해 g.Wait() 결과를 그대로 반환합니다.
+	return g.Wait()
 }
