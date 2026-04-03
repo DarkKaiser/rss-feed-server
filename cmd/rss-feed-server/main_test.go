@@ -135,9 +135,16 @@ func TestRun_SuccessAndGracefulShutdown(t *testing.T) {
 	testTermC := make(chan os.Signal, 1)
 	errCh := make(chan error, 1)
 
+	// Jenkins 등 CI 환경의 느린 파일 I/O로 인한 타임아웃을 방지하기 위해 메모리 DB 주입
+	db, err := sqlite.Open(context.Background(), ":memory:?_fk=1")
+	if err != nil {
+		t.Fatalf("메모리 DB 초기화 실패: %v", err)
+	}
+	defer db.Close() // 테스트가 끝나면 DB도 명시적으로 닫아줌 (안전)
+
 	// 비동기로 서버 시작 (run 내에서 블로킹됨)
 	go func() {
-		errCh <- run(nil, nil, testTermC)
+		errCh <- run(db, nil, testTermC)
 	}()
 
 	// 서버가 DB 초기화 및 서비스 시작을 마칠 수 있도록 잠시 대기
@@ -176,8 +183,15 @@ func TestRun_DebugMode(t *testing.T) {
 	testTermC := make(chan os.Signal, 1)
 	errCh := make(chan error, 1)
 
+	// Jenkins 환경 타임아웃 우회 목적의 메모리 DB 주입
+	db, err := sqlite.Open(context.Background(), ":memory:?_fk=1")
+	if err != nil {
+		t.Fatalf("메모리 DB 초기화 실패: %v", err)
+	}
+	defer db.Close()
+
 	go func() {
-		errCh <- run(nil, nil, testTermC)
+		errCh <- run(db, nil, testTermC)
 	}()
 
 	time.Sleep(500 * time.Millisecond)
@@ -211,8 +225,15 @@ func TestRun_Warnings(t *testing.T) {
 	testTermC := make(chan os.Signal, 1)
 	errCh := make(chan error, 1)
 
+	// Jenkins 환경 타임아웃 우회 목적의 메모리 DB 주입
+	db, err := sqlite.Open(context.Background(), ":memory:?_fk=1")
+	if err != nil {
+		t.Fatalf("메모리 DB 초기화 실패: %v", err)
+	}
+	defer db.Close()
+
 	go func() {
-		errCh <- run(nil, nil, testTermC)
+		errCh <- run(db, nil, testTermC)
 	}()
 
 	time.Sleep(500 * time.Millisecond)
@@ -271,7 +292,14 @@ func TestRun_ServiceStartError_Real(t *testing.T) {
 		&MockService{StartErr: fmt.Errorf("forced start error")},
 	}
 
-	err := run(nil, mockServices, nil)
+	// Jenkins 환경 타임아웃 우회 목적의 메모리 DB 주입
+	db, err := sqlite.Open(context.Background(), ":memory:?_fk=1")
+	if err != nil {
+		t.Fatalf("메모리 DB 초기화 실패: %v", err)
+	}
+	defer db.Close()
+
+	err = run(db, mockServices, nil)
 	if err == nil {
 		t.Fatal("서비스 시작 실패 시 run()이 에러를 반환해야 하지만, nil이 반환되었습니다")
 	}
