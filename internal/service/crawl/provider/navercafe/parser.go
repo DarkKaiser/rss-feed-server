@@ -83,7 +83,7 @@ func (c *crawler) extractArticle(s *goquery.Selection) (*feed.Article, error) {
 	if as.Length() != 1 {
 		return nil, errors.New("게시글에서 작성일 정보를 찾을 수 없습니다.")
 	}
-	createdDate, err := provider.ParseCreatedDate(strings.TrimSpace(as.Text()))
+	createdDate, err := provider.ParseCreatedAt(strings.TrimSpace(as.Text()))
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +155,7 @@ func (c *crawler) crawlingArticleContent(ctx context.Context, article *feed.Arti
 	if err := c.crawlingArticleContentUsingAPI(ctx, article); err != nil {
 		// 컨텍스트 취소/타임아웃은 즉시 전파합니다.
 		// 전파하지 않으면, 이후 단계가 에러 없이 반환될 때 lastErr가 nil이 되어
-		// ErrSkipContentRetry가 반환되고 재시도 기회가 영구 손실됩니다.
+		// ErrContentUnavailable가 반환되고 재시도 기회가 영구 손실됩니다.
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
@@ -199,21 +199,21 @@ func (c *crawler) crawlingArticleContent(ctx context.Context, article *feed.Arti
 
 	// 어떠한 시스템 에러도 없었는데도 내용이 없다면
 	// 원래 비어있는 글이거나 스크래퍼가 인식하지 못한 영구적 파싱 실패 상태(비공개 등)이므로 재시도 스킵
-	return provider.ErrSkipContentRetry
+	return provider.ErrContentUnavailable
 }
 
 func (c *crawler) crawlingArticleContentUsingAPI(ctx context.Context, article *feed.Article) error {
 	//
 	// 네이버 카페 상세페이지를 로드하여 art 쿼리 문자열을 구한다.
 	//
-	title := c.FormatMessage("%s 게시글('%s')의 상세페이지", article.BoardName, article.ArticleID)
+	title := c.Messagef("%s 게시글('%s')의 상세페이지", article.BoardName, article.ArticleID)
 
 	head := make(http.Header)
 	head.Set("Referer", "https://search.naver.com/")
 	doc, err := c.Scraper().FetchHTMLDocument(ctx, fmt.Sprintf("%s/%s", c.Config().URL, article.ArticleID), head)
 	if err != nil {
 		if apperrors.Is(err, apperrors.ExecutionFailed) {
-			return provider.ErrSkipContentRetry
+			return provider.ErrContentUnavailable
 		}
 		applog.Warnf("%s 접근이 실패하였습니다. (error:%v)", title, err)
 		return err
@@ -224,7 +224,7 @@ func (c *crawler) crawlingArticleContentUsingAPI(ctx context.Context, article *f
 	pos := strings.Index(bodyString, "&art=")
 	if pos == -1 {
 		applog.Warnf("%s의 art 쿼리 문자열을 찾을 수 없습니다.", title)
-		return provider.ErrSkipContentRetry
+		return provider.ErrContentUnavailable
 	}
 	artValue := bodyString[pos+5:]
 	endIdx := strings.IndexAny(artValue, "&\"'")
@@ -235,14 +235,14 @@ func (c *crawler) crawlingArticleContentUsingAPI(ctx context.Context, article *f
 	//
 	// 구한 art 쿼리 문자열을 이용하여 네이버 카페 게시글 API를 호출한다.
 	//
-	title = c.FormatMessage("%s 게시글('%s')의 API 페이지", article.BoardName, article.ArticleID)
+	title = c.Messagef("%s 게시글('%s')의 API 페이지", article.BoardName, article.ArticleID)
 
 	apiURL := fmt.Sprintf("https://apis.naver.com/cafe-web/cafe-articleapi/v2/cafes/%s/articles/%s?art=%s&useCafeId=true&requestFrom=A", c.siteClubID, article.ArticleID, artValue)
 
 	var apiResult naverCafeArticleAPIResult
 	if err := c.Scraper().FetchJSON(ctx, "GET", apiURL, nil, nil, &apiResult); err != nil {
 		if apperrors.Is(err, apperrors.ExecutionFailed) {
-			return provider.ErrSkipContentRetry
+			return provider.ErrContentUnavailable
 		}
 		// 특정 게시글은 401(Unauthorized)이 반환되는 경우가 있음!!!
 		// 작성자가 네이버 로그인 없이는 외부에서 접근할 수 없도록 설정한 경우입니다.
@@ -294,16 +294,16 @@ func (c *crawler) crawlingArticleContentUsingLink(ctx context.Context, article *
 	doc, err := c.Scraper().FetchHTMLDocument(ctx, article.Link, nil)
 	if err != nil {
 		if apperrors.Is(err, apperrors.ExecutionFailed) {
-			return provider.ErrSkipContentRetry
+			return provider.ErrContentUnavailable
 		}
-		applog.Warnf(c.FormatMessage("%s 게시글('%s')의 상세페이지 (error:%v)", article.BoardName, article.ArticleID, err))
+		applog.Warnf(c.Messagef("%s 게시글('%s')의 상세페이지 (error:%v)", article.BoardName, article.ArticleID, err))
 		return err
 	}
 
 	ncSelection := doc.Find("#tbody")
 	if ncSelection.Length() == 0 {
 		// 로그인을 하지 않아 접근 권한이 없는 페이지인 경우 오류가 발생하므로 로그 처리를 하지 않는다.
-		return provider.ErrSkipContentRetry
+		return provider.ErrContentUnavailable
 	}
 
 	article.Content = strutil.NormalizeMultiline(ncSelection.Text())
@@ -327,9 +327,9 @@ func (c *crawler) crawlingArticleContentUsingNaverSearch(ctx context.Context, ar
 	doc, err := c.Scraper().FetchHTMLDocument(ctx, searchUrl, nil)
 	if err != nil {
 		if apperrors.Is(err, apperrors.ExecutionFailed) {
-			return provider.ErrSkipContentRetry
+			return provider.ErrContentUnavailable
 		}
-		applog.Warnf(c.FormatMessage("%s 게시글('%s')의 네이버 검색페이지 (error:%v)", article.BoardName, article.ArticleID, err))
+		applog.Warnf(c.Messagef("%s 게시글('%s')의 네이버 검색페이지 (error:%v)", article.BoardName, article.ArticleID, err))
 		return err
 	}
 
