@@ -2,10 +2,10 @@ package provider
 
 import (
 	"context"
-	"errors"
 
 	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
+	apperrors "github.com/darkkaiser/rss-feed-server/internal/errors"
 	"github.com/darkkaiser/rss-feed-server/internal/feed"
 	"github.com/darkkaiser/rss-feed-server/internal/service/crawl/fetcher"
 )
@@ -13,10 +13,17 @@ import (
 // component 크롤링 서비스의 Provider 로깅용 컴포넌트 이름
 const component = "crawl.provider"
 
-// @@@@@
-// ErrSkipContentRetry 게시글 본문 크롤링 시 권한 부족, 삭제된 게시글, 레이아웃 변경 등
-// 일시적인 네트워크 오류가 아닌 영구적인 오류가 생겨 재시도가 무의미할 때 반환하는 센티넬 에러입니다.
-var ErrSkipContentRetry = errors.New("provider: skip article content crawl retry")
+// ErrContentUnavailable 일반적인 네트워크 지연이나 일시적 접속 오류와 달리,
+// 아무리 재시도해도 성공할 수 없는 '영구적인 수집 불가 상태'를 알리기 위한 센티넬(Sentinel) 에러입니다.
+//
+// 주로 다음과 같은 이유로 발생합니다:
+//   - 이미 삭제되었거나 관리자에 의해 비공개 처리된 게시글인 경우
+//   - 네이버 카페 회원 등 특정 권한이 필요해서 게스트 접근이 불가능한 경우
+//
+// 동시성 크롤러(CrawlArticleContentsConcurrently)는 본문 파싱 중 이 에러를 반환받으면
+// 의미 없는 재시도(Retry) 루프를 즉각 멈추고, 해당 게시글을 '빈 본문'으로 처리하여 유연하게 넘어갑니다.
+// 이를 통해 소중한 서버 자원을 아끼고, 전체 크롤링 파이프라인이 정체되는 것을 안전하게 방어합니다.
+var ErrContentUnavailable = apperrors.New(apperrors.ExecutionFailed, "접근 권한 제한 또는 게시글 삭제 등의 사유로 본문 수집이 불가하여 재시도 작업을 영구적으로 중단합니다")
 
 // Crawler 개별 크롤러 인스턴스의 생명주기를 제어하고 상태를 조회하기 위한 인터페이스입니다.
 //

@@ -17,6 +17,7 @@ import (
 // component 크롤링 서비스의 여수시청 Provider 로깅용 컴포넌트 이름
 const component = "crawl.provider.yeosucityhall"
 
+// @@@@@
 const (
 	// 포토뉴스
 	yeosuCityHallCrawlerBoardTypePhotoNews string = "P"
@@ -31,10 +32,12 @@ const (
 	yeosuCityHallCrawlerBoardTypeList2 string = "L_2"
 )
 
+// @@@@@
 // serverAnomalyResult detectServerAnomaly 함수의 반환 타입으로,
 // 서버 이상 감지 결과를 나타내는 열거형입니다.
 type serverAnomalyResult int
 
+// @@@@@
 const (
 	// serverAnomalyNone 이상 없음. 정상 처리를 계속합니다.
 	serverAnomalyNone serverAnomalyResult = iota
@@ -48,6 +51,7 @@ const (
 	serverAnomalyTypeError
 )
 
+// @@@@@
 // detectServerAnomaly 여수시청 서버의 이상 여부를 게시판 타입별 기준에 따라 판별합니다.
 //
 // 배경:
@@ -105,34 +109,25 @@ func detectServerAnomaly(doc *goquery.Document, sel *goquery.Selection, cfg *yeo
 	return serverAnomalyNone
 }
 
+// @@@@@
 var yeosuCityHallCrawlerBoardTypes map[string]*yeosuCityHallCrawlerBoardTypeConfig
 
+// @@@@@
 type yeosuCityHallCrawlerBoardTypeConfig struct {
 	urlPath              string
 	articleSelector      string
 	articleGroupSelector string
 }
 
+// @@@@@
 const yeosuCityHallUrlPathReplaceStringWithBoardID = "#{board_id}"
 
 func init() {
 	provider.MustRegister(config.ProviderSiteYeosuCityHall, &provider.CrawlerConfig{
-		NewCrawler: func(params provider.NewCrawlerParams) (provider.Crawler, error) {
-			crawlerInstance := &crawler{
-				Base: provider.NewBase(
-					params,
-					3,
-				),
-			}
-
-			crawlerInstance.SetCrawlArticles(crawlerInstance.crawlArticles)
-
-			applog.Debug(crawlerInstance.FormatMessage("Crawler가 생성되었습니다."))
-
-			return crawlerInstance, nil
-		},
+		NewCrawler: newCrawler,
 	})
 
+	// @@@@@
 	// 게시판 유형별 설정정보를 초기화한다.
 	yeosuCityHallCrawlerBoardTypes = map[string]*yeosuCityHallCrawlerBoardTypeConfig{
 		yeosuCityHallCrawlerBoardTypePhotoNews: {
@@ -158,6 +153,21 @@ func init() {
 	}
 }
 
+func newCrawler(params provider.NewCrawlerParams) (provider.Crawler, error) {
+	c := &crawler{
+		Base: provider.NewBase(params, 3),
+	}
+
+	c.SetCrawlArticles(c.crawlArticles)
+
+	c.Logger().WithFields(applog.Fields{
+		"component":   component,
+		"board_count": len(c.Config().Boards),
+	}).Debug(c.Messagef("크롤러 생성 완료: Provider 초기화 수행"))
+
+	return c, nil
+}
+
 type crawler struct {
 	*provider.Base
 }
@@ -165,7 +175,7 @@ type crawler struct {
 // 컴파일 타임에 인터페이스 구현 여부를 검증합니다.
 var _ provider.Crawler = (*crawler)(nil)
 
-// noinspection GoErrorStringFormat,GoUnhandledErrorResult
+// @@@@@
 func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[string]string, string, error) {
 	var articles = make([]*feed.Article, 0)
 	var newLatestCrawledArticleIDsByBoard = make(map[string]string)
@@ -193,24 +203,25 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 		// 이미 목록 크롤링으로 확보된 게시글과 커서 정보는 보존합니다.
 		// nil을 반환하면 다음 사이클에서 동일 게시글을 처음부터 다시 수집하는 중복 재처리 루프가 발생합니다.
 		// 본문이 없는 상태로 저장하고 커서를 갱신하여 중복 수집을 방지합니다.
-		errOccurred := c.FormatMessage("본문 수집 중 시스템 종료 시그널 또는 타임아웃이 발생하여 크롤링 작업이 중단되었습니다.")
+		errOccurred := c.Messagef("본문 수집 중 시스템 종료 시그널 또는 타임아웃이 발생하여 크롤링 작업이 중단되었습니다.")
 		c.SendErrorNotification(errOccurred, err)
 	}
 
 	return articles, newLatestCrawledArticleIDsByBoard, "", nil
 }
 
+// @@@@@
 func (c *crawler) crawlSingleBoard(ctx context.Context, b *config.BoardConfig) ([]*feed.Article, string, string, error) {
 	var articles = make([]*feed.Article, 0)
 
 	boardTypeConfig, exists := yeosuCityHallCrawlerBoardTypes[b.Type]
 	if exists == false {
-		return nil, "", c.FormatMessage("게시판 Type별 정보를 구하는 중에 오류가 발생하였습니다."), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
+		return nil, "", c.Messagef("게시판 Type별 정보를 구하는 중에 오류가 발생하였습니다."), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
 	}
 
 	latestCrawledArticleID, latestCrawledCreatedDate, err := c.FeedRepo().GetCrawlingCursor(ctx, c.ProviderID(), b.ID)
 	if err != nil {
-		return nil, "", c.FormatMessage("%s 게시판에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", b.Name), err
+		return nil, "", c.Messagef("%s 게시판에 마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다.", b.Name), err
 	}
 
 	// 이전 커서값이 아닌 빈 문자열로 초기화하여, 신규 게시글이 실제로 수집된 경우에만
@@ -227,10 +238,10 @@ CrawlLoop:
 
 		doc, err := c.Scraper().FetchHTMLDocument(ctx, ysPageUrl, nil)
 		if err != nil {
-			// 부분 수집 시 커서를 갱신하지 않으면 스케줄링 주기에 따라 무한 재처리 및 
-			// 타겟 서버 DDoS 부하를 유발하는 치명적 버그가 발생할 수 있으므로, 
+			// 부분 수집 시 커서를 갱신하지 않으면 스케줄링 주기에 따라 무한 재처리 및
+			// 타겟 서버 DDoS 부하를 유발하는 치명적 버그가 발생할 수 있으므로,
 			// 페이지 접근 에러 시 부분 반환 대신 전체 롤백(error 반환) 처리합니다.
-			return nil, "", c.FormatMessage("%s 게시판 접근이 실패하였습니다. (page: %d)", b.Name, pageNo), err
+			return nil, "", c.Messagef("%s 게시판 접근이 실패하였습니다. (page: %d)", b.Name, pageNo), err
 		}
 
 		ysSelection := doc.Find(boardTypeConfig.articleSelector)
@@ -240,16 +251,16 @@ CrawlLoop:
 		case serverAnomalyEndOfData:
 			break CrawlLoop
 		case serverAnomalyCSSError:
-			return nil, "", c.FormatMessage("%s 게시판의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", b.Name), errors.New("게시글 추출이 실패하였습니다.")
+			return nil, "", c.Messagef("%s 게시판의 게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요.", b.Name), errors.New("게시글 추출이 실패하였습니다.")
 		case serverAnomalyTypeError:
-			return nil, "", c.FormatMessage("%s 게시판의 게시글 추출이 실패하였습니다.", b.Name), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
+			return nil, "", c.Messagef("%s 게시판의 게시글 추출이 실패하였습니다.", b.Name), fmt.Errorf("구현되지 않은 게시판 Type('%s') 입니다.", b.Type)
 		}
 
 		var foundAlreadyCrawledArticle = false
 		ysSelection.EachWithBreak(func(i int, s *goquery.Selection) bool {
 			article, err := c.extractArticle(b.Type, s)
 			if err != nil {
-				applog.Warn(c.FormatMessage("%s 게시판에서 개별 게시글 추출이 실패하여 스킵합니다. (error:%s)", b.Name, err))
+				applog.Warn(c.Messagef("%s 게시판에서 개별 게시글 추출이 실패하여 스킵합니다. (error:%s)", b.Name, err))
 				return true
 			}
 			article.BoardID = b.ID
@@ -277,7 +288,7 @@ CrawlLoop:
 					}
 				}
 			}
-			// ParseCreatedDate는 당일이 아닌 과거 날짜의 시각을 00:00:00 으로 고정합니다.
+			// ParseCreatedAt는 당일이 아닌 과거 날짜의 시각을 00:00:00 으로 고정합니다.
 			// 시각 정보 불일치에 따른 오판을 방지하기 위해 날짜 문자열(yyyy-MM-dd) 포맷으로 변환하여
 			// 순수 연월일 단위로만 일자 경과 여부를 비교합니다. (동일 날짜는 ID 비교로만 처리됨)
 			if !latestCrawledCreatedDate.IsZero() && article.CreatedAt.Format("2006-01-02") < latestCrawledCreatedDate.Format("2006-01-02") {

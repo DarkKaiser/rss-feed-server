@@ -188,6 +188,10 @@ func (b *Base) FeedRepo() feed.Repository {
 	return b.feedRepo
 }
 
+func (b *Base) Logger() *applog.Entry {
+	return b.logger
+}
+
 // @@@@@
 // Run 크롤링 작업의 전체 생명주기를 전담하는 메인 진입점입니다.
 //
@@ -200,7 +204,7 @@ func (b *Base) Run(ctx context.Context) {
 	// Task 실행 중 발생할 수 있는 런타임 패닉을 복구하여 스케줄러 메인 프로세스가 중단되지 않도록 방어합니다.
 	defer func() {
 		if r := recover(); r != nil {
-			m := b.FormatMessage("크롤링 작업 중 런타임 패닉(Panic)이 발생하였습니다.😱\n\n[오류 상세 내용]\n%v", r)
+			m := b.Messagef("크롤링 작업 중 런타임 패닉(Panic)이 발생하였습니다.😱\n\n[오류 상세 내용]\n%v", r)
 			b.logger.Error(m)
 
 			// SendErrorNotification 안에서 타임아웃 및 2차 패닉 차단을 알아서 처리하게 위임
@@ -219,7 +223,7 @@ func (b *Base) Run(ctx context.Context) {
 // prepareExecution 크롤링 작업에 필요한 초기 설정, 의존성 검증 및 컨텍스트 타임아웃 설정을 수행합니다.
 // 외부에서 주입된 parentCtx를 바탕으로 10분의 제한 시간을 부여한 새로운 컨텍스트를 생성합니다.
 func (b *Base) prepareExecution(parentCtx context.Context) (context.Context, context.CancelFunc) {
-	b.logger.Debug(b.FormatMessage("크롤링 작업을 시작합니다."))
+	b.logger.Debug(b.Messagef("크롤링 작업을 시작합니다."))
 
 	// context.WithTimeout 호출 이전에 사전 조건을 검증합니다.
 	// panic 이 WithTimeout 이후 발생하면 cancel() 이 defer 등록되지 않아 context 리소스가 누수됩니다.
@@ -262,33 +266,33 @@ func (b *Base) finalizeExecution(ctx context.Context, articles []*feed.Article, 
 	defer cancel()
 
 	if len(articles) > 0 {
-		b.logger.Debug(b.FormatMessage("크롤링 작업 결과로 %d건의 신규 게시글이 추출되었습니다. 신규 게시글을 DB에 추가합니다.", len(articles)))
+		b.logger.Debug(b.Messagef("크롤링 작업 결과로 %d건의 신규 게시글이 추출되었습니다. 신규 게시글을 DB에 추가합니다.", len(articles)))
 
 		insertedCnt, err := b.feedRepo.SaveArticles(storeCtx, b.providerID, articles)
 		if err != nil {
-			m := b.FormatMessage("신규 게시글을 DB에 추가하는 중에 오류가 발생하여 크롤링 작업이 실패하였습니다.😱")
+			m := b.Messagef("신규 게시글을 DB에 추가하는 중에 오류가 발생하여 크롤링 작업이 실패하였습니다.😱")
 			b.SendErrorNotification(m, err)
-			
-			// 부분 실패 시, 삽입에 실패하여 누락된 게시글이 있음에도 불구하고 
-			// 수집 결과를 기반으로 미리 계산된 최고(Max) 커서로 갱신해 버리면 
+
+			// 부분 실패 시, 삽입에 실패하여 누락된 게시글이 있음에도 불구하고
+			// 수집 결과를 기반으로 미리 계산된 최고(Max) 커서로 갱신해 버리면
 			// 누락된 게시글이 영구적으로 유실되는 버그가 존재합니다.
-			// 따라서 부분 저장(insertedCnt > 0)에 성공했더라도, 데이터 무결성 보장을 위해 
+			// 따라서 부분 저장(insertedCnt > 0)에 성공했더라도, 데이터 무결성 보장을 위해
 			// 이번 사이클의 커서 전진을 취소합니다. (중복 재처리는 DB 제약조건에서 안전하게 방어됨)
-			b.logger.Warn(b.FormatMessage("게시물 DB 추가 중 발생한 부분 실패로 인해 데이터 유실 방지 차원에서 커서 전진을 취소합니다."))
+			b.logger.Warn(b.Messagef("게시물 DB 추가 중 발생한 부분 실패로 인해 데이터 유실 방지 차원에서 커서 전진을 취소합니다."))
 			return
 		}
 
 		b.updateLatestCrawledIDs(storeCtx, latestCrawledArticleIDsByBoard)
 
 		if len(articles) != insertedCnt {
-			b.logger.Warn(b.FormatMessage("크롤링 작업을 종료합니다. 전체 %d건 중에서 %d건의 신규 게시글이 DB에 추가되었습니다.", len(articles), insertedCnt))
+			b.logger.Warn(b.Messagef("크롤링 작업을 종료합니다. 전체 %d건 중에서 %d건의 신규 게시글이 DB에 추가되었습니다.", len(articles), insertedCnt))
 		} else {
-			b.logger.Debug(b.FormatMessage("크롤링 작업을 종료합니다. %d건의 신규 게시글이 DB에 추가되었습니다.", len(articles)))
+			b.logger.Debug(b.Messagef("크롤링 작업을 종료합니다. %d건의 신규 게시글이 DB에 추가되었습니다.", len(articles)))
 		}
 	} else {
 		b.updateLatestCrawledIDs(storeCtx, latestCrawledArticleIDsByBoard)
 
-		b.logger.Debug(b.FormatMessage("크롤링 작업을 종료합니다. 신규 게시글이 존재하지 않습니다."))
+		b.logger.Debug(b.Messagef("크롤링 작업을 종료합니다. 신규 게시글이 존재하지 않습니다."))
 	}
 }
 
@@ -349,16 +353,16 @@ func (b *Base) updateLatestCrawledIDs(ctx context.Context, latestCrawledArticleI
 		}
 
 		if err := b.feedRepo.UpsertLatestCrawledArticleID(ctx, b.providerID, boardID, articleID); err != nil {
-			m := b.FormatMessage("크롤링 된 최근 게시글 ID의 DB 갱신이 실패하였습니다.😱")
+			m := b.Messagef("크롤링 된 최근 게시글 ID의 DB 갱신이 실패하였습니다.😱")
 			b.SendErrorNotification(m, err)
 		}
 	}
 }
 
 // @@@@@
-// FormatMessage 알림이나 로깅에 사용할 일반적인 메시지 형식을 생성합니다.
+// Messagef 알림이나 로깅에 사용할 일반적인 메시지 형식을 생성합니다.
 // site (Config.Name) 와 siteID를 일관되게 포함하여 가독성을 높입니다.
-func (b *Base) FormatMessage(format string, args ...any) string {
+func (b *Base) Messagef(format string, args ...any) string {
 	msg := fmt.Sprintf(format, args...)
 	return fmt.Sprintf("%s('%s')의 %s", b.config.Name, b.config.ID, msg)
 }
@@ -410,7 +414,7 @@ func (b *Base) CrawlArticleContentsConcurrently(
 				if err == nil {
 					break // 에러 없이 완전히 처리가 끝났다면(정상 빈 값일지라도) 재시도 중단
 				}
-				if errors.Is(err, ErrSkipContentRetry) {
+				if errors.Is(err, ErrContentUnavailable) {
 					break // 권한 부족, 삭제글 등 영구적인 오류이므로 재시도 중단
 				}
 

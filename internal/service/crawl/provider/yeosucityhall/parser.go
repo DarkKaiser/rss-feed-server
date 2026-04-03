@@ -71,7 +71,7 @@ func (c *crawler) extractPhotoNewsArticle(s *goquery.Selection) (*feed.Article, 
 
 	// 등록일
 	var createdDateString = strings.TrimSpace(as.Eq(1).Text())
-	if article.CreatedAt, err = provider.ParseCreatedDate(createdDateString); err != nil {
+	if article.CreatedAt, err = provider.ParseCreatedAt(createdDateString); err != nil {
 		return nil, err
 	}
 
@@ -124,7 +124,7 @@ func (c *crawler) extractListArticle(boardType string, s *goquery.Selection) (*f
 
 	// 등록일
 	var createdDateString = strings.TrimSpace(as.Eq(as.Length() - 2).Text())
-	if article.CreatedAt, err = provider.ParseCreatedDate(createdDateString); err != nil {
+	if article.CreatedAt, err = provider.ParseCreatedAt(createdDateString); err != nil {
 		return nil, err
 	}
 
@@ -170,7 +170,7 @@ func (c *crawler) extractCardNewsArticle(s *goquery.Selection) (*feed.Article, e
 
 	// 등록일
 	var createdDateString = strings.TrimSpace(as.Eq(0).Text())
-	if article.CreatedAt, err = provider.ParseCreatedDate(createdDateString); err != nil {
+	if article.CreatedAt, err = provider.ParseCreatedAt(createdDateString); err != nil {
 		return nil, err
 	}
 
@@ -181,9 +181,9 @@ func (c *crawler) crawlingArticleContent(ctx context.Context, article *feed.Arti
 	doc, err := c.Scraper().FetchHTMLDocument(ctx, article.Link, nil)
 	if err != nil {
 		if apperrors.Is(err, apperrors.ExecutionFailed) {
-			return provider.ErrSkipContentRetry
+			return provider.ErrContentUnavailable
 		}
-		errOccurred := c.FormatMessage("%s 게시판의 게시글('%s') 상세페이지 접근이 실패하였습니다.", article.BoardName, article.ArticleID)
+		errOccurred := c.Messagef("%s 게시판의 게시글('%s') 상세페이지 접근이 실패하였습니다.", article.BoardName, article.ArticleID)
 		applog.Warnf("%s (error:%v)", errOccurred, err)
 		return err
 	}
@@ -191,7 +191,7 @@ func (c *crawler) crawlingArticleContent(ctx context.Context, article *feed.Arti
 	ysSelection := doc.Find("div.contbox > div.viewbox")
 	if ysSelection.Length() == 0 {
 		applog.Warnf("게시글('%s')에서 내용 정보를 찾을 수 없습니다.", article.ArticleID)
-		return provider.ErrSkipContentRetry
+		return provider.ErrContentUnavailable
 	}
 
 	article.Content = strutil.NormalizeMultiline(ysSelection.Text())

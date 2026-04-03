@@ -20,37 +20,46 @@ const component = "crawl.provider.navercafe"
 
 func init() {
 	provider.MustRegister(config.ProviderSiteNaverCafe, &provider.CrawlerConfig{
-		NewCrawler: func(params provider.NewCrawlerParams) (provider.Crawler, error) {
-			data := naverCafeCrawlerConfigData{}
-			if err := data.fillFromMap(params.Config.Data); err != nil {
-				return nil, fmt.Errorf("작업 데이터가 유효하지 않아 %s('%s') Crawler 생성이 실패하였습니다. (error:%s)", params.Config.Name, params.Config.ID, err)
-			}
-
-			const defaultCrawlingDelayMinutes = 40
-			if data.CrawlingDelayMinutes <= 0 {
-				data.CrawlingDelayMinutes = defaultCrawlingDelayMinutes
-			}
-
-			crawlerInstance := &crawler{
-				Base: provider.NewBase(
-					params,
-					10,
-				),
-
-				siteClubID: data.ClubID,
-
-				crawlingDelayTimeMinutes: data.CrawlingDelayMinutes,
-			}
-
-			crawlerInstance.SetCrawlArticles(crawlerInstance.crawlArticles)
-
-			applog.Debug(crawlerInstance.FormatMessage("Crawler가 생성되었습니다."))
-
-			return crawlerInstance, nil
-		},
+		NewCrawler: newCrawler,
 	})
 }
 
+func newCrawler(params provider.NewCrawlerParams) (provider.Crawler, error) {
+	// @@@@@
+	data := naverCafeCrawlerConfigData{}
+	if err := data.fillFromMap(params.Config.Data); err != nil {
+		return nil, fmt.Errorf("작업 데이터가 유효하지 않아 %s('%s') Crawler 생성이 실패하였습니다. (error:%s)", params.Config.Name, params.Config.ID, err)
+	}
+
+	// @@@@@
+	const defaultCrawlingDelayMinutes = 40
+	if data.CrawlingDelayMinutes <= 0 {
+		data.CrawlingDelayMinutes = defaultCrawlingDelayMinutes
+	}
+
+	// @@@@@
+	c := &crawler{
+		Base: provider.NewBase(params, 10),
+
+		siteClubID: data.ClubID,
+
+		crawlingDelayTimeMinutes: data.CrawlingDelayMinutes,
+	}
+
+	c.SetCrawlArticles(c.crawlArticles)
+
+	// @@@@@
+	c.Logger().WithFields(applog.Fields{
+		"component":     component,
+		"board_count":   len(c.Config().Boards),
+		"club_id":       c.siteClubID,
+		"delay_minutes": c.crawlingDelayTimeMinutes,
+	}).Debug(c.Messagef("크롤러 생성 완료: Provider 초기화 수행"))
+
+	return c, nil
+}
+
+// @@@@@
 type naverCafeCrawlerConfigData struct {
 	ClubID string `json:"club_id"`
 
@@ -60,6 +69,7 @@ type naverCafeCrawlerConfigData struct {
 	CrawlingDelayMinutes int `json:"crawling_delay_minutes"`
 }
 
+// @@@@@
 func (d *naverCafeCrawlerConfigData) fillFromMap(m map[string]interface{}) error {
 	data, err := json.Marshal(m)
 	if err != nil {
@@ -74,8 +84,10 @@ func (d *naverCafeCrawlerConfigData) fillFromMap(m map[string]interface{}) error
 type crawler struct {
 	*provider.Base
 
+	// @@@@@
 	siteClubID string
 
+	// @@@@@
 	// 크롤링 지연 시간(분)
 	// 네이버 검색을 이용하여 카페 게시글을 검색한 후 게시글 내용을 크롤링하는 방법을 이용하는 경우
 	// 게시글이 등록되고 나서 일정 시간(그때그때 검색 시스템의 상황에 따라 차이가 존재함)이 경과한 후에
@@ -86,16 +98,17 @@ type crawler struct {
 // 컴파일 타임에 인터페이스 구현 여부를 검증합니다.
 var _ provider.Crawler = (*crawler)(nil)
 
+// @@@@@
 func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[string]string, string, error) {
 	idString, latestCrawledCreatedDate, err := c.FeedRepo().GetCrawlingCursor(ctx, c.ProviderID(), "")
 	if err != nil {
-		return nil, nil, c.FormatMessage("마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다."), err
+		return nil, nil, c.Messagef("마지막으로 추가된 게시글 정보를 찾는 중에 오류가 발생하였습니다."), err
 	}
 	var latestCrawledArticleID int64 = 0
 	if idString != "" {
 		latestCrawledArticleID, err = strconv.ParseInt(idString, 10, 64)
 		if err != nil {
-			return nil, nil, c.FormatMessage("마지막으로 추가된 게시글 ID를 숫자로 변환하는 중에 오류가 발생하였습니다."), err
+			return nil, nil, c.Messagef("마지막으로 추가된 게시글 ID를 숫자로 변환하는 중에 오류가 발생하였습니다."), err
 		}
 	}
 
@@ -115,7 +128,7 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 
 		doc, err := c.Scraper().FetchHTMLDocument(ctx, ncPageUrl, nil)
 		if err != nil {
-			return nil, nil, c.FormatMessage("페이지 접근이 실패하였습니다."), err
+			return nil, nil, c.Messagef("페이지 접근이 실패하였습니다."), err
 		}
 
 		ncSelection := doc.Find("div.article-board > table > tbody > tr:not(.board-notice)")
@@ -124,21 +137,21 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 				// 2페이지 이상에서 게시글이 0건이라면 등록된 게시글을 모두 읽음(EndOfData) 처리
 				break
 			}
-			
+
 			// 1페이지에서 일반 게시글은 0건이지만 공지글이 존재하는 경우, 정상적인 형태의 빈 게시판으로 처리합니다.
 			if doc.Find("div.article-board > table > tbody > tr.board-notice").Length() > 0 {
 				break
 			}
 
 			// 1페이지에서 게시글이 없는 경우 CSS 파싱이 실패한 것으로 본다.
-			return nil, nil, c.FormatMessage("게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요."), errors.New("게시글 추출이 실패하였습니다.")
+			return nil, nil, c.Messagef("게시글 추출이 실패하였습니다. CSS셀렉터를 확인하세요."), errors.New("게시글 추출이 실패하였습니다.")
 		}
 
 		var foundAlreadyCrawledArticle = false
 		ncSelection.EachWithBreak(func(i int, s *goquery.Selection) bool {
 			article, err := c.extractArticle(s)
 			if err != nil {
-				applog.Warn(c.FormatMessage("개별 게시글 추출이 실패하여 스킵합니다. (error:%s)", err))
+				applog.Warn(c.Messagef("개별 게시글 추출이 실패하여 스킵합니다. (error:%s)", err))
 				return true
 			}
 			if article == nil {
@@ -165,7 +178,7 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 				return true
 			}
 
-			// ParseCreatedDate는 당일이 아닌 과거 날짜의 시각을 00:00:00 으로 고정할 수 있습니다.
+			// ParseCreatedAt는 당일이 아닌 과거 날짜의 시각을 00:00:00 으로 고정할 수 있습니다.
 			// 따라서 본문 파싱 단계에서 API를 통해 실제 작성 시간으로 덮어씌워지는 경우(예: 14:30:20),
 			// 단순 Before 비교 시 목록에서 파싱된 00:00:00과의 충돌로 인해 신규 게시글이 영구 누락될 수 있습니다.
 			// 이를 방지하기 위해 날짜 문자열(yyyy-MM-dd) 포맷으로 변환하여 순수 연월일 단위로만 일자 경과 여부를 비교합니다.
@@ -208,7 +221,7 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 		// 이미 목록 크롤링으로 확보된 게시글과 커서 정보는 보존합니다.
 		// nil을 반환하면 다음 사이클에서 동일 게시글을 처음부터 다시 수집하는 중복 재처리 루프가 발생합니다.
 		// 본문이 없는 상태로 저장하고 커서를 갱신하여 중복 수집을 방지합니다.
-		errOccurred := c.FormatMessage("본문 수집 중 시스템 종료 시그널 또는 타임아웃이 발생하여 크롤링 작업이 중단되었습니다.")
+		errOccurred := c.Messagef("본문 수집 중 시스템 종료 시그널 또는 타임아웃이 발생하여 크롤링 작업이 중단되었습니다.")
 		c.SendErrorNotification(errOccurred, err)
 	}
 
