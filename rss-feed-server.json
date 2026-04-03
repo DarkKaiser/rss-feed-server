@@ -117,7 +117,8 @@
 					],
 					"archive_days": 90,
 					"data": {
-						"club_id": "12303558"
+						"club_id": "12303558",
+						"crawling_delay_minutes": 40
 					}
 				},
 				"scheduler": {
@@ -196,7 +197,8 @@
 					],
 					"archive_days": 90,
 					"data": {
-						"club_id": "19246017"
+						"club_id": "19246017",
+						"crawling_delay_minutes": 40
 					}
 				},
 				"scheduler": {
@@ -263,7 +265,8 @@
 					],
 					"archive_days": 90,
 					"data": {
-						"club_id": "15346057"
+						"club_id": "15346057",
+						"crawling_delay_minutes": 40
 					}
 				},
 				"scheduler": {

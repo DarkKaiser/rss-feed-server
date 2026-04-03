@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 
 	"github.com/darkkaiser/notify-server/pkg/notify"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
@@ -11,6 +12,11 @@ import (
 
 // component 크롤링 서비스의 Provider 로깅용 컴포넌트 이름
 const component = "crawl.provider"
+
+// @@@@@
+// ErrSkipContentRetry 게시글 본문 크롤링 시 권한 부족, 삭제된 게시글, 레이아웃 변경 등
+// 일시적인 네트워크 오류가 아닌 영구적인 오류가 생겨 재시도가 무의미할 때 반환하는 센티넬 에러입니다.
+var ErrSkipContentRetry = errors.New("provider: skip article content crawl retry")
 
 // Crawler 개별 크롤러 인스턴스의 생명주기를 제어하고 상태를 조회하기 위한 인터페이스입니다.
 //
