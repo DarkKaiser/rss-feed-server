@@ -180,7 +180,7 @@ func (c *crawler) extractCardNewsArticle(s *goquery.Selection) (*feed.Article, e
 func (c *crawler) crawlingArticleContent(ctx context.Context, article *feed.Article) error {
 	doc, err := c.Scraper().FetchHTMLDocument(ctx, article.Link, nil)
 	if err != nil {
-		if apperrors.Is(err, apperrors.ExecutionFailed) {
+		if apperrors.Is(err, apperrors.Forbidden) || apperrors.Is(err, apperrors.Unauthorized) {
 			return provider.ErrContentUnavailable
 		}
 		errOccurred := c.Messagef("%s 게시판의 게시글('%s') 상세페이지 접근이 실패하였습니다.", article.BoardName, article.ArticleID)
