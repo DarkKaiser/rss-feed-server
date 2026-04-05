@@ -141,7 +141,13 @@ func run(testDB *sql.DB, testServices []service.Service, testTermC <-chan os.Sig
 		ApplicationID: appConfig.NotifyAPI.ApplicationID,
 	})
 	if err != nil {
-		return fmt.Errorf("NotifyClient를 초기화하는 중 치명적인 오류가 발생했습니다: %w", err)
+		if appConfig.Debug {
+			applog.WithComponentAndFields(component, applog.Fields{
+				"error": err,
+			}).Warn("알림 기능 없이 우회 스킵 구동: NotifyClient 초기화 실패 (디버그 모드 적용)")
+		} else {
+			return fmt.Errorf("NotifyClient를 초기화하는 중 치명적인 오류가 발생했습니다: %w", err)
+		}
 	}
 
 	// 8. 데이터베이스 초기화

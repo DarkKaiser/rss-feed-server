@@ -212,7 +212,7 @@ func (c *crawler) crawlingArticleContentUsingAPI(ctx context.Context, article *f
 	head.Set("Referer", "https://search.naver.com/")
 	doc, err := c.Scraper().FetchHTMLDocument(ctx, fmt.Sprintf("%s/%s", c.Config().URL, article.ArticleID), head)
 	if err != nil {
-		if apperrors.Is(err, apperrors.ExecutionFailed) {
+		if apperrors.Is(err, apperrors.Forbidden) || apperrors.Is(err, apperrors.Unauthorized) {
 			return provider.ErrContentUnavailable
 		}
 		applog.Warnf("%s 접근이 실패하였습니다. (error:%v)", title, err)
@@ -241,7 +241,7 @@ func (c *crawler) crawlingArticleContentUsingAPI(ctx context.Context, article *f
 
 	var apiResult naverCafeArticleAPIResult
 	if err := c.Scraper().FetchJSON(ctx, "GET", apiURL, nil, nil, &apiResult); err != nil {
-		if apperrors.Is(err, apperrors.ExecutionFailed) {
+		if apperrors.Is(err, apperrors.Forbidden) || apperrors.Is(err, apperrors.Unauthorized) {
 			return provider.ErrContentUnavailable
 		}
 		// 특정 게시글은 401(Unauthorized)이 반환되는 경우가 있음!!!
@@ -293,7 +293,7 @@ func (c *crawler) crawlingArticleContentUsingAPI(ctx context.Context, article *f
 func (c *crawler) crawlingArticleContentUsingLink(ctx context.Context, article *feed.Article) error {
 	doc, err := c.Scraper().FetchHTMLDocument(ctx, article.Link, nil)
 	if err != nil {
-		if apperrors.Is(err, apperrors.ExecutionFailed) {
+		if apperrors.Is(err, apperrors.Forbidden) || apperrors.Is(err, apperrors.Unauthorized) {
 			return provider.ErrContentUnavailable
 		}
 		applog.Warnf(c.Messagef("%s 게시글('%s')의 상세페이지 (error:%v)", article.BoardName, article.ArticleID, err))
@@ -326,7 +326,7 @@ func (c *crawler) crawlingArticleContentUsingNaverSearch(ctx context.Context, ar
 
 	doc, err := c.Scraper().FetchHTMLDocument(ctx, searchUrl, nil)
 	if err != nil {
-		if apperrors.Is(err, apperrors.ExecutionFailed) {
+		if apperrors.Is(err, apperrors.Forbidden) || apperrors.Is(err, apperrors.Unauthorized) {
 			return provider.ErrContentUnavailable
 		}
 		applog.Warnf(c.Messagef("%s 게시글('%s')의 네이버 검색페이지 (error:%v)", article.BoardName, article.ArticleID, err))

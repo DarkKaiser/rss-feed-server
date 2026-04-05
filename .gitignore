@@ -22,3 +22,5 @@ logs/
 
 /rss-feed-server
 /rss-feed-server.db
+/rss-feed-server.db-shm
+/rss-feed-server.db-wal
