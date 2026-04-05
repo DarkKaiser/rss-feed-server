@@ -90,12 +90,11 @@ func TestRun_ConfigFail(t *testing.T) {
 	}
 }
 
-// TestRun_NotifyClientInitError는 Notify API 설정이 잘못되어 초기화에 실패할 때의 에러 반환을 검증합니다.
-func TestRun_NotifyClientInitError(t *testing.T) {
-	// url 부분에 의도적으로 파싱 불가능한 값을 넣거나, 필드 오류를 통해 실패 유도
-	// 만약 NewClient가 문자열 검증을 하지 않는다면, 파라미터 누락 혹은 Scheme 파싱 오류를 활용합니다.
+// TestRun_NotifyClientInitError_NonDebug는 debug=false 모드에서 Notify API 설정이 잘못된 경우
+// run()이 즉시 에러를 반환하는지 검증합니다.
+func TestRun_NotifyClientInitError_NonDebug(t *testing.T) {
 	invalidConfig := `{
-		"debug": true,
+		"debug": false,
 		"notify_api": {
 			"url": "http://192.168.0.%31:8080",
 			"app_key": "test_app_key",
@@ -106,7 +105,47 @@ func TestRun_NotifyClientInitError(t *testing.T) {
 
 	err := run(nil, nil, nil)
 	if err == nil {
-		t.Fatal("NotifyClient 초기화 실패로 인해 run()이 에러를 반환해야 하지만, nil이 반환되었습니다")
+		t.Fatal("debug=false 모드에서 NotifyClient 초기화 실패 시 run()이 에러를 반환해야 하지만, nil이 반환되었습니다")
+	}
+}
+
+// TestRun_NotifyClientInitError_DebugBypass는 debug=true 모드에서 Notify API 설정이 잘못된 경우
+// 경고 로그만 출력하고 서버를 정상 기동한 뒤 종료 신호로 Graceful Shutdown되는지 검증합니다.
+func TestRun_NotifyClientInitError_DebugBypass(t *testing.T) {
+	invalidConfig := `{
+		"debug": true,
+		"notify_api": {
+			"url": "http://192.168.0.%31:8080",
+			"app_key": "test_app_key",
+			"application_id": "test_app_id"
+		}
+	}`
+	setupEnv(t, invalidConfig)
+
+	testTermC := make(chan os.Signal, 1)
+	errCh := make(chan error, 1)
+
+	db, err := sqlite.Open(context.Background(), ":memory:?_fk=1")
+	if err != nil {
+		t.Fatalf("메모리 DB 초기화 실패: %v", err)
+	}
+	defer db.Close()
+
+	go func() {
+		errCh <- run(db, nil, testTermC)
+	}()
+
+	// 서버 기동 대기
+	time.Sleep(500 * time.Millisecond)
+	testTermC <- syscall.SIGTERM
+
+	select {
+	case runErr := <-errCh:
+		if runErr != nil {
+			t.Fatalf("debug=true 모드 우회 기동 후 종료 시 run()에서 에러가 반환됨: %v", runErr)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("SIGTERM 전송 후 Graceful Shutdown 시간 초과 (데드락 의심)")
 	}
 }
 
