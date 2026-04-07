@@ -38,20 +38,21 @@ const (
 )
 
 // boardTypeConfig 형태가 서로 다른 게시판들을 어떻게 읽어올지 설정 정보를 담아두는 구조체입니다.
-// 게시판마다 목록용 주소나 화면 디자인(HTML 요소)이 다르기 때문에 이러한 설정값들이 꼭 필요합니다.
+// 게시판마다 목록용 URL 패턴이나 화면 구조(HTML 셀렉터)가 다르기 때문에 이러한 설정값들이 꼭 필요합니다.
 type boardTypeConfig struct {
-	// listURLTemplate 게시판 목록 첫 페이지나 다음 페이지들을 부를 때 사용하는 URL 주소의 기본 형태입니다.
+	// listURLTemplate 게시판 목록 페이지를 가져올 때 사용하는 URL 경로의 기본 형태입니다.
+	// #{board_id} 플레이스홀더를 포함하며, 실제 크롤링 시점에 게시판 ID와 페이지 번호로 치환되어 완성된 URL이 만들어집니다.
 	listURLTemplate string
 
 	// detailURLTemplate 게시글 하나를 클릭해서 들어갔을 때, 그 상세 내용을 부르기 위한 URL 주소의 기본 형태입니다.
 	detailURLTemplate string
 
-	// articleSelector 게시판 목록 화면에서 각각의 '게시글 한 줄(또는 사진 한 장)'을 특정해내기 위해 사용하는 CSS 셀렉터입니다.
+	// articleSelector 게시판 목록 화면에서 각각의 '게시글 한 줄(또는 사진 한 장)'을 특정해 내기 위해 사용하는 CSS 셀렉터입니다.
 	articleSelector string
 
-	// articleGroupSelector 게시글 목록 전체를 크게 감싸고 있는 부모 상자(컨테이너)를 집어내기 위한 CSS 셀렉터입니다.
-	// 만약 articleSelector로 글을 하나도 찾지 못했다면, 이 부모 상자가 화면에 정상적으로 존재하는지 먼저 확인합니다.
-	// 상자조차 찾지 못했다면 "웹사이트 구조가 바뀌어서 에러가 발생했다"라고 판단하고, 상자는 있는데 글만 없다면 "등록된 글이 하나도 없는 빈 게시판"으로 쉽게 구분할 수 있도록 돕습니다.
+	// articleGroupSelector 게시글 목록 전체를 크게 감싸고 있는 부모 컨테이너를 집어내기 위한 CSS 셀렉터입니다.
+	// articleSelector로 글을 하나도 찾지 못했을 때, 이 컨테이너가 화면에 정상적으로 존재하는지 먼저 확인합니다.
+	// 컨테이너조차 찾지 못하면 "웹사이트 구조가 바뀐 에러"로, 컨테이너는 있는데 글만 없으면 "빈 게시판"으로 구분합니다.
 	articleGroupSelector string
 }
 
@@ -234,7 +235,7 @@ func (c *crawler) crawlSingleBoard(ctx context.Context, b *config.BoardConfig) (
 	// 4단계: 페이지 순회
 	// ========================================
 	// 1페이지부터 MaxPageCount까지 순서대로 탐색하며 신규 게시글을 수집합니다.
-	// 이미 수집한 게시글을 만나거나(isAlreadyCrawled), 마지막 페이지에 도달하면(게시글 0건) 탐색을 중단합니다.
+	// 이미 수집한 게시글을 만나거나(reachedLastCursor), 마지막 페이지에 도달하면(게시글 0건) 탐색을 중단합니다.
 	for page := 1; page <= c.MaxPageCount(); page++ {
 		// ----------------------------------------
 		// 4-1단계: URL 조립 & HTML 요청
@@ -297,7 +298,7 @@ func (c *crawler) crawlSingleBoard(ctx context.Context, b *config.BoardConfig) (
 		// 이는 단지 현재 페이지 내부의 '게시글 행(Row)' 순회만 조기 종료시킬 뿐,
 		// 가장 바깥쪽에 있는 '전체 페이지(Page) 탐색 루프'까지 중단시키지는 못합니다.
 		// 따라서 예전 글을 만나는 즉시 이 플래그를 true로 활성화하여 내부 순회를 끊고 빠져나온 뒤,
-		// 외부 루프 하단에서 이 상태값을 확인하여 불필요한 다음 페이지 호출(네트워크 요청)을 완전히 종료(break)하기 위함입니다.
+		// 외부 루프 하단에서 이 상태값을 확인하여 불필요한 다음 페이지 호출을 완전히 종료(break)하기 위함입니다.
 		var reachedLastCursor = false
 
 		// 수집된 웹페이지의 게시글 행(Row)을 위에서 아래로 순서대로 순회합니다.
