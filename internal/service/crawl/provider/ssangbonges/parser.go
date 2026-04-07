@@ -79,7 +79,7 @@ func (c *crawler) extractList1Article(boardID, detailURLTemplate string, s *goqu
 	}
 	article.Title = strings.TrimSpace(articleAnchor.Text())
 
-	// .Attr("data-id")는 속성 자체가 없으면 exists=false, 있어도 값이 비어있으면 ArticleID="" 가 됩니다.
+	// .Attr("data-id")는 속성 자체가 없으면 exists=false, 있어도 값이 비어있으면 ArticleID=""가 됩니다.
 	// 두 경우 모두 게시글 ID를 특정할 수 없으므로 파싱 실패로 처리합니다.
 	var exists bool
 	article.ArticleID, exists = articleAnchor.Attr("data-id")
@@ -103,7 +103,7 @@ func (c *crawler) extractList1Article(boardID, detailURLTemplate string, s *goqu
 	//
 	// 행(<tr>) 안의 모든 <td> 셀을 수집한 뒤, 앞이 아닌 '뒤에서부터' 인덱스를 계산하여 대상 셀을 특정합니다.
 	// 게시판 HTML은 앞쪽 셀 개수가 가변적(예: 공지 여부에 따라 번호 셀이 추가됨)이지만, 뒷쪽 순서(작성자·등록일)는
-	// 항상 고정되어 있어 이 방식이 구조 변경에 더 강합니다.
+	// 항상 고정되어 있어 이 방식이 HTML 구조 변경에 더 강합니다.
 	//
 	// 예상 셀 배치 (뒤에서):
 	//   - rowCells.Length() - 3 : 작성자 셀  → 텍스트 예시: "작성자 홍길동"
