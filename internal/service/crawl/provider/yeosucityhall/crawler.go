@@ -435,6 +435,7 @@ PageLoop:
 			article, err := c.extractArticle(b.Type, s)
 			if err != nil {
 				c.Logger().WithFields(applog.Fields{
+					"component":  component,
 					"board_id":   b.ID,
 					"board_name": b.Name,
 					"board_type": b.Type,

@@ -2,7 +2,6 @@ package navercafe
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"html"
 	"net/http"
@@ -19,6 +18,7 @@ import (
 	"github.com/darkkaiser/rss-feed-server/internal/service/crawl/provider"
 )
 
+// @@@@@
 type naverCafeArticleAPIResult struct {
 	Result struct {
 		Article struct {
@@ -57,6 +57,7 @@ type naverCafeArticleAPIResult struct {
 	} `json:"result"`
 }
 
+// @@@@@
 // extractArticle 게시글 목록의 단일 TR 행을 파싱하여 게시글 정보를 반환합니다.
 //
 // 반환값:
@@ -81,7 +82,7 @@ func (c *crawler) extractArticle(s *goquery.Selection) (*feed.Article, error) {
 	// 작성일
 	as = s.Find("td.td_date")
 	if as.Length() != 1 {
-		return nil, errors.New("게시글에서 작성일 정보를 찾을 수 없습니다.")
+		return nil, apperrors.New(apperrors.System, "게시글에서 작성일 정보를 찾을 수 없습니다.")
 	}
 	createdDate, err := provider.ParseCreatedAt(strings.TrimSpace(as.Text()))
 	if err != nil {
@@ -92,63 +93,64 @@ func (c *crawler) extractArticle(s *goquery.Selection) (*feed.Article, error) {
 	// 게시판 ID, 이름
 	as = s.Find("td.td_article > div.board-name a.link_name")
 	if as.Length() != 1 {
-		return nil, errors.New("게시글에서 게시판 정보를 찾을 수 없습니다.")
+		return nil, apperrors.New(apperrors.System, "게시글에서 게시판 정보를 찾을 수 없습니다.")
 	}
 	boardUrl, exists := as.Attr("href")
 	if !exists {
-		return nil, errors.New("게시글에서 게시판 URL 추출이 실패하였습니다.")
+		return nil, apperrors.New(apperrors.System, "게시글에서 게시판 URL 파싱용 속성 추출이 실패하였습니다.")
 	}
 	u, err := url.Parse(boardUrl)
 	if err != nil {
-		return nil, fmt.Errorf("게시글에서 게시판 URL 파싱이 실패하였습니다. (error:%s)", err)
+		return nil, apperrors.Wrap(err, apperrors.System, "게시글에서 게시판 URL 파싱이 실패하였습니다.")
 	}
 	q, err := url.ParseQuery(u.RawQuery)
 	if err != nil {
-		return nil, fmt.Errorf("게시글에서 게시판 URL 파싱이 실패하였습니다. (error:%s)", err)
+		return nil, apperrors.Wrap(err, apperrors.System, "게시글에서 게시판 URL 파싱(query)이 실패하였습니다.")
 	}
 	article.BoardID = strings.TrimSpace(q.Get("search.menuid"))
 	if article.BoardID == "" {
-		return nil, errors.New("게시글에서 게시판 ID 추출이 실패하였습니다.")
+		return nil, apperrors.New(apperrors.System, "게시글에서 게시판 ID 추출이 실패하였습니다.")
 	}
 	article.BoardName = strings.TrimSpace(as.Text())
 
 	// 제목
 	as = s.Find("td.td_article > div.board-list a.article")
 	if as.Length() != 1 {
-		return nil, errors.New("게시글에서 제목 정보를 찾을 수 없습니다.")
+		return nil, apperrors.New(apperrors.System, "게시글에서 제목 정보를 찾을 수 없습니다.")
 	}
 	article.Title = strings.TrimSpace(as.Text())
 	link, exists := as.Attr("href")
 	if !exists {
-		return nil, errors.New("게시글에서 상세페이지 URL 추출이 실패하였습니다.")
+		return nil, apperrors.New(apperrors.System, "게시글에서 상세페이지 접속용 URL 추출이 실패하였습니다.")
 	}
 
 	// 게시글 ID
 	u, err = url.Parse(link)
 	if err != nil {
-		return nil, fmt.Errorf("게시글에서 상세페이지 URL 파싱이 실패하였습니다. (error:%s)", err)
+		return nil, apperrors.Wrap(err, apperrors.System, "게시글에서 상세페이지 URL 파싱이 실패하였습니다.")
 	}
 	q, err = url.ParseQuery(u.RawQuery)
 	if err != nil {
-		return nil, fmt.Errorf("게시글에서 상세페이지 URL 파싱이 실패하였습니다. (error:%s)", err)
+		return nil, apperrors.Wrap(err, apperrors.System, "게시글에서 상세페이지 URL 파싱(query)이 실패하였습니다.")
 	}
 	articleID, err := strconv.ParseInt(q.Get("articleid"), 10, 64)
 	if err != nil {
-		return nil, fmt.Errorf("게시글에서 게시글 ID 추출이 실패하였습니다. (error:%s)", err)
+		return nil, apperrors.Wrap(err, apperrors.System, "게시글에서 게시글 고유번호(articleid) 추출이 실패하였습니다.")
 	}
 	article.ArticleID = strconv.FormatInt(articleID, 10)
-	article.Link = fmt.Sprintf("%s/ArticleRead.nhn?articleid=%d&clubid=%s", c.Config().URL, articleID, c.siteClubID)
+	article.Link = fmt.Sprintf("%s/ArticleRead.nhn?articleid=%d&clubid=%s", c.Config().URL, articleID, c.clubID)
 
 	// 작성자
 	as = s.Find("td.td_name > div.pers_nick_area td.p-nick")
 	if as.Length() != 1 {
-		return nil, errors.New("게시글에서 작성자 정보를 찾을 수 없습니다.")
+		return nil, apperrors.New(apperrors.System, "게시글에서 작성자 정보를 찾을 수 없습니다.")
 	}
 	article.Author = strings.TrimSpace(as.Text())
 
 	return article, nil
 }
 
+// @@@@@
 func (c *crawler) crawlingArticleContent(ctx context.Context, article *feed.Article) error {
 	var lastErr error
 
@@ -202,6 +204,7 @@ func (c *crawler) crawlingArticleContent(ctx context.Context, article *feed.Arti
 	return provider.ErrContentUnavailable
 }
 
+// @@@@@
 func (c *crawler) crawlingArticleContentUsingAPI(ctx context.Context, article *feed.Article) error {
 	//
 	// 네이버 카페 상세페이지를 로드하여 art 쿼리 문자열을 구한다.
@@ -215,7 +218,13 @@ func (c *crawler) crawlingArticleContentUsingAPI(ctx context.Context, article *f
 		if apperrors.Is(err, apperrors.Forbidden) || apperrors.Is(err, apperrors.Unauthorized) {
 			return provider.ErrContentUnavailable
 		}
-		applog.Warnf("%s 접근이 실패하였습니다. (error:%v)", title, err)
+		c.Logger().WithFields(applog.Fields{
+			"component":  component,
+			"club_id":    c.clubID,
+			"board_id":   article.BoardID,
+			"article_id": article.ArticleID,
+			"error":      err.Error(),
+		}).Warn(c.Messagef("%s 접근이 실패하였습니다.", title))
 		return err
 	}
 
@@ -223,7 +232,12 @@ func (c *crawler) crawlingArticleContentUsingAPI(ctx context.Context, article *f
 
 	pos := strings.Index(bodyString, "&art=")
 	if pos == -1 {
-		applog.Warnf("%s의 art 쿼리 문자열을 찾을 수 없습니다.", title)
+		c.Logger().WithFields(applog.Fields{
+			"component":  component,
+			"club_id":    c.clubID,
+			"board_id":   article.BoardID,
+			"article_id": article.ArticleID,
+		}).Warn(fmt.Sprintf("%s의 art 쿼리 문자열을 찾을 수 없습니다.", title))
 		return provider.ErrContentUnavailable
 	}
 	artValue := bodyString[pos+5:]
@@ -237,7 +251,7 @@ func (c *crawler) crawlingArticleContentUsingAPI(ctx context.Context, article *f
 	//
 	title = c.Messagef("%s 게시글('%s')의 API 페이지", article.BoardName, article.ArticleID)
 
-	apiURL := fmt.Sprintf("https://apis.naver.com/cafe-web/cafe-articleapi/v2/cafes/%s/articles/%s?art=%s&useCafeId=true&requestFrom=A", c.siteClubID, article.ArticleID, artValue)
+	apiURL := fmt.Sprintf("https://apis.naver.com/cafe-web/cafe-articleapi/v2/cafes/%s/articles/%s?art=%s&useCafeId=true&requestFrom=A", c.clubID, article.ArticleID, artValue)
 
 	var apiResult naverCafeArticleAPIResult
 	if err := c.Scraper().FetchJSON(ctx, "GET", apiURL, nil, nil, &apiResult); err != nil {
@@ -246,7 +260,13 @@ func (c *crawler) crawlingArticleContentUsingAPI(ctx context.Context, article *f
 		}
 		// 특정 게시글은 401(Unauthorized)이 반환되는 경우가 있음!!!
 		// 작성자가 네이버 로그인 없이는 외부에서 접근할 수 없도록 설정한 경우입니다.
-		applog.Warnf("%s 접근이 실패하였습니다. (error:%v)", title, err)
+		c.Logger().WithFields(applog.Fields{
+			"component":  component,
+			"club_id":    c.clubID,
+			"board_id":   article.BoardID,
+			"article_id": article.ArticleID,
+			"error":      err.Error(),
+		}).Warn(c.Messagef("%s 접근이 실패하였습니다.", title))
 		return err
 	}
 
@@ -290,13 +310,20 @@ func (c *crawler) crawlingArticleContentUsingAPI(ctx context.Context, article *f
 	return nil
 }
 
+// @@@@@
 func (c *crawler) crawlingArticleContentUsingLink(ctx context.Context, article *feed.Article) error {
 	doc, err := c.Scraper().FetchHTMLDocument(ctx, article.Link, nil)
 	if err != nil {
 		if apperrors.Is(err, apperrors.Forbidden) || apperrors.Is(err, apperrors.Unauthorized) {
 			return provider.ErrContentUnavailable
 		}
-		applog.Warnf(c.Messagef("%s 게시글('%s')의 상세페이지 (error:%v)", article.BoardName, article.ArticleID, err))
+		c.Logger().WithFields(applog.Fields{
+			"component":  component,
+			"club_id":    c.clubID,
+			"board_id":   article.BoardID,
+			"article_id": article.ArticleID,
+			"error":      err.Error(),
+		}).Warn(c.Messagef("%s 게시글('%s')의 상세페이지 HTML 문서 요청이 실패하였습니다.", article.BoardName, article.ArticleID))
 		return err
 	}
 
@@ -321,6 +348,7 @@ func (c *crawler) crawlingArticleContentUsingLink(ctx context.Context, article *
 	return nil
 }
 
+// @@@@@
 func (c *crawler) crawlingArticleContentUsingNaverSearch(ctx context.Context, article *feed.Article) error {
 	searchUrl := fmt.Sprintf("https://search.naver.com/search.naver?where=article&query=%s&ie=utf8&st=date&date_option=0&date_from=&date_to=&board=&srchby=title&dup_remove=0&cafe_url=%s&without_cafe_url=&sm=tab_opt&nso=so:dd,p:all,a:t&t=0&mson=0&prdtype=0", url.QueryEscape(article.Title), c.Config().ID)
 
@@ -329,7 +357,15 @@ func (c *crawler) crawlingArticleContentUsingNaverSearch(ctx context.Context, ar
 		if apperrors.Is(err, apperrors.Forbidden) || apperrors.Is(err, apperrors.Unauthorized) {
 			return provider.ErrContentUnavailable
 		}
-		applog.Warnf(c.Messagef("%s 게시글('%s')의 네이버 검색페이지 (error:%v)", article.BoardName, article.ArticleID, err))
+
+		c.Logger().WithFields(applog.Fields{
+			"component":  component,
+			"club_id":    c.clubID,
+			"board_id":   article.BoardID,
+			"article_id": article.ArticleID,
+			"error":      err.Error(),
+		}).Warn(c.Messagef("%s 게시글('%s')의 네이버 검색페이지 컨텐츠 요청이 실패하였습니다.", article.BoardName, article.ArticleID))
+
 		return err
 	}
 

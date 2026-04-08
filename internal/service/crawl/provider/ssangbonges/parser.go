@@ -410,6 +410,7 @@ func (c *crawler) crawlArticleContent(ctx context.Context, article *feed.Article
 		}
 
 		c.Logger().WithFields(applog.Fields{
+			"component":  component,
 			"board_id":   article.BoardID,
 			"board_name": article.BoardName,
 			"article_id": article.ArticleID,
@@ -444,6 +445,7 @@ func (c *crawler) crawlArticleContent(ctx context.Context, article *feed.Article
 		metaItems := doc.Find("div.bbs_ViewA > ul.bbsV_data > li")
 		if metaItems.Length() != 3 {
 			c.Logger().WithFields(applog.Fields{
+				"component":  component,
 				"board_id":   article.BoardID,
 				"board_name": article.BoardName,
 				"article_id": article.ArticleID,
@@ -455,6 +457,7 @@ func (c *crawler) crawlArticleContent(ctx context.Context, article *feed.Article
 			author := strings.TrimSpace(metaItems.Eq(0).Text())
 			if !strings.HasPrefix(author, "작성자") {
 				c.Logger().WithFields(applog.Fields{
+					"component":   component,
 					"board_id":    article.BoardID,
 					"board_name":  article.BoardName,
 					"article_id":  article.ArticleID,
@@ -483,6 +486,7 @@ func (c *crawler) crawlArticleContent(ctx context.Context, article *feed.Article
 	contentNode := doc.Find("div.bbs_ViewA > div.bbsV_cont")
 	if contentNode.Length() == 0 {
 		c.Logger().WithFields(applog.Fields{
+			"component":  component,
 			"board_id":   article.BoardID,
 			"board_name": article.BoardName,
 			"article_id": article.ArticleID,

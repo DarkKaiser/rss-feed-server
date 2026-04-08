@@ -467,6 +467,7 @@ func (c *crawler) crawlArticleContent(ctx context.Context, article *feed.Article
 		}
 
 		c.Logger().WithFields(applog.Fields{
+			"component":  component,
 			"board_id":   article.BoardID,
 			"board_name": article.BoardName,
 			"article_id": article.ArticleID,
@@ -489,6 +490,7 @@ func (c *crawler) crawlArticleContent(ctx context.Context, article *feed.Article
 	contentNode := doc.Find("div.contbox > div.viewbox")
 	if contentNode.Length() == 0 {
 		c.Logger().WithFields(applog.Fields{
+			"component":  component,
 			"board_id":   article.BoardID,
 			"board_name": article.BoardName,
 			"article_id": article.ArticleID,

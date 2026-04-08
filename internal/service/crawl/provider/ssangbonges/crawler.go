@@ -330,6 +330,7 @@ func (c *crawler) crawlSingleBoard(ctx context.Context, b *config.BoardConfig) (
 			article, err := c.extractArticle(b.ID, b.Type, boardTypeCfg.detailURLTemplate, s)
 			if err != nil {
 				c.Logger().WithFields(applog.Fields{
+					"component":  component,
 					"board_id":   b.ID,
 					"board_name": b.Name,
 					"board_type": b.Type,
