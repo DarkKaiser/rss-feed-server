@@ -84,7 +84,7 @@ func (c *crawler) extractList1Article(boardID, detailURLTemplate string, s *goqu
 	var exists bool
 	article.ArticleID, exists = articleAnchor.Attr("data-id")
 	if !exists || article.ArticleID == "" {
-		return nil, apperrors.New(apperrors.ParsingFailed, "게시글의 고유 식별자(ID) 속성이 누락되었거나 유효하지 않아 데이터 추출에 실패했습니다")
+		return nil, apperrors.New(apperrors.ParsingFailed, "게시글의 고유 식별자(ID) 속성이 누락되었거나 유효하지 않아 데이터 파싱에 실패했습니다")
 	}
 
 	// -------------------------------------------------------------------------
@@ -206,14 +206,14 @@ func (c *crawler) extractPhoto1Article(boardID, detailURLTemplate string, s *goq
 	article.Title, exists = articleAnchor.Attr("title")
 	article.Title = strings.TrimSpace(article.Title)
 	if !exists || article.Title == "" {
-		return nil, apperrors.New(apperrors.ParsingFailed, "게시글 제목 속성이 누락되었거나 유효하지 않아 데이터 추출에 실패했습니다")
+		return nil, apperrors.New(apperrors.ParsingFailed, "게시글 제목 속성이 누락되었거나 유효하지 않아 데이터 파싱에 실패했습니다")
 	}
 
 	// .Attr("data-param")는 속성 자체가 없으면 exists=false, 있어도 값이 비어있으면 ArticleID="" 가 됩니다.
 	// 두 경우 모두 게시글 ID를 특정할 수 없으므로 파싱 실패로 처리합니다.
 	article.ArticleID, exists = articleAnchor.Attr("data-param")
 	if !exists || article.ArticleID == "" {
-		return nil, apperrors.New(apperrors.ParsingFailed, "게시글의 고유 식별자(ID) 속성이 누락되었거나 유효하지 않아 데이터 추출에 실패했습니다")
+		return nil, apperrors.New(apperrors.ParsingFailed, "게시글의 고유 식별자(ID) 속성이 누락되었거나 유효하지 않아 데이터 파싱에 실패했습니다")
 	}
 
 	// -------------------------------------------------------------------------
@@ -410,6 +410,7 @@ func (c *crawler) crawlArticleContent(ctx context.Context, article *feed.Article
 		}
 
 		c.Logger().WithFields(applog.Fields{
+			"component":  component,
 			"board_id":   article.BoardID,
 			"board_name": article.BoardName,
 			"article_id": article.ArticleID,
@@ -444,6 +445,7 @@ func (c *crawler) crawlArticleContent(ctx context.Context, article *feed.Article
 		metaItems := doc.Find("div.bbs_ViewA > ul.bbsV_data > li")
 		if metaItems.Length() != 3 {
 			c.Logger().WithFields(applog.Fields{
+				"component":  component,
 				"board_id":   article.BoardID,
 				"board_name": article.BoardName,
 				"article_id": article.ArticleID,
@@ -455,6 +457,7 @@ func (c *crawler) crawlArticleContent(ctx context.Context, article *feed.Article
 			author := strings.TrimSpace(metaItems.Eq(0).Text())
 			if !strings.HasPrefix(author, "작성자") {
 				c.Logger().WithFields(applog.Fields{
+					"component":   component,
 					"board_id":    article.BoardID,
 					"board_name":  article.BoardName,
 					"article_id":  article.ArticleID,
@@ -483,6 +486,7 @@ func (c *crawler) crawlArticleContent(ctx context.Context, article *feed.Article
 	contentNode := doc.Find("div.bbs_ViewA > div.bbsV_cont")
 	if contentNode.Length() == 0 {
 		c.Logger().WithFields(applog.Fields{
+			"component":  component,
 			"board_id":   article.BoardID,
 			"board_name": article.BoardName,
 			"article_id": article.ArticleID,
@@ -493,7 +497,7 @@ func (c *crawler) crawlArticleContent(ctx context.Context, article *feed.Article
 	}
 
 	contentNode.Contents().Each(func(i int, s *goquery.Selection) {
-		textChunk := strutil.NormalizeMultiline(s.Text())
+		textChunk := strings.TrimSpace(strutil.NormalizeMultiline(s.Text()))
 		if textChunk != "" {
 			if article.Content != "" {
 				article.Content += "\r\n"

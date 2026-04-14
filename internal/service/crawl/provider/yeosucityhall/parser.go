@@ -95,7 +95,7 @@ func (c *crawler) extractListArticle(boardType string, s *goquery.Selection) (*f
 	var exists bool
 	article.Link, exists = articleAnchor.Attr("href")
 	if !exists || article.Link == "" {
-		return nil, apperrors.New(apperrors.ParsingFailed, "게시글의 상세페이지 링크(href) 속성이 누락되었거나 유효하지 않아 데이터 추출에 실패했습니다")
+		return nil, apperrors.New(apperrors.ParsingFailed, "게시글의 상세페이지 링크(href) 속성이 누락되었거나 유효하지 않아 데이터 파싱에 실패했습니다")
 	}
 
 	// href가 "http://" 또는 "https://"로 시작하지 않으면 상대 URL로 판단합니다.
@@ -212,7 +212,7 @@ func (c *crawler) extractPhotoNewsArticle(s *goquery.Selection) (*feed.Article, 
 	var exists bool
 	article.Link, exists = articleAnchor.Attr("href")
 	if !exists || article.Link == "" {
-		return nil, apperrors.New(apperrors.ParsingFailed, "게시글의 상세페이지 링크(href) 속성이 누락되었거나 유효하지 않아 데이터 추출에 실패했습니다")
+		return nil, apperrors.New(apperrors.ParsingFailed, "게시글의 상세페이지 링크(href) 속성이 누락되었거나 유효하지 않아 데이터 파싱에 실패했습니다")
 	}
 
 	// href가 "http://" 또는 "https://"로 시작하지 않으면 상대 URL로 판단합니다.
@@ -345,7 +345,7 @@ func (c *crawler) extractCardNewsArticle(s *goquery.Selection) (*feed.Article, e
 	var exists bool
 	article.Link, exists = articleAnchor.Attr("data-url")
 	if !exists || article.Link == "" {
-		return nil, apperrors.New(apperrors.ParsingFailed, "게시글의 상세페이지 링크(data-url) 속성이 누락되었거나 유효하지 않아 데이터 추출에 실패했습니다")
+		return nil, apperrors.New(apperrors.ParsingFailed, "게시글의 상세페이지 링크(data-url) 속성이 누락되었거나 유효하지 않아 데이터 파싱에 실패했습니다")
 	}
 
 	// data-url이 "http://" 또는 "https://"로 시작하지 않으면 상대 URL로 판단합니다.
@@ -467,6 +467,7 @@ func (c *crawler) crawlArticleContent(ctx context.Context, article *feed.Article
 		}
 
 		c.Logger().WithFields(applog.Fields{
+			"component":  component,
 			"board_id":   article.BoardID,
 			"board_name": article.BoardName,
 			"article_id": article.ArticleID,
@@ -489,6 +490,7 @@ func (c *crawler) crawlArticleContent(ctx context.Context, article *feed.Article
 	contentNode := doc.Find("div.contbox > div.viewbox")
 	if contentNode.Length() == 0 {
 		c.Logger().WithFields(applog.Fields{
+			"component":  component,
 			"board_id":   article.BoardID,
 			"board_name": article.BoardName,
 			"article_id": article.ArticleID,
@@ -498,7 +500,7 @@ func (c *crawler) crawlArticleContent(ctx context.Context, article *feed.Article
 		return provider.ErrContentUnavailable
 	}
 
-	article.Content = strutil.NormalizeMultiline(contentNode.Text())
+	article.Content = strings.TrimSpace(strutil.NormalizeMultiline(contentNode.Text()))
 
 	// -------------------------------------------------------------------------
 	// [Step 3] 본문 이미지 추출
@@ -572,5 +574,5 @@ func (c *crawler) extractArticleIDFromURL(link string) (string, error) {
 		return query["idx"][0], nil
 	}
 
-	return "", apperrors.New(apperrors.ParsingFailed, "게시글의 고유 식별자(idx) 파라미터가 누락되었거나 유효하지 않아 데이터 추출에 실패했습니다")
+	return "", apperrors.New(apperrors.ParsingFailed, "게시글의 고유 식별자(idx) 파라미터가 누락되었거나 유효하지 않아 데이터 파싱에 실패했습니다")
 }

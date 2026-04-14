@@ -280,7 +280,7 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 	}
 
 	// 수집된 게시글들의 상세 본문 내용을 읽어오는 작업입니다.
-	// 대상 웹사이트의 서버 부하를 막기 위해, 한 번에 최대 2개씩만 동시에 병렬로 작업(Worker Pool)하도록 제한했습니다.
+	// 대상 웹사이트의 서버 부하를 막기 위해, 한 번에 최대 2개씩만 동시에 병렬로 작업(Worker Pool)하도록 제한합니다.
 	// 목록을 가져오는 것과 달리, 본문 수집은 실패하더라도 전체 작업에 영향을 주지 않고 부드럽게 무시합니다.
 	if err := c.CrawlArticleContentsConcurrently(ctx, articles, 2, c.crawlArticleContent); err != nil {
 		// 만약 타임아웃이나 시스템 종료 신호 때문에 본문을 단 1개도 채우지 못하고 강제로 작업이 중단되더라도,
@@ -435,9 +435,12 @@ PageLoop:
 			article, err := c.extractArticle(b.Type, s)
 			if err != nil {
 				c.Logger().WithFields(applog.Fields{
+					"component":  component,
 					"board_id":   b.ID,
 					"board_name": b.Name,
 					"board_type": b.Type,
+					"page":       page,
+					"row_index":  i,
 					"error":      err.Error(),
 				}).Warn(c.Messagef("개별 게시글 처리 스킵: 데이터 추출 실패"))
 

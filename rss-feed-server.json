@@ -122,7 +122,7 @@
 					}
 				},
 				"scheduler": {
-					"time_spec": "0 1 * * * *"
+					"time_spec": "0 */1 * * * *"
 				}
 			},
 			{
@@ -324,7 +324,7 @@
 					}
 				},
 				"scheduler": {
-					"time_spec": "0 */1 * * * *"
+					"time_spec": "0 1 * * * *"
 				}
 			},
 			{
