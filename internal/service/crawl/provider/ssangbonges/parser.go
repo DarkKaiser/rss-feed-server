@@ -497,7 +497,7 @@ func (c *crawler) crawlArticleContent(ctx context.Context, article *feed.Article
 	}
 
 	contentNode.Contents().Each(func(i int, s *goquery.Selection) {
-		textChunk := strutil.NormalizeMultiline(s.Text())
+		textChunk := strings.TrimSpace(strutil.NormalizeMultiline(s.Text()))
 		if textChunk != "" {
 			if article.Content != "" {
 				article.Content += "\r\n"

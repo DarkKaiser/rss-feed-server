@@ -500,7 +500,7 @@ func (c *crawler) crawlArticleContent(ctx context.Context, article *feed.Article
 		return provider.ErrContentUnavailable
 	}
 
-	article.Content = strutil.NormalizeMultiline(contentNode.Text())
+	article.Content = strings.TrimSpace(strutil.NormalizeMultiline(contentNode.Text()))
 
 	// -------------------------------------------------------------------------
 	// [Step 3] 본문 이미지 추출
