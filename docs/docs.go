@@ -44,7 +44,7 @@ const docTemplate = `{
                     "500": {
                         "description": "서버 내부 오류 (템플릿 렌더링 실패 등)",
                         "schema": {
-                            "$ref": "#/definitions/github_com_darkkaiser_rss-feed-server_internal_service_api_model_response.ErrorResponse"
+                            "$ref": "#/definitions/response.ErrorResponse"
                         }
                     }
                 }
@@ -80,13 +80,13 @@ const docTemplate = `{
                     "400": {
                         "description": "유효하지 않은 피드 식별자 (등록되지 않은 ID)",
                         "schema": {
-                            "$ref": "#/definitions/github_com_darkkaiser_rss-feed-server_internal_service_api_model_response.ErrorResponse"
+                            "$ref": "#/definitions/response.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "서버 내부 오류 (DB 조회 실패 또는 XML 직렬화 오류)",
                         "schema": {
-                            "$ref": "#/definitions/github_com_darkkaiser_rss-feed-server_internal_service_api_model_response.ErrorResponse"
+                            "$ref": "#/definitions/response.ErrorResponse"
                         }
                     }
                 }
@@ -94,7 +94,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "github_com_darkkaiser_rss-feed-server_internal_service_api_model_response.ErrorResponse": {
+        "response.ErrorResponse": {
             "type": "object",
             "properties": {
                 "message": {

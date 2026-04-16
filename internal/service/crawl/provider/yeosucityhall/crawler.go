@@ -266,7 +266,7 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 	for _, b := range c.Config().Boards {
 		boardArticles, cursor, message, err := c.crawlSingleBoard(ctx, b)
 		if err != nil {
-			c.SendErrorNotification(message, err)
+			c.ReportError(message, err)
 
 			// 특정 게시판에서 오류가 발생하더라도 전체 크롤링 로직이 멈추지 않도록 무시하고 다음 게시판으로 넘어갑니다.
 			// 이렇게 하면 에러가 없는 다른 정상적인 게시판의 소중한 데이터들을 안전하게 보존할 수 있습니다.
@@ -288,7 +288,7 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 		// 1. 방어적 설계: 에러 발생 시 정보를 버려버리면, 다음 수집 시 똑같은 게시물에서 또 타임아웃이 발생하여 크롤러가 영원히 정지하는 무한 루프(Poison Pill) 장애가 발생할 수 있습니다.
 		// 2. 서비스 지속성: 다행히 RSS 서비스의 핵심은 '새 글 알림'입니다. 비록 본문은 누락되더라도 새 글의 제목과 원본 링크를 성공적으로 전달했다면 최소한의 목적은 달성된 것입니다.
 
-		c.SendErrorNotification(c.Messagef("게시글 본문 파싱 프로세스 중 응답 타임아웃 또는 시스템 종료 시그널(Interrupt)이 감지되어 해당 크롤링 세션이 중단되었습니다."), err)
+		c.ReportError(c.Messagef("게시글 본문 파싱 프로세스 중 응답 타임아웃 또는 시스템 종료 시그널(Interrupt)이 감지되어 해당 크롤링 세션이 중단되었습니다."), err)
 	}
 
 	return articles, newCursors, "", nil
