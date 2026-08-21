@@ -17,6 +17,30 @@ import (
 	"github.com/darkkaiser/rss-feed-server/internal/service/crawl/provider"
 )
 
+// articleListAPIResponse 네이버 카페 전체글보기 API의 JSON 응답을 Go 구조체로 변환하기 위한 타입입니다.
+//
+// 대응하는 API 엔드포인트:
+//
+//	GET https://apis.naver.com/cafe-web/cafe2/ArticleListV2.json
+type articleListAPIResponse struct {
+	Message struct {
+		Result struct {
+			ArticleList []articleListItem `json:"articleList"`
+		} `json:"result"`
+	} `json:"message"`
+}
+
+// articleListItem 네이버 카페 전체글보기 API 응답 배열의 개별 게시글 항목을 나타내는 타입입니다.
+type articleListItem struct {
+	ArticleID          int64  `json:"articleId"`
+	MenuID             int64  `json:"menuId"`
+	MenuName           string `json:"menuName"`
+	Subject            string `json:"subject"`
+	WriterNickname     string `json:"writerNickname"`
+	WriteDateTimestamp int64  `json:"writeDateTimestamp"`
+	ReplyArticle       bool   `json:"replyArticle"`
+}
+
 // articleAPIResponse 네이버 카페 게시글 API의 JSON 응답을 Go 구조체로 변환하기 위한 타입입니다.
 //
 // 이 구조체는 crawlContentViaAPI 함수 내부에서만 사용되는 전용 타입입니다.
@@ -54,225 +78,51 @@ type articleAPIResponse struct {
 	} `json:"result"`
 }
 
-// extractArticle 게시글 목록의 단일 TR 행(<tr>)을 파싱하여 feed.Article 구조체로 변환합니다.
-//
-// 네이버 카페 목록 페이지 HTML의 <tr> 행 하나에서 작성일·게시판 ID·게시판 이름·
-// 게시글 ID·제목·상세페이지 링크·작성자 닉네임을 순서대로 추출합니다.
+// parseArticleListItem JSON API 응답의 개별 항목을 feed.Article 구조체로 변환합니다.
 //
 // [답글(Reply) 행 처리]
-// 게시글에 답글이 달리면 원본 <tr> 바로 아래에 답글 토글용 숨겨진 <tr>이 삽입됩니다.
-// 이 행은 실제 게시글이 아니므로 감지 즉시 (nil, nil)을 반환하여 호출자가 건너뛰도록 합니다.
+// 게시글에 달린 답글은 원본과 다른 목적이므로 ReplyArticle 필드가 true인 경우 (nil)을 반환하여 건너뜁니다.
 //
 // 매개변수:
-//   - s: <tr> 행에 해당하는 goquery 선택 객체
+//   - item: JSON으로 파싱된 게시글 단일 항목
 //
 // 반환값:
-//   - *feed.Article: 성공적으로 파싱된 게시글 정보
-//   - error: 필수 HTML 요소가 없거나 속성 추출에 실패한 경우 apperrors.ParsingFailed 타입의 non-nil 오류
-func (c *crawler) extractArticle(s *goquery.Selection) (*feed.Article, error) {
-	// -------------------------------------------------------------------------
-	// [Step 0] 답글(Reply) 행 감지 및 조기 반환
-	//
-	// 네이버 카페 게시판에서 게시글에 답글이 달리면, 원본 게시글 행(<tr>) 바로 아래에
-	// 답글 토글(접기/펼치기)을 위한 숨겨진 <tr> 행이 하나 자동으로 삽입됩니다.
-	// 이 행은 <td> 셀이 정확히 1개뿐이며, 그 id 속성이 "reply_"로 시작하는 특징이 있습니다.
-	//
-	//   <tr>
-	//     <td id="reply_12345" style="display:none">...</td>  ← 감지 대상
-	//   </tr>
-	//
-	// goquery의 .Attr() 대신 Nodes[0].Attr 슬라이스를 직접 순회하는 이유:
-	// goquery의 .Attr("id")는 id 속성이 아예 없을 때 ("", false)를 반환하지만,
-	// 여기서는 id 값의 접두어 패턴("reply_")까지 검사해야 하므로 저수준 접근이 더 명확합니다.
-	//
-	// 이 행은 실제 게시글 데이터가 아니므로 (nil, nil)을 반환하여 호출자가 건너뛰도록 합니다.
-	// -------------------------------------------------------------------------
-	replyNode := s.Find("td")
-	if replyNode.Length() == 1 {
-		// <td>가 딱 1개인 행만 추가로 id 패턴을 검사합니다.
-		// 일반 게시글 행은 복수의 <td>를 가지므로 이 분기에 진입하지 않습니다.
-		for _, attr := range replyNode.Nodes[0].Attr {
-			if attr.Key == "id" && strings.HasPrefix(attr.Val, "reply_") {
-				return nil, nil // 답글 토글 행 — 실제 게시글이 아니므로 스킵
-			}
-		}
+//   - *feed.Article: 매핑된 게시글 정보
+func (c *crawler) parseArticleListItem(item articleListItem) *feed.Article {
+	if item.ReplyArticle {
+		return nil // 답글은 실제 게시글이 아니므로 스킵
 	}
 
 	article := &feed.Article{}
 
 	// -------------------------------------------------------------------------
 	// [Step 1] 작성일 추출
-	//
-	// "td.td_date" 셀의 텍스트를 읽어 작성일(CreatedAt)을 파싱합니다.
-	// 네이버 카페 목록 페이지는 게시글 등록 시점에 따라 날짜 표시 형식이 달라집니다.
-	//
-	//   <td class="td_date">14:30</td>        ← 오늘 등록된 글: 시각(HH:MM)만 표시
-	//   <td class="td_date">2024.03.15.</td>  ← 과거 날짜 글: 연월일만 표시 (끝에 점 포함)
-	//
-	// provider.ParseCreatedAt은 두 형식을 모두 인식합니다.
-	// 단, 과거 날짜 글은 시각 정보가 없으므로 CreatedAt의 시각 부분이 00:00:00으로 고정됩니다.
-	// 이 경우 이후의 crawlContentViaAPI 단계에서 API 응답의 writeDate로 시각을 보정합니다.
-	//
-	// <td>가 정확히 1개여야 합니다. 0개이면 셀 자체가 없는 것이고, 2개 이상이면 레이아웃이 변경된 것이므로
-	// 두 경우 모두 파싱 실패로 처리합니다.
 	// -------------------------------------------------------------------------
-	dateNode := s.Find("td.td_date")
-	if dateNode.Length() != 1 {
-		return nil, apperrors.New(apperrors.ParsingFailed, "게시글 HTML 요소에서 작성일 마크업을 식별할 수 없어 데이터 파싱에 실패했습니다")
-	}
 
-	createdAt, err := provider.ParseCreatedAt(strings.TrimSpace(dateNode.Text()))
-	if err != nil {
-		return nil, err
-	}
-	article.CreatedAt = createdAt
+	// WriteDateTimestamp는 밀리초(UnixMilli) 단위로 반환됩니다.
+	article.CreatedAt = time.UnixMilli(item.WriteDateTimestamp)
 
 	// -------------------------------------------------------------------------
 	// [Step 2] 게시판 ID & 이름 추출
-	//
-	// "td.td_article > div.board-name a.link_name" 앵커의 href 속성에서 게시판 ID를, 텍스트 컨텐츠에서 게시판 이름을 추출합니다.
-	//
-	//   <td class="td_article">
-	//     <div class="board-name">
-	//       <a class="link_name" href="https://cafe.naver.com/ArticleList.nhn?search.clubid=123&search.menuid=456&...">
-	//         자유게시판
-	//       </a>
-	//     </div>
-	//   </td>
-	//
-	//   - 게시판 ID  : href의 쿼리 파라미터 "search.menuid" 값  (예: "456")
-	//   - 게시판 이름 : 앵커의 텍스트 컨텐츠                     (예: "자유게시판")
-	//
-	// 앵커는 정확히 1개여야 합니다. 0개이면 마크업이 없는 것이고, 2개 이상이면
-	// 레이아웃이 변경된 것이므로 두 경우 모두 파싱 실패로 처리합니다.
 	// -------------------------------------------------------------------------
-	boardNode := s.Find("td.td_article > div.board-name a.link_name")
-	if boardNode.Length() != 1 {
-		return nil, apperrors.New(apperrors.ParsingFailed, "게시글 HTML 요소에서 게시판 정보 마크업을 식별할 수 없어 데이터 파싱에 실패했습니다")
-	}
-
-	// .Attr("href")는 속성 자체가 없으면 exists=false, 있어도 값이 비어있으면 boardURL=""가 됩니다.
-	// 두 경우 모두 게시판 ID를 추출할 수 없으므로 파싱 실패로 처리합니다.
-	boardURL, exists := boardNode.Attr("href")
-	if !exists || boardURL == "" {
-		return nil, apperrors.New(apperrors.ParsingFailed, "게시판 정보 추출을 위한 링크(href) 속성이 누락되었거나 유효하지 않아 데이터 파싱에 실패했습니다")
-	}
-
-	// [게시판 URL 2단계 파싱]
-	// Step 1: href 문자열을 URL 구조체로 분해합니다. 파싱 실패 시 이후 쿼리 파라미터 접근이 불가하므로 즉시 오류를 반환합니다.
-	u, err := url.Parse(boardURL)
-	if err != nil {
-		return nil, apperrors.Wrap(err, apperrors.ParsingFailed, "게시판 URL 문자열의 형식이 유효하지 않아 데이터 파싱에 실패했습니다")
-	}
-
-	// Step 2: 쿼리 문자열을 키-값 맵으로 변환합니다.
-	query, err := url.ParseQuery(u.RawQuery)
-	if err != nil {
-		return nil, apperrors.Wrap(err, apperrors.ParsingFailed, "게시판 URL의 쿼리 문자열 구문 해석에 실패했습니다")
-	}
-
-	// query.Get은 키가 없거나 값이 비어있으면 ""를 반환합니다.
-	// 게시판 ID가 비어있으면 이후 중복 체크나 필터링을 수행할 수 없으므로 파싱 실패로 처리합니다.
-	article.BoardID = strings.TrimSpace(query.Get("search.menuid"))
-	if article.BoardID == "" {
-		return nil, apperrors.New(apperrors.ParsingFailed, "게시판 고유 식별자(ID) 파라미터가 누락되었거나 유효하지 않아 데이터 파싱에 실패했습니다")
-	}
-
-	article.BoardName = strings.TrimSpace(boardNode.Text())
+	article.BoardID = strconv.FormatInt(item.MenuID, 10)
+	article.BoardName = strings.TrimSpace(item.MenuName)
 
 	// -------------------------------------------------------------------------
 	// [Step 3] 제목 & 게시글 ID & 상세페이지 링크 추출
-	//
-	// "td.td_article > div.board-list a.article" 앵커 하나에서 제목과 게시글 ID를 함께 추출하고,
-	// 이를 조합하여 상세페이지 URL을 조립합니다.
-	//
-	//   <td class="td_article">
-	//     <div class="board-list">
-	//       <a class="article" href=".../ArticleRead.nhn?articleid=12345&clubid=...&...">
-	//         게시글 제목
-	//       </a>
-	//     </div>
-	//   </td>
-	//
-	//   - 제목      : 앵커의 텍스트 컨텐츠 (.Text())
-	//   - 게시글 ID : 앵커의 href 쿼리 파라미터 "articleid" 값 (예: "12345")
-	//
-	// 앵커는 정확히 1개여야 합니다. 0개이면 마크업이 없는 것이고, 2개 이상이면
-	// 레이아웃이 변경된 것이므로 두 경우 모두 파싱 실패로 처리합니다.
-	//
-	// [상세페이지 URL 조립]
-	// href를 그대로 사용하지 않고 articleid와 clubID만으로 URL을 직접 조립합니다.
-	// 이유: href는 상대 경로이거나, 세션 정보 등 불필요한 파라미터가 포함될 수 있기 때문입니다.
-	//   최종 URL 예: "{c.Config().URL}/ArticleRead.nhn?articleid=12345&clubid={c.clubID}"
-	//            → "https://cafe.naver.com/ludypang/ArticleRead.nhn?articleid=12345&clubid=12303558"
 	// -------------------------------------------------------------------------
-	titleNode := s.Find("td.td_article > div.board-list a.article")
-	if titleNode.Length() != 1 {
-		return nil, apperrors.New(apperrors.ParsingFailed, "게시글 HTML 요소에서 제목 마크업을 식별할 수 없어 데이터 파싱에 실패했습니다")
-	}
-
-	article.Title = strings.TrimSpace(titleNode.Text())
-
-	// .Attr("href")는 속성 자체가 없으면 exists=false, 있어도 값이 비어있으면 articleURL=""가 됩니다.
-	// 두 경우 모두 게시글 ID를 추출할 수 없으므로 파싱 실패로 처리합니다.
-	articleURL, exists := titleNode.Attr("href")
-	if !exists || articleURL == "" {
-		return nil, apperrors.New(apperrors.ParsingFailed, "상세 페이지 정보 추출을 위한 링크(href) 속성이 누락되었거나 유효하지 않아 데이터 파싱에 실패했습니다")
-	}
-
-	// [상세페이지 URL 2단계 파싱]
-	// Step 1: href 문자열을 URL 구조체로 분해합니다.
-	u, err = url.Parse(articleURL)
-	if err != nil {
-		return nil, apperrors.Wrap(err, apperrors.ParsingFailed, "상세 페이지 URL 문자열의 형식이 유효하지 않아 데이터 파싱에 실패했습니다")
-	}
-
-	// Step 2: 쿼리 문자열을 키-값 맵으로 변환합니다.
-	query, err = url.ParseQuery(u.RawQuery)
-	if err != nil {
-		return nil, apperrors.Wrap(err, apperrors.ParsingFailed, "상세 페이지 URL의 쿼리 문자열 구문 해석에 실패했습니다")
-	}
-
-	// articleid를 strconv.ParseInt로 정수 변환하는 주된 이유는 유효성 검사입니다.
-	// 숫자가 아닌 값(빈 문자열, 알파벳 등)이 들어온 경우 파싱 실패를 조기에 감지할 수 있습니다.
-	// 부가적으로 fmt.Sprintf의 "%d" 포맷으로 URL 조립 시에도 그대로 사용합니다.
-	articleID, err := strconv.ParseInt(query.Get("articleid"), 10, 64)
-	if err != nil {
-		return nil, apperrors.Wrap(err, apperrors.ParsingFailed, "게시글의 고유 식별자(articleid) 파라미터가 누락되었거나 유효하지 않아 데이터 파싱에 실패했습니다")
-	}
-
-	// ArticleID는 문자열 필드이므로 int64에서 다시 문자열로 변환하여 저장합니다.
-	article.ArticleID = strconv.FormatInt(articleID, 10)
+	article.Title = strings.TrimSpace(item.Subject)
+	article.ArticleID = strconv.FormatInt(item.ArticleID, 10)
 
 	// articleid(int64)와 clubID(string)를 조합하여 정규화된 상세페이지 URL을 조립합니다.
-	article.Link = fmt.Sprintf("%s/ArticleRead.nhn?articleid=%d&clubid=%s", c.Config().URL, articleID, c.clubID)
+	article.Link = fmt.Sprintf("%s/ArticleRead.nhn?articleid=%d&clubid=%s", c.Config().URL, item.ArticleID, c.clubID)
 
 	// -------------------------------------------------------------------------
 	// [Step 4] 작성자 추출
-	//
-	// "td.td_name > div.pers_nick_area td.p-nick" 셀의 텍스트에서 작성자 닉네임을 추출합니다.
-	//
-	//   <td class="td_name">
-	//     <div class="pers_nick_area">
-	//       <table>
-	//         <tr>
-	//           <td class="p-nick"><a>닉네임</a></td>
-	//         </tr>
-	//       </table>
-	//     </div>
-	//   </td>
-	//
-	// <td.p-nick>은 정확히 1개여야 합니다. 0개이면 작성자 마크업이 없는 것이고,
-	// 2개 이상이면 레이아웃이 변경된 것이므로 두 경우 모두 파싱 실패로 처리합니다.
 	// -------------------------------------------------------------------------
-	authorNode := s.Find("td.td_name > div.pers_nick_area td.p-nick")
-	if authorNode.Length() != 1 {
-		return nil, apperrors.New(apperrors.ParsingFailed, "게시글 HTML 요소에서 작성자 마크업을 식별할 수 없어 데이터 파싱에 실패했습니다")
-	}
+	article.Author = strings.TrimSpace(item.WriterNickname)
 
-	article.Author = strings.TrimSpace(authorNode.Text())
-
-	return article, nil
+	return article
 }
 
 // crawlArticleContent 주어진 게시글(article)의 본문(Content)을 parsers 목록에 정의된 파서를 순차 시도하여 채웁니다.

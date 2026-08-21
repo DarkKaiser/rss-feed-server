@@ -3,12 +3,12 @@ package navercafe
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
 
 	"github.com/darkkaiser/rss-feed-server/internal/config"
-	apperrors "github.com/darkkaiser/rss-feed-server/internal/errors"
 	"github.com/darkkaiser/rss-feed-server/internal/feed"
 	"github.com/darkkaiser/rss-feed-server/internal/service/crawl/fetcher"
 	fetchermocks "github.com/darkkaiser/rss-feed-server/internal/service/crawl/fetcher/mocks"
@@ -73,12 +73,13 @@ func setupTestCrawler(t *testing.T, f fetcher.Fetcher, r *mockFeedRepo, boards [
 	return c
 }
 
-const htmlNoticeOnly = `<html><body><div class="article-board"><table><tbody>
-	<tr class="board-notice">
-		<td class="td_date">10:00</td>
-		<td class="td_article">공지</td>
-	</tr>
-</tbody></table></div></body></html>`
+const jsonEmptyList = `{
+	"message": {
+		"result": {
+			"articleList": []
+		}
+	}
+}`
 
 const htmlDetailOK = `<html><body>
 	<h3 class="title_text">상세본문_크롤링임시제목</h3>
@@ -155,17 +156,14 @@ func TestCrawlArticles_EmptyBoard(t *testing.T) {
 	c := setupTestCrawler(t, f, r, []*config.BoardConfig{b})
 
 	r.On("GetCrawlingCursor", mock.Anything, "navercafe-test", "").Return("", time.Time{}, nil)
-	// 아무런 트리가 없는 예외상황
-	htmlEmpty := `<html><body><div class="article-board"><table><tbody></tbody></table></div></body></html>`
-	f.On("Do", mock.Anything).Return(fetchermocks.NewMockResponse(htmlEmpty, http.StatusOK), nil)
+	f.On("Do", mock.Anything).Return(fetchermocks.NewMockResponse(jsonEmptyList, http.StatusOK), nil)
 
 	articles, cursors, msg, err := c.crawlArticles(context.Background())
 
-	assert.Error(t, err)
-	assert.True(t, apperrors.Is(err, apperrors.System))
-	assert.Contains(t, msg, "DOM 구조")
-	assert.Nil(t, articles)
-	assert.Nil(t, cursors)
+	assert.NoError(t, err)
+	assert.Empty(t, msg)
+	assert.Empty(t, articles)
+	assert.Empty(t, cursors)
 }
 
 func TestCrawlArticles_OnlyNoticeBoard(t *testing.T) {
@@ -175,8 +173,8 @@ func TestCrawlArticles_OnlyNoticeBoard(t *testing.T) {
 	c := setupTestCrawler(t, f, r, []*config.BoardConfig{b})
 
 	r.On("GetCrawlingCursor", mock.Anything, "navercafe-test", "").Return("", time.Time{}, nil)
-	// 공지사항만 있고 게시글 리스트가 없음 = 정상적인 빈 게시판
-	f.On("Do", mock.Anything).Return(fetchermocks.NewMockResponse(htmlNoticeOnly, http.StatusOK), nil)
+	// 빈 결과
+	f.On("Do", mock.Anything).Return(fetchermocks.NewMockResponse(jsonEmptyList, http.StatusOK), nil)
 
 	articles, cursors, msg, err := c.crawlArticles(context.Background())
 
@@ -200,34 +198,43 @@ func TestCrawlArticles_Pagination_And_CursorStop(t *testing.T) {
 	// 날짜는 00:00:00 처리(딜레이 면제)를 위해 모두 과거 혹은 40분 이전 시간으로 배정
 	r.On("GetCrawlingCursor", mock.Anything, "navercafe-test", "").Return("12", time.Time{}, nil)
 
-	htmlList := `<html><body><div class="article-board"><table><tbody>
-		<tr>
-			<td class="td_date">2024.03.15.</td>
-			<td class="td_article">
-				<div class="board-name"><a class="link_name" href="?search.menuid=100">자유게시판</a></div>
-				<div class="board-list"><a class="article" href="?articleid=14">새글14</a></div>
-			</td>
-			<td class="td_name"><div class="pers_nick_area"><table><tbody><tr><td class="p-nick"><a class="m-tcol-c">홍길동</a></td></tr></tbody></table></div></td>
-		</tr>
-		<tr>
-			<td class="td_date">2024.03.14.</td>
-			<td class="td_article">
-				<div class="board-name"><a class="link_name" href="?search.menuid=100">자유게시판</a></div>
-				<div class="board-list"><a class="article" href="?articleid=13">새글13</a></div>
-			</td>
-			<td class="td_name"><div class="pers_nick_area"><table><tbody><tr><td class="p-nick"><a class="m-tcol-c">이순신</a></td></tr></tbody></table></div></td>
-		</tr>
-		<tr>
-			<td class="td_date">2024.03.13.</td>
-			<td class="td_article">
-				<div class="board-name"><a class="link_name" href="?search.menuid=100">자유게시판</a></div>
-				<div class="board-list"><a class="article" href="?articleid=12">구글12</a></div>
-			</td>
-			<td class="td_name"><div class="pers_nick_area"><table><tbody><tr><td class="p-nick"><a class="m-tcol-c">박혁거세</a></td></tr></tbody></table></div></td>
-		</tr>
-	</tbody></table></div></body></html>`
+	jsonList := `{
+		"message": {
+			"result": {
+				"articleList": [
+					{
+						"articleId": 14,
+						"menuId": 100,
+						"menuName": "자유게시판",
+						"subject": "새글14",
+						"writerNickname": "홍길동",
+						"writeDateTimestamp": 1710460800000,
+						"replyArticle": false
+					},
+					{
+						"articleId": 13,
+						"menuId": 100,
+						"menuName": "자유게시판",
+						"subject": "새글13",
+						"writerNickname": "이순신",
+						"writeDateTimestamp": 1710374400000,
+						"replyArticle": false
+					},
+					{
+						"articleId": 12,
+						"menuId": 100,
+						"menuName": "자유게시판",
+						"subject": "구글12",
+						"writerNickname": "박혁거세",
+						"writeDateTimestamp": 1710288000000,
+						"replyArticle": false
+					}
+				]
+			}
+		}
+	}`
 
-	f.On("Do", mock.Anything).Return(fetchermocks.NewMockResponse(htmlList, http.StatusOK), nil).Once()
+	f.On("Do", mock.Anything).Return(fetchermocks.NewMockResponse(jsonList, http.StatusOK), nil).Once()
 	f.On("Do", mock.Anything).Return(fetchermocks.NewMockResponse(htmlDetailOK, http.StatusOK), nil).Maybe()
 
 	articles, cursors, msg, err := c.crawlArticles(context.Background())
@@ -256,37 +263,46 @@ func TestCrawlArticles_DelayCutoff(t *testing.T) {
 
 	// 현재 시간 기준 딜레이 통과/미통과 항목 작성
 	// c.crawlingDelayMinutes = 40 이므로 10분 전에 쓰인 새 글은 딜레이 미통과로 Skip!
-	recentTimeStr := time.Now().Add(-10 * time.Minute).Format("15:04")
-	pastTimeStr := time.Now().Add(-50 * time.Minute).Format("15:04")
+	recentTime := time.Now().Add(-10 * time.Minute).UnixMilli()
+	pastTime := time.Now().Add(-50 * time.Minute).UnixMilli()
 
-	htmlList := `<html><body><div class="article-board"><table><tbody>
-		<tr>
-			<td class="td_date">` + recentTimeStr + `</td>
-			<td class="td_article">
-				<div class="board-name"><a class="link_name" href="?search.menuid=100">자유게시판</a></div>
-				<div class="board-list"><a class="article" href="?articleid=15">최신글15 (딜레이 스킵)</a></div>
-			</td>
-			<td class="td_name"><div class="pers_nick_area"><table><tbody><tr><td class="p-nick"><a class="m-tcol-c">홍길동</a></td></tr></tbody></table></div></td>
-		</tr>
-		<tr>
-			<td class="td_date">` + pastTimeStr + `</td>
-			<td class="td_article">
-				<div class="board-name"><a class="link_name" href="?search.menuid=100">자유게시판</a></div>
-				<div class="board-list"><a class="article" href="?articleid=14">과거글14 (통과)</a></div>
-			</td>
-			<td class="td_name"><div class="pers_nick_area"><table><tbody><tr><td class="p-nick"><a class="m-tcol-c">이순신</a></td></tr></tbody></table></div></td>
-		</tr>
-		<tr>
-			<td class="td_date">2024.03.13.</td>
-			<td class="td_article">
-				<div class="board-name"><a class="link_name" href="?search.menuid=100">자유게시판</a></div>
-				<div class="board-list"><a class="article" href="?articleid=12">구글12</a></div>
-			</td>
-			<td class="td_name"><div class="pers_nick_area"><table><tbody><tr><td class="p-nick"><a class="m-tcol-c">박혁거세</a></td></tr></tbody></table></div></td>
-		</tr>
-	</tbody></table></div></body></html>`
+	jsonList := fmt.Sprintf(`{
+		"message": {
+			"result": {
+				"articleList": [
+					{
+						"articleId": 15,
+						"menuId": 100,
+						"menuName": "자유게시판",
+						"subject": "최신글15 (딜레이 스킵)",
+						"writerNickname": "홍길동",
+						"writeDateTimestamp": %d,
+						"replyArticle": false
+					},
+					{
+						"articleId": 14,
+						"menuId": 100,
+						"menuName": "자유게시판",
+						"subject": "과거글14 (통과)",
+						"writerNickname": "이순신",
+						"writeDateTimestamp": %d,
+						"replyArticle": false
+					},
+					{
+						"articleId": 12,
+						"menuId": 100,
+						"menuName": "자유게시판",
+						"subject": "구글12",
+						"writerNickname": "박혁거세",
+						"writeDateTimestamp": 1710288000000,
+						"replyArticle": false
+					}
+				]
+			}
+		}
+	}`, recentTime, pastTime)
 
-	f.On("Do", mock.Anything).Return(fetchermocks.NewMockResponse(htmlList, http.StatusOK), nil).Once()
+	f.On("Do", mock.Anything).Return(fetchermocks.NewMockResponse(jsonList, http.StatusOK), nil).Once()
 	f.On("Do", mock.Anything).Return(fetchermocks.NewMockResponse(htmlDetailOK, http.StatusOK), nil).Maybe()
 
 	articles, cursors, msg, err := c.crawlArticles(context.Background())
