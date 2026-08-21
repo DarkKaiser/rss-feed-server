@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/PuerkitoBio/goquery"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
 	"github.com/darkkaiser/rss-feed-server/internal/feed"
 	fetchermocks "github.com/darkkaiser/rss-feed-server/internal/service/crawl/fetcher/mocks"
@@ -18,42 +17,36 @@ import (
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TestExtractArticle (개별 파싱 기능 테스트)
+// TestParseArticleListItem (개별 파싱 기능 테스트)
 // ─────────────────────────────────────────────────────────────────────────────
 
-func TestExtractArticle_ReplyRow(t *testing.T) {
+func TestParseArticleListItem_ReplyRow(t *testing.T) {
 	c := setupTestCrawler(t, fetchermocks.NewMockFetcher(), nil, nil)
-	htmlReply := `<table><tbody>
-		<tr>
-			<td id="reply_12345" style="display:none"></td>
-		</tr>
-	</tbody></table>`
+	item := articleListItem{
+		ReplyArticle: true,
+	}
 
-	doc, _ := goquery.NewDocumentFromReader(strings.NewReader(htmlReply))
-	sel := doc.Find("tr").First()
-	article, err := c.extractArticle(sel)
-	assert.NoError(t, err)
+	article := c.parseArticleListItem(item)
 	assert.Nil(t, article) // 답글이라 스킵
 }
 
-func TestExtractArticle_ValidRow(t *testing.T) {
+func TestParseArticleListItem_ValidRow(t *testing.T) {
 	c := setupTestCrawler(t, fetchermocks.NewMockFetcher(), nil, nil)
-	htmlValid := `<table><tbody>
-		<tr>
-			<td class="td_date">2024.03.15.</td>
-			<td class="td_article">
-				<div class="board-name"><a class="link_name" href="https://cafe.naver.com/ArticleList.nhn?search.menuid=100">자유게시판</a></div>
-				<div class="board-list"><a class="article" href="https://cafe.naver.com/ArticleRead.nhn?articleid=777">방금 쓴 글제목</a></div>
-			</td>
-			<td class="td_name"><div class="pers_nick_area"><table><tbody><tr><td class="p-nick"><a class="m-tcol-c">닉네임이지롱</a></td></tr></tbody></table></div></td>
-		</tr>
-	</tbody></table>`
+	
+	// 모의 시간: 2024-03-15T12:00:00Z
+	mockTime := time.Date(2024, 3, 15, 12, 0, 0, 0, time.UTC).UnixMilli()
+	
+	item := articleListItem{
+		ArticleID:          777,
+		MenuID:             100,
+		MenuName:           "자유게시판",
+		Subject:            "방금 쓴 글제목",
+		WriterNickname:     "닉네임이지롱",
+		WriteDateTimestamp: mockTime,
+		ReplyArticle:       false,
+	}
 
-	doc, _ := goquery.NewDocumentFromReader(strings.NewReader(htmlValid))
-	sel := doc.Find("tr").First()
-
-	article, err := c.extractArticle(sel)
-	assert.NoError(t, err)
+	article := c.parseArticleListItem(item)
 	assert.NotNil(t, article)
 
 	assert.Equal(t, "777", article.ArticleID)
@@ -62,20 +55,7 @@ func TestExtractArticle_ValidRow(t *testing.T) {
 	assert.Equal(t, "방금 쓴 글제목", article.Title)
 	assert.Equal(t, "닉네임이지롱", article.Author)
 	assert.Equal(t, "https://cafe.naver.com/testcafe/ArticleRead.nhn?articleid=777&clubid=12345678", article.Link)
-	assert.Equal(t, "2024-03-15", article.CreatedAt.Format("2006-01-02")) // 과거날짜 파싱
-}
-
-func TestExtractArticle_InvalidMissingTags(t *testing.T) {
-	c := setupTestCrawler(t, fetchermocks.NewMockFetcher(), nil, nil)
-	htmlInvalid := `<table><tbody><tr><td class="td_date">2024.03.15.</td></tr></tbody></table>`
-	
-	doc, _ := goquery.NewDocumentFromReader(strings.NewReader(htmlInvalid))
-	sel := doc.Find("tr").First()
-
-	article, err := c.extractArticle(sel)
-	assert.Error(t, err)
-	assert.Nil(t, article)
-	assert.Contains(t, err.Error(), "식별할 수 없어") // 에러 메시지 내용 검증
+	assert.Equal(t, "2024-03-15", article.CreatedAt.Format("2006-01-02")) // 밀리초 기반 파싱
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -6,10 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/PuerkitoBio/goquery"
 	applog "github.com/darkkaiser/notify-server/pkg/log"
 	"github.com/darkkaiser/rss-feed-server/internal/config"
-	apperrors "github.com/darkkaiser/rss-feed-server/internal/errors"
 	"github.com/darkkaiser/rss-feed-server/internal/feed"
 	"github.com/darkkaiser/rss-feed-server/internal/service/crawl/provider"
 )
@@ -144,113 +142,56 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 		delayCutoffTime := time.Now().Add(time.Duration(-1*c.crawlingDelayMinutes) * time.Minute)
 
 		// ----------------------------------------
-		// 3-2단계: URL 조립 & HTML 요청
+		// 3-2단계: URL 조립 & JSON API 요청
 		// ----------------------------------------
-		// 대상 네이버 카페의 기본 주소(URL)에 고유 식별자(clubID)와 탐색 중인 현재 페이지 번호를 조합하여,
-		// 카페 전체의 최신 게시글을 50개 단위로 반환하는 '전체글보기' 접속용 최종 웹사이트 주소를 만듭니다.
-		pageURL := fmt.Sprintf("%s/ArticleList.nhn?search.clubid=%s&userDisplay=50&search.boardtype=L&search.totalCount=501&search.page=%d", c.Config().URL, c.clubID, page)
+		// 대상 네이버 카페의 모바일 전체글보기 API 주소를 생성합니다.
+		pageURL := fmt.Sprintf("https://apis.naver.com/cafe-web/cafe2/ArticleListV2.json?search.clubid=%s&search.queryType=lastArticle&search.page=%d&search.perPage=50", c.clubID, page)
 
-		doc, err := c.Scraper().FetchHTMLDocument(ctx, pageURL, nil)
-		if err != nil {
+		var apiResp articleListAPIResponse
+		if err := c.Scraper().FetchJSON(ctx, "GET", pageURL, nil, nil, &apiResp); err != nil {
 			// [전체 롤백 정책] 에러 발생 시, 이전 페이지들에서 성공적으로 모아둔 데이터도 미련 없이 버리고 즉시 중단합니다.
 			// 1. 에러를 무시하고 커서를 전진시키면: 해당 페이지의 게시물들이 영구적으로 수집 누락됩니다.
 			// 2. 데이터 누락을 막기 위해 예전 커서는 유지하되 "앞서 성공한 결과만이라도 DB에 저장"하는 타협안을 택하면:
 			//    다음 스케줄에 또다시 1페이지부터 긁어오면서, 이미 저장된 글인데도 신규 글인 줄 알고
 			//    불필요한 파싱과 DB 중복 검사를 시도하게 됩니다. 이를 매 스케줄마다 무한 반복하면 엄청난 부하를 줍니다.
 			// 따라서 데이터 꼬임 방지와 서버 보호를 위해 결과물 전체를 깨끗이 엎어버리는 설계를 택한 것입니다.
-			return nil, nil, c.Messagef("전체 게시글 목록의 %d번 페이지 목록을 불러오지 못했습니다.", page), err
+			return nil, nil, c.Messagef("전체 게시글 목록의 %d번 페이지 데이터를 불러오지 못했습니다.", page), err
 		}
 
 		// ----------------------------------------
-		// 3-3단계: 게시글 행 추출 및 유효성 검증
+		// 3-3단계: 데이터 추출 및 유효성 검증
 		// ----------------------------------------
 
-		// 공지사항(board-notice)을 제외한 일반 게시글 행(tr)만 선택합니다.
-		articleRows := doc.Find("div.article-board > table > tbody > tr:not(.board-notice)")
-
-		// 게시글이 하나도 없을 때: 마지막 페이지 도달 / 빈 게시판 / CSS 셀렉터 오류 중 하나를 판별합니다.
-		if len(articleRows.Nodes) == 0 {
-			// [케이스 A] 2페이지부터: 글이 없다면 게시판의 마지막 페이지를 넘어선 것이므로 수집을 마칩니다.
-			// (1페이지부터 N페이지까지 탐색 중 처음으로 빈 페이지를 만난 것 = 모든 글을 다 읽은 것)
-			if page > 1 {
-				break
-			}
-
-			// [케이스 B] 1페이지에서 일반 게시글(tr)은 없으나 공지글(tr.board-notice) 속성이 존재하는 엣지 케이스를 확인합니다.
-			if doc.Find("div.article-board > table > tbody > tr.board-notice").Length() > 0 {
-				// 공지글이 성공적으로 추출되었다는 것은 상위 컨테이너를 포함한 HTML 구조와 파싱 규칙이 정상임을 증명합니다.
-				// 따라서 시스템 에러가 아닌 정상적인 '빈 게시판(새 글 없음)' 상태로 판단하여 탐색 루프를 조기 종료합니다.
-				break
-			}
-
-			// [오류] 공지글조차 없는 경우, 웹사이트의 HTML 구조가 변경되어 기존 CSS 셀렉터가 더 이상 유효하지 않은 상태입니다.
-			// 관리자가 해당 카페에 직접 접속해 HTML을 확인하고, articleRows 셀렉터를 최신 구조로 수정해야 합니다.
-			msg := c.Messagef("전체 게시글 목록의 DOM 구조가 변경되었거나 파싱 규칙이 일치하지 않아 게시글 데이터 추출에 실패하였습니다. 데이터 추출 규칙(CSS Selector)의 무결성 점검 및 업데이트가 요구됩니다.")
-			errExtract := apperrors.New(apperrors.System, "원격 웹사이트 레이아웃 변경으로 인하여 파싱 컨테이너 노드 추출에 실패하였습니다")
-
-			return nil, nil, msg, errExtract
+		// 게시글이 하나도 없을 때 (빈 게시판이거나 마지막 페이지 도달)
+		if len(apiResp.Message.Result.ArticleList) == 0 {
+			break // 더 이상 게시글이 없으므로 조기 종료합니다.
 		}
 
 		// ----------------------------------------
-		// 3-4단계: 게시글 행 순회 (중복 판별 & 커서 갱신)
+		// 3-4단계: 게시글 순회 (중복 판별 & 커서 갱신)
 		// ----------------------------------------
 
 		// [크롤링 조기 종료(Early Exit) 상태 플래그]
 		// 현재 페이지 탐색 중 "이미 수집 완료된 예전 게시글"을 마주쳤는지 기억하는 상태 변수입니다.
-		//
-		// [왜 이 변수가 별도로 필요한가요?]
-		// goquery의 EachWithBreak() 함수 내부에서 'return false'를 호출하더라도,
-		// 이는 단지 현재 페이지 내부의 '게시글 행(Row)' 순회만 조기 종료시킬 뿐,
-		// 가장 바깥쪽에 있는 '전체 페이지(Page) 탐색 루프'까지 중단시키지는 못합니다.
-		// 따라서 예전 글을 만나는 즉시 이 플래그를 true로 활성화하여 내부 순회를 끊고 빠져나온 뒤,
-		// 외부 루프 하단에서 이 상태값을 확인하여 불필요한 다음 페이지 호출을 완전히 종료(break)하기 위함입니다.
 		var reachedLastCursor = false
 
-		// 수집된 웹페이지의 게시글 행(Row)을 위에서 아래로 순서대로 순회합니다.
-		// 중간에 중단 조건(예: 예전 글 발견)이 발생하면 false를 반환하여 행 순회를 즉시 중단할 수 있습니다.
-		articleRows.EachWithBreak(func(i int, s *goquery.Selection) bool {
-			// [개별 게시글 추출 오류에 대한 부분 실패 처리]
-			// 단일 게시글에서 HTML 돔 구조 이탈 등으로 파싱 에러가 발생하여도 전체 크롤링 작업을 즉시 중단(Abort)하지 않습니다.
-			//
-			// 만약 단일 오류 시 작업을 강제 중단하게 되면, 등록 형식을 지키지 않은 불량 게시물 단 1개 때문에
-			// 연달아 등록된 멀쩡한 다른 신규 게시글들까지 모두 수집되지 못하고 파이프라인이 멈추는
-			// 심각한 '포이즌 필(Poison Pill)' 병목 현상 및 알림 누락 장애가 발생할 수 있습니다.
-			//
-			// 따라서 전체 시스템의 견고함(Robustness)을 유지하기 위해, 정보를 제대로 추출하지 못한 예외적인 게시물은
-			// 경고(Warning) 로그만 남긴 뒤 부드럽게 무시(Skip)하고, 다음 게시글에 대한 순회가 멈춤 없이 계속 진행되도록 설계되었습니다.
-			article, err := c.extractArticle(s)
-			if err != nil {
-				c.Logger().WithFields(applog.Fields{
-					"component": component,
-					"club_id":   c.clubID,
-					"page":      page,
-					"row_index": i,
-					"error":     err.Error(),
-				}).Warn(c.Messagef("개별 게시글 처리 스킵: 데이터 추출 실패"))
+		// 수집된 게시글 항목을 위에서 아래로 순서대로 순회합니다.
+		for _, item := range apiResp.Message.Result.ArticleList {
+			article := c.parseArticleListItem(item)
 
-				return true
-			}
 			// [답글(Reply) 제외 처리]
-			// 목록에서 원본 게시글 아래에 들여쓰기로 달리는 '답글' 행은 파서가 의도적으로 nil을 반환합니다.
-			// RSS 알림의 주 목적은 '새로운 본 게시글'을 전달하는 것이므로, 이러한 답글 데이터는 수집 대상에서 제외하고 가볍게 다음 행으로 넘어갑니다.
+			// 답글은 반환이 nil이 됩니다.
 			if article == nil {
-				return true
+				continue
 			}
 
 			// [중복 판별: 이미 수집한 게시글인지 확인합니다]
 			//
 			// ★ 이 로직은 반드시 아래의 딜레이 체크(delayCutoffTime)보다 먼저 실행되어야 합니다. ★
-			// 만약 딜레이 체크를 먼저 수행하면, 아직 색인에 반영되지 않아 딜레이에 걸린 게시글(예: 방금 등록된 최신 글)은
-			// 'return true'로 곧장 넘어가 버립니다. 이 경우 이미 수집이 완료된 오래된 게시글조차 딜레이만 통과하면
-			// 탐색 종료 조건(reachedLastCursor)이 영영 발동하지 못해, 크롤러가 불필요하게 무한히 다음 페이지를 탐색하는 무한 루프에 빠집니다.
-			//
-			// 네이버 카페의 게시글 ID는 항상 양의 정수이므로 정수 대소 비교 한 가지만으로 충분합니다.
-			// 현재 게시글 ID가 마지막으로 수집한 게시글 ID(parsedLastCursor) 이하라면,
-			// 이전 크롤링 사이클에서 이미 수집이 완료된 게시글입니다. 순회를 즉시 멈추고 다음 페이지 탐색도 중단합니다.
 			parsedArticleID, _ := strconv.ParseInt(article.ArticleID, 10, 64)
 			if parsedArticleID <= parsedLastCursor {
 				reachedLastCursor = true
-				return false
+				break // for 루프 즉시 탈출
 			}
 
 			// [딜레이 필터: 네이버 검색 색인 반영 지연을 보완합니다]
@@ -274,7 +215,7 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 			//   만약 반영하면, 다음 사이클에서 해당 게시글의 ID가 parsedLastCursor 이하로 판정되어
 			//   정작 수집해야 할 시점에 '이미 수집된 게시글'로 오인되어 영구 누락됩니다.
 			if article.CreatedAt.Format("15:04:05") != "00:00:00" && article.CreatedAt.After(delayCutoffTime) {
-				return true
+				continue
 			}
 
 			// [날짜 기반 조기 탈출: ID 비교를 보완하는 2차 안전망]
@@ -297,7 +238,7 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 			//   다음 사이클에서 실제 신규 게시글이 이미 수집된 것으로 잘못 판정되어 영구 누락됩니다.
 			if !lastCreatedDate.IsZero() && article.CreatedAt.Format("2006-01-02") < lastCreatedDate.Format("2006-01-02") {
 				reachedLastCursor = true
-				return false
+				break
 			}
 
 			// [newCursor 갱신: 이번 수집의 최신 기준점을 추적합니다]
@@ -313,13 +254,11 @@ func (c *crawler) crawlArticles(ctx context.Context) ([]*feed.Article, map[strin
 			// "여기까지 이미 읽었다"는 위치는 정상적으로 기록됩니다.
 			// 따라서 대상 게시판에 소속되지 않은 게시글은 articles에만 추가하지 않고 가볍게 건너뛰면 됩니다.
 			if !c.Config().HasBoard(article.BoardID) {
-				return true
+				continue
 			}
 
 			articles = append(articles, article)
-
-			return true
-		})
+		}
 
 		// ----------------------------------------
 		// 3-5단계: 중단 조건 (루프 탈출) 검증
